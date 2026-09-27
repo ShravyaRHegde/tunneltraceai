@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -89,6 +90,26 @@ class ReportingService:
         stmt = select(ReportModel).where(ReportModel.id == report_id)
         res = await self.db.execute(stmt)
         return res.scalar_one_or_none()
+
+    def check_report_integrity(self, report: ReportModel) -> tuple[str, str | None]:
+        """Verify on-disk report artifact SHA-256 against recorded database digest.
+
+        Returns:
+            tuple[str, str | None]: (integrity_status, actual_sha256)
+            integrity_status: "VERIFIED" | "HASH_MISMATCH" | "FILE_NOT_FOUND" | "UNAVAILABLE"
+        """
+        if not report.html_artifact_path:
+            return "UNAVAILABLE", None
+        if not self.storage.exists(report.html_artifact_path):
+            return "FILE_NOT_FOUND", None
+        try:
+            content = self.storage.read_file(report.html_artifact_path)
+            actual_sha = hashlib.sha256(content).hexdigest()
+            if report.html_sha256 and actual_sha.lower() == report.html_sha256.lower():
+                return "VERIFIED", actual_sha
+            return "HASH_MISMATCH", actual_sha
+        except Exception:
+            return "UNAVAILABLE", None
 
     async def list_reports(self, analysis_id: uuid.UUID) -> list[ReportModel]:
         """List all generated reports for an analysis run, ordered newest first."""

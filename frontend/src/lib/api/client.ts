@@ -33,6 +33,8 @@ import {
   AIHealthResponseDTO,
   ReplayExecutionResponseDTO,
   ReplayLineageDTO,
+  SampleCaptureDTO,
+  SystemReadinessDTO,
 } from "./types";
 
 
@@ -124,6 +126,14 @@ export const api = {
         method: "POST",
       });
     },
+    getSamples: async (): Promise<SampleCaptureDTO[]> => {
+      return request<SampleCaptureDTO[]>("/captures/samples");
+    },
+    ingestSample: async (sampleId: string): Promise<CaptureResponseDTO> => {
+      return request<CaptureResponseDTO>(`/captures/samples/${sampleId}/ingest`, {
+        method: "POST",
+      });
+    },
   },
 
   analyses: {
@@ -200,6 +210,12 @@ export const api = {
     },
     getReplayLineage: async (id: string): Promise<ReplayLineageDTO> => {
       return request<ReplayLineageDTO>(`/analyses/${id}/replay-lineage`);
+    },
+    getExportManifestUrl: (id: string): string => {
+      return `${API_BASE_URL}/analyses/${id}/export/manifest`;
+    },
+    getExportFindingsCsvUrl: (id: string): string => {
+      return `${API_BASE_URL}/analyses/${id}/export/findings.csv`;
     },
   },
 
@@ -609,8 +625,28 @@ export const api = {
   },
 
   system: {
-    getHealth: async (): Promise<{ status: string; checks: Record<string, any> }> => {
-      return request("/system/health");
+    getLiveness: async (): Promise<{ status: string; timestamp: string; service: string }> => {
+      return request("/system/health/live");
+    },
+    getReadiness: async (): Promise<SystemReadinessDTO> => {
+      try {
+        return await request<SystemReadinessDTO>("/system/health/ready");
+      } catch (err: any) {
+        if (err instanceof ApiError && err.status === 503 && err.detail) {
+          return err.detail as SystemReadinessDTO;
+        }
+        throw err;
+      }
+    },
+    getHealth: async (): Promise<SystemReadinessDTO> => {
+      try {
+        return await request<SystemReadinessDTO>("/system/health/ready");
+      } catch (err: any) {
+        if (err instanceof ApiError && err.status === 503 && err.detail) {
+          return err.detail as SystemReadinessDTO;
+        }
+        throw err;
+      }
     },
   },
 };

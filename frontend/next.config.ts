@@ -17,6 +17,7 @@ const cspHeader = `
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ["127.0.0.1", "localhost", "127.0.0.1:3002", "localhost:3002"],
   async headers() {
     return [
       {

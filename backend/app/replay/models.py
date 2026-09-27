@@ -60,6 +60,8 @@ class ReplayLineageDTO(BaseModel):
     capture_filename: str
     capture_sha256: str
     capture_integrity_verified: bool
+    capture_integrity_status: str = "NOT_CHECKED"
+    actual_capture_sha256: str | None = None
     child_runs: list[dict[str, Any]] = Field(default_factory=list)
     version_pins: dict[str, Any] = Field(default_factory=dict)
     latest_comparison: ReplayComparisonDTO | None = None

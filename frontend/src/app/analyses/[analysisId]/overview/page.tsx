@@ -4,6 +4,7 @@ import React, { use } from "react";
 import Link from "next/link";
 import { useAnalysis } from "@/lib/analysis-context";
 import { Card } from "@/components/ui/card";
+import { formatCoverage } from "@/lib/format";
 import { SeverityBadge, StatusBadge } from "@/components/ui/badge";
 import { EChartWrapper } from "@/components/charts/echart-wrapper";
 import * as echarts from "echarts";
@@ -106,7 +107,7 @@ export default function OverviewPage({
               <span className="text-sm font-mono text-neutral-400">/ 100</span>
             </div>
             <p className="text-[11px] text-neutral-500 font-mono">
-              TunnelTrace Internal Security Posture Score (deterministic deduction model).
+              Evaluated on observable packet evidence ({formatCoverage(security_posture.evidence_coverage)} coverage, {compliance_counts.unknown} unknown rules). Not a formal security certification.
             </p>
             <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex justify-between text-[11px] font-mono">
               <span className="text-neutral-400">Risk Tier:</span>
@@ -122,7 +123,7 @@ export default function OverviewPage({
           <div className="space-y-2">
             <div className="flex items-baseline space-x-2">
               <span className="text-3xl font-mono font-bold text-neutral-900 dark:text-white">
-                {security_posture.evidence_coverage}%
+                {formatCoverage(security_posture.evidence_coverage)}
               </span>
             </div>
             <p className="text-[11px] text-neutral-500 font-mono">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Card } from "@/components/ui/card";
+import { SampleCaptureDTO } from "@/lib/api/types";
 import {
   UploadCloud,
   FileCode,
@@ -14,15 +15,19 @@ import {
   Square,
   Shield,
   ArrowRight,
-  HardDrive,
+  FlaskConical,
+  Info,
+  Layers,
+  Sparkles,
+  ExternalLink,
 } from "lucide-react";
 
 export default function NewAnalysisPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tab: "upload" vs "live"
-  const [activeTab, setActiveTab] = useState<"upload" | "live">("upload");
+  // Tab: "upload" vs "samples" vs "live"
+  const [activeTab, setActiveTab] = useState<"upload" | "samples" | "live">("upload");
 
   // Upload State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -35,11 +40,35 @@ export default function NewAnalysisPage() {
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
 
+  // Fetch verified repository sample captures
+  const { data: samples, isLoading: isSamplesLoading } = useQuery({
+    queryKey: ["capture-samples"],
+    queryFn: () => api.captures.getSamples(),
+  });
+
   // Fetch authorized live capture interfaces
   const { data: interfaces, isLoading: isInterfacesLoading } = useQuery({
     queryKey: ["live-interfaces"],
     queryFn: () => api.captures.listInterfaces(),
     enabled: activeTab === "live",
+  });
+
+  // Ingest Sample Mutation
+  const [ingestingSampleId, setIngestingSampleId] = useState<string | null>(null);
+  const ingestSampleMutation = useMutation({
+    mutationFn: async (sampleId: string) => {
+      setIngestingSampleId(sampleId);
+      const capture = await api.captures.ingestSample(sampleId);
+      const analysis = await api.analyses.create(capture.capture_id);
+      return analysis;
+    },
+    onSuccess: (analysis) => {
+      router.push(`/analyses/${analysis.analysis_id}/overview`);
+    },
+    onError: (err: any) => {
+      setIngestingSampleId(null);
+      setUploadError(err.message || "Failed to ingest sample capture fixture");
+    },
   });
 
   // Upload Mutation
@@ -63,7 +92,6 @@ export default function NewAnalysisPage() {
   });
 
   const handleFileSelect = (file: File) => {
-    // Validate file extension
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext !== "pcap" && ext !== "pcapng" && ext !== "cap") {
       setUploadError("Invalid file type. Supported formats: .pcap, .pcapng, .cap");
@@ -128,7 +156,7 @@ export default function NewAnalysisPage() {
           <span>Ingest Network Evidence & Initiate Analysis</span>
         </h1>
         <p className="text-xs text-neutral-500 mt-1">
-          Upload forensic packet captures (.pcap, .pcapng) or bind to an authorized interface for live IPsec protocol ingestion.
+          Upload forensic packet captures (.pcap, .pcapng), try authentic repository test fixtures, or configure authorized live interface capture.
         </p>
       </div>
 
@@ -143,6 +171,17 @@ export default function NewAnalysisPage() {
           }`}
         >
           PCAP / PCAPNG Upload
+        </button>
+        <button
+          onClick={() => setActiveTab("samples")}
+          className={`px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center space-x-1.5 ${
+            activeTab === "samples"
+              ? "border-[#FF3D00] text-neutral-900 dark:text-white bg-white dark:bg-[#141416]"
+              : "border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#FF3D00]" />
+          <span>Try Sample Captures</span>
         </button>
         <button
           onClick={() => setActiveTab("live")}
@@ -233,7 +272,16 @@ export default function NewAnalysisPage() {
             )}
 
             {/* Actions */}
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setActiveTab("samples")}
+                className="text-xs font-mono text-[#FF3D00] hover:underline flex items-center space-x-1"
+              >
+                <span>Don&apos;t have a capture? Try safe benchmark samples</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
               <button
                 disabled={!selectedFile || uploadMutation.isPending}
                 onClick={handleStartUpload}
@@ -253,23 +301,137 @@ export default function NewAnalysisPage() {
           <div className="p-4 border border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 text-xs text-neutral-600 dark:text-neutral-400 space-y-2">
             <div className="flex items-center space-x-2 text-neutral-900 dark:text-white font-bold font-mono">
               <Shield className="w-4 h-4 text-[#FF3D00]" />
-              <span>FORENSIC EVIDENCE INTEGRITY & PRIVACY GUARANTEE</span>
+              <span>FORENSIC EVIDENCE INTEGRITY & LOCAL CONTAINER GUARANTEE</span>
             </div>
             <p>
-              Uploaded captures are hashed (SHA-256) server-side upon arrival. Raw packet payloads are never transmitted to third parties, LLM APIs, or cloud telemetry. All cryptographic evaluations and machine learning inferences execute strictly within the local container runtime.
+              Uploaded captures are hashed (SHA-256) server-side upon arrival. Raw packet payloads are never transmitted to third parties, external LLM APIs, or cloud telemetry. All cryptographic evaluations and protocol dissection execute strictly within the local container runtime.
             </p>
           </div>
         </div>
       )}
 
-      {/* Tab 2: Live Capture */}
+      {/* Tab 2: Sample Captures */}
+      {activeTab === "samples" && (
+        <div className="space-y-6">
+          <Card title="Verified Repository Sample Captures">
+            <div className="space-y-4">
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                These authentic network captures are sourced directly from TunnelTrace AI&apos;s dual-strongSwan Linux namespace benchmark testbed. You can safely ingest them to verify handshake reconstruction, ESP flow analysis, policy compliance, and evidence DAG rendering without capturing live network traffic.
+              </p>
+
+              {isSamplesLoading ? (
+                <div className="p-8 text-center text-xs font-mono text-neutral-400">
+                  Loading available benchmark fixtures...
+                </div>
+              ) : !samples || samples.length === 0 ? (
+                <div className="p-6 text-center text-xs font-mono text-neutral-400 border border-neutral-200 dark:border-neutral-800">
+                  No sample fixtures found in repository tests/fixtures/captures.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {samples.map((sample: SampleCaptureDTO) => (
+                    <div
+                      key={sample.sample_id}
+                      className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] p-5 space-y-3 hover:border-neutral-400 transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-mono px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 uppercase font-semibold">
+                              {sample.format}
+                            </span>
+                            <h3 className="font-mono font-bold text-sm text-neutral-900 dark:text-white">
+                              {sample.title}
+                            </h3>
+                          </div>
+                          <p className="text-xs text-neutral-500 font-mono">
+                            File: {sample.filename} • Packets: {sample.packet_count}
+                          </p>
+                        </div>
+
+                        <button
+                          disabled={ingestingSampleId === sample.sample_id}
+                          onClick={() => ingestSampleMutation.mutate(sample.sample_id)}
+                          className="shrink-0 flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          <span>
+                            {ingestingSampleId === sample.sample_id ? "INGESTING..." : "INGEST SAMPLE"}
+                          </span>
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                        {sample.description}
+                      </p>
+
+                      <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between text-[10px] font-mono text-neutral-500 gap-2">
+                        <div className="truncate max-w-md">
+                          <span>SHA-256: </span>
+                          <span className="font-bold">{sample.sha256}</span>
+                        </div>
+                        <div className="text-neutral-400">
+                          Provenance: {sample.provenance}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab 3: Live Capture */}
       {activeTab === "live" && (
         <div className="space-y-6">
           <Card title="Authorized Live Network Interface Capture">
             <div className="space-y-4">
-              <p className="text-xs text-neutral-500">
-                Direct live capture requires an authorized local capture agent or privileged container network namespace.
-              </p>
+              {/* Host Platform Reality Notice */}
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 text-xs font-mono space-y-2 text-amber-800 dark:text-amber-300">
+                <div className="flex items-center space-x-2 font-bold">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>PREFLIGHT: HOST CAPTURE ENVIRONMENT REQUIREMENTS</span>
+                </div>
+                <p className="leading-relaxed">
+                  Direct raw socket packet capture requires an authorized local capture daemon with Linux <code className="bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 font-bold">CAP_NET_ADMIN</code> / root permissions. On Windows development hosts, raw socket sniffing is restricted by the operating system kernel.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                  <span className="font-bold">Recommended action:</span>
+                  <button
+                    onClick={() => setActiveTab("samples")}
+                    className="underline font-bold hover:text-[#FF3D00]"
+                  >
+                    Use repository test captures (.pcapng)
+                  </button>
+                  <span>or</span>
+                  <button
+                    onClick={() => setActiveTab("upload")}
+                    className="underline font-bold hover:text-[#FF3D00]"
+                  >
+                    Upload an authorized capture file
+                  </button>
+                </div>
+              </div>
+
+              {/* Distinction between Live Monitoring and Live Packet Capture */}
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs space-y-1">
+                <div className="flex items-center space-x-2 font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                  <Info className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span>NOTE: LIVE MONITORING VS DIRECT PACKET CAPTURE</span>
+                </div>
+                <p className="text-neutral-500 leading-relaxed">
+                  <strong>Live Monitoring</strong> consumes telemetry events (IKE SA lifecycles, heartbeats) from deployed gateway collectors and operates independently of host raw sockets. To monitor remote VPN gateways, visit{" "}
+                  <button
+                    onClick={() => router.push("/monitoring")}
+                    className="text-[#FF3D00] underline font-mono"
+                  >
+                    Live Monitor
+                  </button>
+                  .
+                </p>
+              </div>
 
               {isInterfacesLoading ? (
                 <div className="py-6 text-center text-xs font-mono text-neutral-500 animate-pulse">
@@ -323,12 +485,12 @@ export default function NewAnalysisPage() {
                 </div>
               ) : (
                 <div className="p-4 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 text-xs font-mono space-y-1">
-                  <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="font-bold">NO CAPTURE INTERFACES ENUMERATED</span>
+                  <div className="flex items-center space-x-2 text-neutral-500 dark:text-neutral-400">
+                    <span className="w-2 h-2 rounded-full bg-neutral-400" />
+                    <span className="font-bold">NO CAPTURE INTERFACES ENUMERATED (WINDOWS HOST)</span>
                   </div>
                   <p className="text-neutral-500">
-                    No authorized live interfaces were detected on this runtime node. Ensure the backend capture daemon is configured or use PCAP upload.
+                    The backend capture agent is unconfigured on this node. Live direct capture requires Linux root privileges or an authorized capture sidecar. Please use the PCAP upload or Sample Captures tabs.
                   </p>
                 </div>
               )}

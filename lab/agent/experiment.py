@@ -7,8 +7,9 @@ traffic probing, XFRM state verification, provenance manifest creation, and safe
 """
 
 import hashlib
-from typing import Optional, Dict, Any, List
 import os
+import re
+from typing import Optional, Dict, Any, List
 import json
 import time
 import secrets
@@ -25,6 +26,16 @@ from lab.agent.strongswan.manager import StrongSwanManager
 from lab.agent.netem.manager import NetemManager
 from lab.agent.capture.manager import CaptureManager
 from lab.agent.models.manifest import RunManifest, CaptureArtifact
+
+
+def sanitize_error_text(err: Any) -> str:
+    """Sanitize error messages to prevent leaking PSKs, private keys, or passwords."""
+    text = str(err)
+    text = re.sub(r'(secret\s*=\s*["\'])([^"\']+)(["\'])', r'\1[REDACTED_SECRET]\3', text, flags=re.IGNORECASE)
+    text = re.sub(r'([a-fA-F0-9]{32,})', lambda m: f"{m.group(1)[:4]}...[REDACTED]...{m.group(1)[-4:]}", text)
+    text = re.sub(r'-----BEGIN [A-Z ]+KEY-----.*?-----END [A-Z ]+KEY-----', '[REDACTED_PRIVATE_KEY]', text, flags=re.DOTALL)
+    text = re.sub(r'((?:password|psk|secret|token)\s*[:=]\s*)([^\s,;&"\']+)', r'\1[REDACTED]', text, flags=re.IGNORECASE)
+    return text
 
 
 class ExperimentRunner:
@@ -296,7 +307,7 @@ class ExperimentRunner:
 
         except Exception as exc:
             manifest.validation_status = "FAILED"
-            manifest.status_summary = f"Execution exception: {str(exc)}"
+            manifest.status_summary = f"Execution exception: {sanitize_error_text(exc)}"
             raise exc
 
         finally:
@@ -590,7 +601,7 @@ class ExperimentRunner:
 
         except Exception as exc:
             manifest.validation_status = "FAILED"
-            manifest.status_summary = f"Execution exception: {str(exc)}"
+            manifest.status_summary = sanitize_error_text(f"Execution exception: {str(exc)}")
             raise exc
 
         finally:

@@ -27,6 +27,7 @@ import {
   XCircle,
   AlertCircle,
   ExternalLink,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export default function ReportsWorkspacePage({
@@ -207,24 +208,34 @@ export default function ReportsWorkspacePage({
                 if ((securityScore as any)?.coverage_percentage !== undefined) {
                   return `${Number((securityScore as any).coverage_percentage).toFixed(0)}%`;
                 }
-                return "100%";
+                return "UNAVAILABLE";
               })()}
             </div>
           </div>
 
           <div>
             <div className="text-[10px] text-neutral-500 uppercase">Artifact Integrity Gate</div>
-            <div className="flex items-center space-x-1 text-emerald-600 dark:text-emerald-400 font-bold">
+            <div className="flex items-center space-x-1 font-bold text-xs">
               {replayLineage?.capture_integrity_verified ? (
-                <>
+                <div className="flex items-center space-x-1 text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>SHA-256 MATCH</span>
-                </>
+                </div>
+              ) : replayLineage?.capture_integrity_status === "FILE_NOT_FOUND" ? (
+                <div className="flex items-center space-x-1 text-rose-600 dark:text-rose-400" title="The source capture file is absent from storage">
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>FILE MISSING ON DISK</span>
+                </div>
+              ) : replayLineage?.capture_integrity_status === "HASH_MISMATCH" ? (
+                <div className="flex items-center space-x-1 text-rose-600 dark:text-rose-400" title="Recorded hash does not match computed file digest">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>DIGEST MISMATCH</span>
+                </div>
               ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" />
-                  <span className="text-neutral-600 dark:text-neutral-400">VERIFIED IMMUTABLE</span>
-                </>
+                <div className="flex items-center space-x-1 text-neutral-500">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>UNVERIFIED</span>
+                </div>
               )}
             </div>
             <div className="text-[10px] text-neutral-400">
@@ -300,6 +311,55 @@ export default function ReportsWorkspacePage({
         </Card>
       </div>
 
+      {/* Structured Machine-Readable Assessment Downloads */}
+      <Card title="Structured Evidence & Finding Packages (JSON / CSV)">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 space-y-2">
+            <div className="flex items-center space-x-2">
+              <FileCode className="w-4 h-4 text-[#FF3D00]" />
+              <span className="font-mono font-bold text-xs uppercase text-neutral-900 dark:text-white">
+                Assessment Manifest (Versioned JSON)
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-500 font-mono leading-relaxed">
+              Complete machine-readable assessment package including capture SHA-256, protocol facts, evaluated policy rules, itemized deductions, and replay lineage.
+            </p>
+            <div className="pt-2">
+              <a
+                href={api.analyses.getExportManifestUrl(analysisId)}
+                download={`tunneltrace_assessment_${analysisId.slice(0, 8)}.json`}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-200 dark:text-neutral-900 text-white text-xs font-mono font-bold uppercase transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>DOWNLOAD JSON MANIFEST</span>
+              </a>
+            </div>
+          </div>
+
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 space-y-2">
+            <div className="flex items-center space-x-2">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <span className="font-mono font-bold text-xs uppercase text-neutral-900 dark:text-white">
+                Findings Register (RFC 4180 CSV)
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-500 font-mono leading-relaxed">
+              Tabular spreadsheet of all deterministic security findings, rule IDs, decision reasons, affected entities, and remediation directives for ticketing and SIEM export.
+            </p>
+            <div className="pt-2">
+              <a
+                href={api.analyses.getExportFindingsCsvUrl(analysisId)}
+                download={`tunneltrace_findings_${analysisId.slice(0, 8)}.csv`}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-200 dark:text-neutral-900 text-white text-xs font-mono font-bold uppercase transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>DOWNLOAD CSV FINDINGS</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Generated Artifacts Table */}
       <Card
         title={`Generated Report Artifacts (${reportsData?.items?.length || 0})`}
@@ -331,21 +391,37 @@ export default function ReportsWorkspacePage({
                   className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   <div className="space-y-1.5">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-xs uppercase px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700">
                         {rep.report_type}
                       </span>
                       <span
                         className={`text-xs font-mono font-bold px-2 py-0.5 border ${
                           rep.status === "COMPLETED"
-                            ? "bg-emerald-100 text-emerald-900 border-emerald-500"
+                            ? "bg-emerald-100 text-emerald-900 border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300"
                             : rep.status === "PDF_FAILED_HTML_AVAILABLE"
-                            ? "bg-amber-100 text-amber-900 border-amber-500"
+                            ? "bg-amber-100 text-amber-900 border-amber-500 dark:bg-amber-950/40 dark:text-amber-300"
                             : "bg-neutral-200 text-neutral-800 border-neutral-400"
                         }`}
                       >
                         {rep.status}
                       </span>
+                      {rep.artifact_integrity_status === "VERIFIED" ? (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-400 dark:bg-emerald-950/30 dark:text-emerald-400 flex items-center space-x-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>INTEGRITY VERIFIED</span>
+                        </span>
+                      ) : rep.artifact_integrity_status === "HASH_MISMATCH" ? (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-400 dark:bg-rose-950/30 dark:text-rose-400 flex items-center space-x-1" title="Stored digest differs from physical file on disk">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>DIGEST MISMATCH (SEEDED/TAMPERED)</span>
+                        </span>
+                      ) : rep.artifact_integrity_status === "FILE_NOT_FOUND" ? (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-400 dark:bg-rose-950/30 dark:text-rose-400 flex items-center space-x-1">
+                          <XCircle className="w-3 h-3" />
+                          <span>FILE MISSING</span>
+                        </span>
+                      ) : null}
                       <span className="text-[11px] font-mono text-neutral-400">
                         Duration: {rep.generation_duration_ms ? `${rep.generation_duration_ms}ms` : "-"}
                       </span>
@@ -358,8 +434,15 @@ export default function ReportsWorkspacePage({
                       </div>
                       {rep.html_sha256 && (
                         <div className="flex items-center space-x-2">
-                          <span>HTML SHA-256:</span>
+                          <span>Recorded HTML SHA-256:</span>
                           <CopyableValue value={rep.html_sha256} truncate label="HTML SHA-256" />
+                        </div>
+                      )}
+                      {rep.artifact_integrity_status === "HASH_MISMATCH" && rep.actual_html_sha256 && (
+                        <div className="flex items-center space-x-2 text-rose-600 dark:text-rose-400">
+                          <span>Actual File SHA-256:</span>
+                          <CopyableValue value={rep.actual_html_sha256} truncate label="Actual HTML SHA-256" />
+                          <span className="text-[10px] uppercase font-bold text-rose-600">(Mismatch)</span>
                         </div>
                       )}
                       {rep.pdf_sha256 && (
@@ -370,6 +453,7 @@ export default function ReportsWorkspacePage({
                       )}
                     </div>
                   </div>
+
 
                   {/* Actions */}
                   <div className="flex items-center space-x-2">

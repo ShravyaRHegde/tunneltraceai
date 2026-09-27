@@ -63,6 +63,17 @@ async def generate_report(
         ) from exc
 
 
+def _safe_check_integrity(service: Any, report: Any) -> tuple[str, str | None]:
+    if hasattr(service, "check_report_integrity"):
+        try:
+            res = service.check_report_integrity(report)
+            if isinstance(res, (tuple, list)) and len(res) == 2:
+                return str(res[0]), res[1]
+        except Exception:
+            pass
+    return "UNKNOWN", None
+
+
 @router.get(
     "",
     response_model=ReportListResponseDTO,
@@ -74,10 +85,10 @@ async def list_reports(
 ) -> ReportListResponseDTO:
     """Retrieve history of all generated report artifacts for the specified analysis run."""
     reports = await service.list_reports(analysis_id)
-    return ReportListResponseDTO(
-        analysis_id=analysis_id,
-        total_reports=len(reports),
-        items=[
+    items = []
+    for r in reports:
+        integ_status, actual_sha = _safe_check_integrity(service, r)
+        items.append(
             ReportResponseDTO(
                 id=r.id,
                 analysis_id=r.analysis_id,
@@ -93,9 +104,14 @@ async def list_reports(
                 created_at=r.created_at,
                 completed_at=r.completed_at,
                 error_message=r.error_message,
+                artifact_integrity_status=integ_status,
+                actual_html_sha256=actual_sha,
             )
-            for r in reports
-        ],
+        )
+    return ReportListResponseDTO(
+        analysis_id=analysis_id,
+        total_reports=len(items),
+        items=items,
     )
 
 
@@ -116,6 +132,7 @@ async def get_report_metadata(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Report '{report_id}' not found for analysis '{analysis_id}'",
         )
+    integ_status, actual_sha = _safe_check_integrity(service, report)
     return ReportResponseDTO(
         id=report.id,
         analysis_id=report.analysis_id,
@@ -131,6 +148,8 @@ async def get_report_metadata(
         created_at=report.created_at,
         completed_at=report.completed_at,
         error_message=report.error_message,
+        artifact_integrity_status=integ_status,
+        actual_html_sha256=actual_sha,
     )
 
 

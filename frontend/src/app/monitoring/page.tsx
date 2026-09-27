@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import {
@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 
 function MonitoringContent() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
 
@@ -146,8 +147,15 @@ function MonitoringContent() {
 
     try {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      // Fallback or target port 8000 for backend
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || `${protocol}//${window.location.hostname}:8000/api/v1/monitoring/ws`;
+      let host = window.location.hostname + ":8002";
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        try {
+          host = new URL(process.env.NEXT_PUBLIC_API_URL).host;
+        } catch {}
+      }
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL
+        ? `${process.env.NEXT_PUBLIC_WS_URL.replace(/\/$/, "")}/monitoring/ws`
+        : `${protocol}//${host}/api/v1/monitoring/ws`;
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -247,11 +255,20 @@ function MonitoringContent() {
             <div className="w-8 h-8 rounded bg-[#FF3D00]/10 flex items-center justify-center text-[#FF3D00]">
               <Radio className="w-5 h-5 animate-pulse" />
             </div>
-            <h1 className="text-xl font-bold font-mono tracking-tight">
-              CONTINUOUS MONITORING WORKBENCH
-            </h1>
-            <span className="text-xs px-2 py-0.5 font-mono uppercase bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded">
-              STAGE 4 EXTENSION
+            <div>
+              <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest">
+                LIVE MONITORING
+              </div>
+              <h1 className="text-xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white uppercase">
+                {activeTab === "timeline" ? "Live Monitoring → Event Timeline" :
+                 activeTab === "gateways" ? "Live Monitoring → Gateway Registry" :
+                 activeTab === "sensors" ? "Live Monitoring → Sensor Fleet" :
+                 activeTab === "sa_states" ? "Live Monitoring → Projected SAs" :
+                 "Live Monitoring → Fleet Health & Freshness"}
+              </h1>
+            </div>
+            <span className="text-xs px-2 py-0.5 font-mono uppercase bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+              CONTINUOUS TELEMETRY
             </span>
           </div>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
@@ -384,7 +401,10 @@ function MonitoringContent() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                router.replace(`/monitoring?tab=${tab.id}`, { scroll: false });
+              }}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono border-b-2 font-medium transition-all ${
                 isActive
                   ? "border-[#FF3D00] text-[#FF3D00] bg-[#FF3D00]/5"

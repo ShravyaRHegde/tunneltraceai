@@ -150,22 +150,31 @@ class AnalysisSnapshotBuilder:
         res_run = await self.db.execute(stmt_run)
         current_run = res_run.scalars().first()
 
-        stmt_ml = (
-            select(FlowClassification)
-            .join(ESPFlow, FlowClassification.flow_id == ESPFlow.id)
-            .where(ESPFlow.analysis_id == analysis_id, FlowClassification.is_current == True)  # noqa: E712
-        )
-        res_ml = await self.db.execute(stmt_ml)
-        ml_records = res_ml.scalars().all()
+        if current_run:
+            stmt_ml = (
+                select(FlowClassification)
+                .where(FlowClassification.run_id == current_run.id)
+            )
+            res_ml = await self.db.execute(stmt_ml)
+            ml_records = res_ml.scalars().all()
+        else:
+            # Fallback for unlinked legacy classifications: join ESPFlow
+            stmt_ml = (
+                select(FlowClassification)
+                .join(ESPFlow, FlowClassification.flow_id == ESPFlow.id)
+                .where(ESPFlow.analysis_id == analysis_id)
+            )
+            res_ml = await self.db.execute(stmt_ml)
+            ml_records = res_ml.scalars().all()
 
-        classified_records = [m for m in ml_records if m.input_status == "COMPLETE"]
+        classified_records = [m for m in ml_records if m.input_status in ("VALID", "COMPLETE")]
         traffic_summary = {
             "ml_run_status": current_run.status if current_run else ("COMPLETED" if ml_records else "NOT_CONFIGURED"),
-            "model_version": current_run.model_version if current_run else (ml_records[0].model_version if ml_records else None),
-            "model_bundle_id": current_run.model_bundle_id if current_run else (ml_records[0].model_bundle_id if ml_records else None),
+            "model_version": current_run.bundle_version if current_run else (getattr(ml_records[0].artifact, "version", None) if (ml_records and ml_records[0].artifact) else None),
+            "model_bundle_id": current_run.bundle_id if current_run else (getattr(ml_records[0].artifact, "bundle_id", None) if (ml_records and ml_records[0].artifact) else None),
             "total_flows": len(ml_records),
             "classified_flows": len(classified_records),
-            "skipped_flows": current_run.skipped_flows if current_run else sum(1 for m in ml_records if m.input_status != "COMPLETE"),
+            "skipped_flows": current_run.skipped_count if current_run else sum(1 for m in ml_records if m.input_status not in ("VALID", "COMPLETE")),
             "classes_detected": sorted({m.final_class for m in classified_records if m.final_class not in ["UNKNOWN", "UNAVAILABLE"]}),
             "avg_calibrated_confidence": (
                 round(sum(m.calibrated_confidence for m in classified_records) / len(classified_records), 4)

@@ -84,51 +84,56 @@ function EvidenceExplorerContent({
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   useEffect(() => {
-    if (evidence && evidence.nodes && evidence.edges) {
-      const typeColors: Record<string, string> = {
-        finding: "#E11D48",
-        rule: "#D97706",
-        fact: "#2563EB",
-        observation: "#059669",
-        packet: "#7C3AED",
-        capture: "#4B5563",
-      };
+    if (evidence) {
+      const rawNodes = evidence.nodes?.length ? evidence.nodes : (evidence as any).react_flow?.nodes || [];
+      const rawEdges = evidence.edges?.length ? evidence.edges : (evidence as any).react_flow?.edges || [];
 
-      const formattedNodes: Node[] = evidence.nodes.map((n, idx) => {
-        const isHighlight =
-          highlightedFindingId && n.entity_id === highlightedFindingId;
-
-        return {
-          id: n.id,
-          type: "default",
-          data: { label: `${n.node_type.toUpperCase()}\n${n.label}` },
-          position: {
-            x: (idx % 3) * 260 + 40,
-            y: Math.floor(idx / 3) * 140 + 40,
-          },
-          style: {
-            background: isHighlight ? "#FF3D00" : "#1A1A1E",
-            color: "#FFFFFF",
-            border: isHighlight ? "2px solid #FFFFFF" : `1px solid ${typeColors[n.node_type] || "#555"}`,
-            borderRadius: "0px",
-            fontFamily: "monospace",
-            fontSize: "11px",
-            padding: "8px",
-            width: 210,
-          },
+      if (rawNodes.length > 0) {
+        const typeColors: Record<string, string> = {
+          finding: "#E11D48",
+          rule: "#D97706",
+          fact: "#2563EB",
+          observation: "#059669",
+          packet: "#7C3AED",
+          capture: "#4B5563",
         };
-      });
 
-      const formattedEdges: Edge[] = evidence.edges.map((e, idx) => ({
-        id: `e-${idx}`,
-        source: e.source_id,
-        target: e.target_id,
-        label: e.relation_type,
-        style: { stroke: "#71717A", strokeWidth: 1.5 },
-      }));
+        const formattedNodes: Node[] = rawNodes.map((n: any, idx: number) => {
+          const isHighlight =
+            highlightedFindingId && n.entity_id === highlightedFindingId;
 
-      setNodes(formattedNodes);
-      setEdges(formattedEdges);
+          return {
+            id: n.id,
+            type: "default",
+            data: { label: `${(n.node_type || "NODE").toUpperCase()}\n${n.label || n.id}` },
+            position: {
+              x: (idx % 3) * 260 + 40,
+              y: Math.floor(idx / 3) * 140 + 40,
+            },
+            style: {
+              background: isHighlight ? "#FF3D00" : "#1A1A1E",
+              color: "#FFFFFF",
+              border: isHighlight ? "2px solid #FFFFFF" : `1px solid ${typeColors[n.node_type] || "#555"}`,
+              borderRadius: "0px",
+              fontFamily: "monospace",
+              fontSize: "11px",
+              padding: "8px",
+              width: 210,
+            },
+          };
+        });
+
+        const formattedEdges: Edge[] = rawEdges.map((e: any, idx: number) => ({
+          id: `e-${idx}`,
+          source: e.source_id,
+          target: e.target_id,
+          label: e.relation_type,
+          style: { stroke: "#71717A", strokeWidth: 1.5 },
+        }));
+
+        setNodes(formattedNodes);
+        setEdges(formattedEdges);
+      }
     }
   }, [evidence, highlightedFindingId, setNodes, setEdges]);
 

@@ -337,7 +337,21 @@ class ReplayService:
             raise AnalysisNotFoundError(str(analysis_id))
 
         capture = analysis.capture
-        is_valid, _, _ = self.verify_capture_integrity(capture) if capture else (False, "", "")
+        if not capture:
+            is_valid = False
+            integrity_status = "UNAVAILABLE"
+            actual_sha = None
+        else:
+            is_valid, computed_hash, recorded_hash = self.verify_capture_integrity(capture)
+            if is_valid:
+                integrity_status = "VERIFIED"
+                actual_sha = computed_hash
+            elif computed_hash == "FILE_NOT_FOUND":
+                integrity_status = "FILE_NOT_FOUND"
+                actual_sha = None
+            else:
+                integrity_status = "HASH_MISMATCH"
+                actual_sha = computed_hash
 
         # Fetch child runs
         stmt_children = select(AnalysisRun).where(AnalysisRun.parent_analysis_id == analysis_id)
@@ -365,22 +379,26 @@ class ReplayService:
         res_comp = await self.db.execute(stmt_comp)
         comp_row = res_comp.scalars().first()
 
-        latest_comp_dto = (
-            ReplayComparisonDTO(
+        latest_comp_dto = None
+        if comp_row:
+            comp_status = comp_row.comparison_status
+            comp_summary = comp_row.summary
+            if comp_row.parent_run_id == comp_row.child_run_id:
+                comp_status = "INVALID_SELF_COMPARISON"
+                comp_summary = f"[NOTICE: Invalid self-comparison - parent and child run are identical ({comp_row.parent_run_id})]"
+
+            latest_comp_dto = ReplayComparisonDTO(
                 comparison_id=comp_row.id,
                 replay_mode=comp_row.replay_mode,
                 parent_run_id=comp_row.parent_run_id,
                 child_run_id=comp_row.child_run_id,
-                comparison_status=comp_row.comparison_status,
+                comparison_status=comp_status,
                 artifact_integrity=comp_row.artifact_integrity,
                 differences=comp_row.differences,
-                summary=comp_row.summary,
+                summary=comp_summary,
                 metrics=comp_row.metrics,
                 created_at=comp_row.created_at,
             )
-            if comp_row
-            else None
-        )
 
         version_pins = {
             "parser_engine": analysis.parser_engine,
@@ -397,7 +415,10 @@ class ReplayService:
             capture_filename=(capture.original_filename if capture and capture.original_filename else "capture.pcap"),
             capture_sha256=capture.sha256_hash if capture else "unknown",
             capture_integrity_verified=is_valid,
+            capture_integrity_status=integrity_status,
+            actual_capture_sha256=actual_sha,
             child_runs=child_runs,
             version_pins=version_pins,
             latest_comparison=latest_comp_dto,
         )
+

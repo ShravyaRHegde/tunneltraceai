@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Card } from "@/components/ui/card";
+import { formatCoverage } from "@/lib/format";
 import { SeverityBadge, EvidenceStateBadge } from "@/components/ui/badge";
 import { InspectorDrawer } from "@/components/ui/inspector-drawer";
 import {
@@ -149,7 +150,7 @@ export default function SecurityAssessmentPage({
       <SocWorkflowBanner
         activeStep={4}
         analysisId={analysisId}
-        evidenceCoverage={riskAssessment?.evidence_coverage ?? (findings?.length ? 100 : 0)}
+        evidenceCoverage={riskAssessment?.evidence_coverage ?? null}
       />
 
       {/* Methodology & Evidence-Based Risk Banner */}
@@ -199,9 +200,7 @@ export default function SecurityAssessmentPage({
                 <Activity className="w-3.5 h-3.5 text-[#FF3D00]" />
                 <span>Evidence Coverage:</span>
                 <span className="font-bold text-neutral-900 dark:text-white">
-                  {riskAssessment.evidence_coverage != null
-                    ? `${riskAssessment.evidence_coverage}%`
-                    : "Not Assessed"}
+                  {formatCoverage(riskAssessment.evidence_coverage)}
                 </span>
               </div>
               <div className="flex items-center space-x-1">
@@ -343,13 +342,13 @@ export default function SecurityAssessmentPage({
                 <p>No security findings match the current filter.</p>
                 {riskAssessment?.overall_risk_tier === "INSUFFICIENT_EVIDENCE" && (
                   <p className="text-amber-500 font-semibold">
-                    Evidence coverage ({riskAssessment.evidence_coverage ?? 0}%) is below policy threshold.
+                    Evidence coverage ({formatCoverage(riskAssessment.evidence_coverage)}) is below policy threshold.
                     Inadequate evidence is preserved as an explicit gap, not assumed safe.
                   </p>
                 )}
                 {riskAssessment?.overall_risk_tier === "NO_FINDINGS_UNDER_THIS_POLICY" && (
                   <p className="text-emerald-500 font-semibold">
-                    Zero rule violations identified with {riskAssessment.evidence_coverage ?? 100}% evaluated evidence coverage.
+                    Zero rule violations identified with {formatCoverage(riskAssessment.evidence_coverage)} evaluated evidence coverage.
                   </p>
                 )}
               </div>

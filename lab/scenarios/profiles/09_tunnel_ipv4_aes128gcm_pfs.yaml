@@ -1,0 +1,16 @@
+scenario_id: "scn-09-tunnel-v4-aes128gcm-pfs"
+scenario_version: "1.0"
+description: "Site-to-Site Tunnel Mode IPv4 with AES-128-GCM AEAD cipher, DH Group 14 (MODP-2048), and PFS enabled. Aligns with SIH PS 26160 AES-128 testbed requirement."
+
+topology: "TUNNEL_SITE_TO_SITE"
+ip_version: "IPV4"
+ike_version: "IKEV2"
+crypto_profile: "IKEV2_AES128GCM_DH14_PFS"
+pfs: "ENABLED"
+encapsulation: "NATIVE_ESP"
+capture: "BOTH"
+
+traffic_probe:
+  packet_count: 5
+  interval_sec: 0.2
+  payload_size_bytes: 64

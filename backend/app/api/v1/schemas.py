@@ -34,6 +34,8 @@ class AnalysisRunResponseDTO(BaseModel):
 
     analysis_id: uuid.UUID
     capture_id: uuid.UUID
+    capture_filename: str | None = None
+    capture_sha256: str | None = None
     status: str
     current_stage: str
     parser_engine: str
@@ -151,6 +153,8 @@ class AnalysisListItemDTO(BaseModel):
     high_findings: int = 0
     parent_analysis_id: uuid.UUID | None = None
     replay_mode: str | None = None
+    provenance_metadata: dict | None = None
+    is_synthetic_demo: bool = False
 
 
 class TrafficFlowItemDTO(BaseModel):

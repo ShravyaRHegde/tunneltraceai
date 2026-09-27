@@ -35,6 +35,8 @@ class ReportResponseDTO(BaseModel):
     created_at: datetime
     completed_at: datetime | None = None
     error_message: str | None = None
+    artifact_integrity_status: str | None = None
+    actual_html_sha256: str | None = None
 
 
 class ReportListResponseDTO(BaseModel):

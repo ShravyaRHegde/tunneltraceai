@@ -55,6 +55,11 @@ async def get_liveness() -> LivenessResponse:
 
 
 @router.get(
+    "",
+    response_model=ReadinessResponse,
+    include_in_schema=False,
+)
+@router.get(
     "/ready",
     response_model=ReadinessResponse,
     summary="Application Readiness Probe",

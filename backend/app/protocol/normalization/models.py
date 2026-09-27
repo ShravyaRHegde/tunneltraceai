@@ -117,3 +117,18 @@ class ProtocolSummaryDTO(BaseModel):
     crypto_observations: list[CryptoObservationDTO]
     transport_mode_notify_observed: bool | None = None
     parser: ParserProvenance
+
+    # Canonical contract fields for UI and API compatibility
+    total_packets_inspected: int = 0
+    ipsec_packet_count: int = 0
+    ikev1_packet_count: int = 0
+    ikev2_packet_count: int = 0
+    esp_packet_count: int = 0
+    ah_packet_count: int = 0
+    nat_t_detected: bool = False
+    observed_initiator_spis: list[str] = Field(default_factory=list)
+    observed_responder_spis: list[str] = Field(default_factory=list)
+    observed_cipher_suites: list[str] = Field(default_factory=list)
+    observed_dh_groups: list[str] = Field(default_factory=list)
+    observed_exchange_types: list[str] = Field(default_factory=list)
+    evidence_states: dict[str, str] = Field(default_factory=dict)

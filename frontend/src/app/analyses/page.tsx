@@ -146,8 +146,18 @@ export default function AnalysesListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="space-y-0.5">
-                      <div className="font-semibold text-neutral-900 dark:text-white">
-                        {run.capture_filename || "Live / Unnamed Stream"}
+                      <div className="flex items-center space-x-2">
+                        <Link
+                          href={`/analyses/${run.analysis_id}/overview`}
+                          className="font-semibold text-neutral-900 dark:text-white hover:text-[#FF3D00] dark:hover:text-[#FF3D00] transition-colors"
+                        >
+                          {run.capture_filename || "Live / Unnamed Stream"}
+                        </Link>
+                        {run.is_synthetic_demo && (
+                          <span className="px-1.5 py-0.2 bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-400 text-[9px] font-mono font-bold tracking-wider uppercase">
+                            DEMO FIXTURE
+                          </span>
+                        )}
                       </div>
                       <div className="text-[10px] text-neutral-400 font-mono">
                         SHA: {run.capture_sha256 ? `${run.capture_sha256.slice(0, 10)}...` : "N/A"}

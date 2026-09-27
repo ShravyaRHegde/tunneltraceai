@@ -261,5 +261,8 @@ class EvidenceGraphDTO(BaseModel):
     capture_sha256: str
     nodes_count: int
     edges_count: int
-    react_flow: dict[str, Any]
-    manifest_sha256: str
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+    react_flow: dict[str, Any] = {}
+    manifest_sha256: str = ""
+

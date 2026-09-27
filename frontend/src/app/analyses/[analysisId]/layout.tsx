@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAnalysis } from "@/lib/analysis-context";
 import { StatusBadge } from "@/components/ui/badge";
 import { CopyableValue } from "@/components/ui/table";
+import { formatCoverage } from "@/lib/format";
 import {
   Activity,
   CheckCircle,
@@ -42,6 +43,17 @@ export default function AnalysisLayout({
   const { activeAnalysisId, setActiveAnalysisId, analysis, overview } = useAnalysis();
   const pathname = usePathname();
 
+  useEffect(() => {
+    if (analysisId && activeAnalysisId !== analysisId) {
+      setActiveAnalysisId(analysisId);
+    }
+  }, [analysisId, activeAnalysisId, setActiveAnalysisId]);
+
+  const captureFilename =
+    overview?.capture?.filename || analysis?.capture_filename || "Recorded Capture";
+  const captureSha256 = overview?.capture?.sha256 || analysis?.capture_sha256;
+  const packetCount = overview?.capture?.packet_count;
+
   // Tab navigation for this active analysis
   const tabs = [
     { label: "Overview", href: `/analyses/${analysisId}/overview`, icon: Activity },
@@ -71,17 +83,17 @@ export default function AnalysisLayout({
                 {analysis?.status && <StatusBadge status={analysis.status} />}
               </div>
               <div className="text-xs text-neutral-500 font-mono flex items-center space-x-2 mt-0.5">
-                <span>Capture: {overview?.capture?.filename || "Live Ingestion"}</span>
-                {overview?.capture?.sha256 && (
+                <span>Capture: {captureFilename}</span>
+                {captureSha256 && (
                   <>
                     <span>•</span>
-                    <span>SHA-256: {overview.capture.sha256.slice(0, 16)}...</span>
+                    <span>SHA-256: {captureSha256.slice(0, 16)}...</span>
                   </>
                 )}
-                {overview?.capture?.packet_count !== undefined && (
+                {packetCount !== undefined && packetCount !== null && (
                   <>
                     <span>•</span>
-                    <span>Packets: {overview.capture.packet_count}</span>
+                    <span>Packets: {packetCount}</span>
                   </>
                 )}
               </div>
@@ -100,7 +112,7 @@ export default function AnalysisLayout({
               <div className="text-right">
                 <div className="text-[10px] text-neutral-400 uppercase">Coverage</div>
                 <div className="font-bold text-neutral-900 dark:text-white">
-                  {overview.security_posture.evidence_coverage}%
+                  {formatCoverage(overview.security_posture.evidence_coverage)}
                 </div>
               </div>
               <div className="text-right">

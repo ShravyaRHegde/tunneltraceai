@@ -24,15 +24,36 @@ export function useAnalysisWebSocket(analysisId: string | null) {
   const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
-    if (!analysisId) return;
-
     if (wsRef.current) {
       wsRef.current.close();
     }
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = process.env.NEXT_PUBLIC_WS_HOST || "127.0.0.1:8000";
-    const wsUrl = `${protocol}//${host}/api/v1/ws/analyses/${analysisId}`;
+    const wsEnv = process.env.NEXT_PUBLIC_WS_URL;
+    let wsUrl: string;
+    if (wsEnv) {
+      const base = wsEnv.replace(/\/$/, "");
+      wsUrl = analysisId ? `${base}/analyses/${analysisId}` : base;
+    } else {
+      const apiEnv = process.env.NEXT_PUBLIC_API_URL;
+      let host = "127.0.0.1:8002";
+      let protocol = "ws:";
+      if (typeof window !== "undefined") {
+        protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        if (apiEnv) {
+          try {
+            const u = new URL(apiEnv);
+            host = u.host;
+          } catch {
+            host = window.location.hostname + ":8002";
+          }
+        } else {
+          host = window.location.hostname + ":8002";
+        }
+      }
+      wsUrl = analysisId
+        ? `${protocol}//${host}/api/v1/ws/analyses/${analysisId}`
+        : `${protocol}//${host}/api/v1/ws`;
+    }
 
     try {
       const socket = new WebSocket(wsUrl);

@@ -160,7 +160,12 @@ class ProtocolForensicsService:
         all_obs: list[NormalizedObservation] = []
         all_crypto: list[CryptoObservationDTO] = []
 
-        counters = {"total": len(raw_packets), "ike": 0, "esp": 0, "ah": 0, "natt": 0}
+        seen_ike_frames: set[int] = set()
+        seen_ikev1_frames: set[int] = set()
+        seen_ikev2_frames: set[int] = set()
+        seen_esp_frames: set[int] = set()
+        seen_ah_frames: set[int] = set()
+        seen_natt_frames: set[int] = set()
 
         for pkt in raw_packets:
             source = pkt.get("_source", {})
@@ -190,7 +195,7 @@ class ProtocolForensicsService:
             )
             all_obs.extend(ip_obs)
             if is_natt:
-                counters["natt"] += 1
+                seen_natt_frames.add(frame_num)
 
             frame_protocols: list[str] = []
             if ip_ver:
@@ -198,7 +203,7 @@ class ProtocolForensicsService:
 
             # 2. IKE layer
             if "isakmp" in layers:
-                counters["ike"] += 1
+                seen_ike_frames.add(frame_num)
                 ike_obs, crypto_obs = parse_ike_layer(
                     layers["isakmp"],
                     frame_num,
@@ -209,13 +214,19 @@ class ProtocolForensicsService:
                     dst_port,
                     tshark_ver,
                 )
+                for io in ike_obs:
+                    if io.field_name == "ike.version":
+                        if io.normalized_value == "IKEv1":
+                            seen_ikev1_frames.add(frame_num)
+                        elif io.normalized_value == "IKEv2":
+                            seen_ikev2_frames.add(frame_num)
                 all_obs.extend(ike_obs)
                 all_crypto.extend(crypto_obs)
                 frame_protocols.append("IKE")
 
             # 3. ESP layer
             if "esp" in layers:
-                counters["esp"] += 1
+                seen_esp_frames.add(frame_num)
                 esp_obs = parse_esp_layer(
                     layers["esp"],
                     frame_num,
@@ -231,7 +242,7 @@ class ProtocolForensicsService:
 
             # 4. AH layer
             if "ah" in layers:
-                counters["ah"] += 1
+                seen_ah_frames.add(frame_num)
                 ah_obs = parse_ah_layer(
                     layers["ah"],
                     frame_num,
@@ -258,6 +269,17 @@ class ProtocolForensicsService:
                 )
             )
 
+        counters = {
+            "total": len(raw_packets),
+            "ike": len(seen_ike_frames),
+            "ikev1": len(seen_ikev1_frames),
+            "ikev2": len(seen_ikev2_frames),
+            "esp": len(seen_esp_frames),
+            "ah": len(seen_ah_frames),
+            "natt": len(seen_natt_frames),
+            "ipsec": len(seen_ike_frames | seen_esp_frames | seen_ah_frames),
+        }
+
         return frames, all_obs, all_crypto, counters
 
     def _build_summary(
@@ -276,6 +298,8 @@ class ProtocolForensicsService:
         ip_versions_set = set()
         ike_versions_set = set()
         exchange_types_set = set()
+        initiator_spis_set = set()
+        responder_spis_set = set()
         transport_mode_observed: bool | None = None
 
         for obs in all_obs:
@@ -288,8 +312,23 @@ class ProtocolForensicsService:
                 ike_versions_set.add(obs.normalized_value)
             elif obs.field_name == "ike.exchange_type":
                 exchange_types_set.add(obs.normalized_value)
+            elif obs.field_name == "ike.initiator_spi":
+                initiator_spis_set.add(obs.normalized_value)
+            elif obs.field_name == "ike.responder_spi" and obs.normalized_value not in ("0000000000000000", "0"):
+                responder_spis_set.add(obs.normalized_value)
             elif obs.field_name == "ike.notify.type" and obs.normalized_value == "USE_TRANSPORT_MODE":
                 transport_mode_observed = True
+
+        observed_ciphers = sorted({c.transform_name for c in crypto_obs if c.transform_type == "ENCR"})
+        observed_dh = sorted({c.transform_name for c in crypto_obs if c.transform_type == "DH"})
+        observed_exchanges = sorted(exchange_types_set)
+
+        evidence_states = {
+            "cipher_suites": "VERIFIED" if observed_ciphers else "UNKNOWN",
+            "dh_groups": "VERIFIED" if observed_dh else "UNKNOWN",
+            "exchanges": "VERIFIED" if observed_exchanges else "UNKNOWN",
+            "nat_t": "VERIFIED" if counters.get("natt", 0) > 0 else "INFERRED",
+        }
 
         return ProtocolSummaryDTO(
             analysis_id=analysis_id,
@@ -298,10 +337,10 @@ class ProtocolForensicsService:
             outcome=outcome,
             protocols_observed=sorted(protocols_set),
             ip_versions_observed=sorted(ip_versions_set),
-            natt_observed=counters["natt"] > 0,
+            natt_observed=counters.get("natt", 0) > 0,
             packet_counts=counters,
             ike_versions_observed=sorted(ike_versions_set),
-            exchange_types_observed=sorted(exchange_types_set),
+            exchange_types_observed=observed_exchanges,
             crypto_observations=crypto_obs,
             transport_mode_notify_observed=transport_mode_observed,
             parser=ParserProvenance(
@@ -309,6 +348,19 @@ class ProtocolForensicsService:
                 actual_version=tshark_ver,
                 schema_version="1.0.0",
             ),
+            total_packets_inspected=counters.get("total", 0),
+            ipsec_packet_count=counters.get("ipsec", 0),
+            ikev1_packet_count=counters.get("ikev1", 0),
+            ikev2_packet_count=counters.get("ikev2", 0),
+            esp_packet_count=counters.get("esp", 0),
+            ah_packet_count=counters.get("ah", 0),
+            nat_t_detected=counters.get("natt", 0) > 0,
+            observed_initiator_spis=sorted(initiator_spis_set),
+            observed_responder_spis=sorted(responder_spis_set),
+            observed_cipher_suites=observed_ciphers,
+            observed_dh_groups=observed_dh,
+            observed_exchange_types=observed_exchanges,
+            evidence_states=evidence_states,
         )
 
     async def get_protocol_summary(self, analysis_id: uuid.UUID) -> ProtocolSummaryDTO:
@@ -329,19 +381,28 @@ class ProtocolForensicsService:
         # Reconstruct NormalizedObservation and CryptoObservationDTO
         all_obs: list[NormalizedObservation] = []
         crypto_obs: list[CryptoObservationDTO] = []
-        counters = {"total": 0, "ike": 0, "esp": 0, "ah": 0, "natt": 0}
-        seen_frames = set()
+        seen_frames: set[int] = set()
+        seen_ike_frames: set[int] = set()
+        seen_ikev1_frames: set[int] = set()
+        seen_ikev2_frames: set[int] = set()
+        seen_esp_frames: set[int] = set()
+        seen_ah_frames: set[int] = set()
+        seen_natt_frames: set[int] = set()
 
         for o in db_obs:
             seen_frames.add(o.frame_number)
-            if o.protocol in ("IKEv1", "IKEv2"):
-                counters["ike"] += 1
+            if o.protocol == "IKEv1":
+                seen_ike_frames.add(o.frame_number)
+                seen_ikev1_frames.add(o.frame_number)
+            elif o.protocol == "IKEv2":
+                seen_ike_frames.add(o.frame_number)
+                seen_ikev2_frames.add(o.frame_number)
             elif o.protocol == "ESP":
-                counters["esp"] += 1
+                seen_esp_frames.add(o.frame_number)
             elif o.protocol == "AH":
-                counters["ah"] += 1
+                seen_ah_frames.add(o.frame_number)
             elif o.protocol == "NAT-T":
-                counters["natt"] += 1
+                seen_natt_frames.add(o.frame_number)
 
             if o.category == "IKE_TRANSFORM":
                 extra = o.extra_attributes or {}
@@ -377,8 +438,17 @@ class ProtocolForensicsService:
                 )
             )
 
-        counters["total"] = len(seen_frames)
-        ipsec_detected = (counters["ike"] + counters["esp"] + counters["ah"]) > 0
+        counters = {
+            "total": len(seen_frames),
+            "ike": len(seen_ike_frames),
+            "ikev1": len(seen_ikev1_frames),
+            "ikev2": len(seen_ikev2_frames),
+            "esp": len(seen_esp_frames),
+            "ah": len(seen_ah_frames),
+            "natt": len(seen_natt_frames),
+            "ipsec": len(seen_ike_frames | seen_esp_frames | seen_ah_frames),
+        }
+        ipsec_detected = counters["ipsec"] > 0
         outcome = "IPSEC_OBSERVED" if ipsec_detected else "NO_IPSEC_FOUND"
 
         return self._build_summary(
@@ -391,3 +461,4 @@ class ProtocolForensicsService:
             counters=counters,
             tshark_ver=analysis.parser_version,
         )
+

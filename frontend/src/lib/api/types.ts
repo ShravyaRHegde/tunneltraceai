@@ -19,9 +19,22 @@ export interface CaptureResponseDTO {
   created_at: string;
 }
 
+export interface SampleCaptureDTO {
+  sample_id: string;
+  filename: string;
+  title: string;
+  description: string;
+  packet_count: number;
+  format: string;
+  sha256: string;
+  provenance: string;
+}
+
 export interface AnalysisRunResponseDTO {
   analysis_id: string;
   capture_id: string;
+  capture_filename?: string | null;
+  capture_sha256?: string | null;
   status: "QUEUED" | "RUNNING" | "PARTIAL" | "COMPLETED" | "FAILED" | "CANCELLED" | "NO_IPSEC";
   current_stage: string;
   parser_engine: string;
@@ -51,6 +64,8 @@ export interface AnalysisListItemDTO {
   high_findings: number;
   parent_analysis_id?: string | null;
   replay_mode?: string | null;
+  provenance_metadata?: Record<string, any> | null;
+  is_synthetic_demo?: boolean;
 }
 
 export interface ReplayComparisonDTO {
@@ -74,6 +89,8 @@ export interface ReplayLineageDTO {
   capture_filename: string;
   capture_sha256: string;
   capture_integrity_verified: boolean;
+  capture_integrity_status?: "VERIFIED" | "HASH_MISMATCH" | "FILE_NOT_FOUND" | "UNAVAILABLE" | "NOT_CHECKED";
+  actual_capture_sha256?: string | null;
   child_runs: Array<{
     analysis_id: string;
     replay_mode: string | null;
@@ -466,6 +483,8 @@ export interface ReportResponseDTO {
   created_at: string;
   completed_at: string | null;
   error_message: string | null;
+  artifact_integrity_status?: "VERIFIED" | "HASH_MISMATCH" | "FILE_NOT_FOUND" | "UNAVAILABLE" | null;
+  actual_html_sha256?: string | null;
 }
 
 export interface ReportListResponseDTO {
@@ -1332,4 +1351,21 @@ export interface CertificateImportRequestDTO {
   epistemic_status?: string;
   operator_id: string;
   authorization_reference: string;
+}
+
+export interface SystemReadinessDTO {
+  status: "READY" | "NOT_READY" | string;
+  timestamp: string;
+  stage: string;
+  dependencies: {
+    database?: { status: string; engine?: string; error?: string; latency_ms?: number };
+    redis?: { status: string; connected_clients?: number; error?: string; latency_ms?: number };
+    storage?: { status: string; writable?: boolean; free_space_bytes?: number; root_path?: string; error?: string; latency_ms?: number };
+    tshark?: { status: string; version?: string; engine?: string; stage?: string };
+    live_capture?: { status: string; stage?: string };
+    privileged_agent?: { available: boolean; daemon_running?: boolean; error?: string };
+    ml_engine?: { status: string; stage?: string; reason?: string };
+    policy_engine?: { status: string; stage?: string };
+    [key: string]: any;
+  };
 }

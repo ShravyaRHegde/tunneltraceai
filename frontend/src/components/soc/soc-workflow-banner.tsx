@@ -40,51 +40,51 @@ const WORKFLOW_STEPS: StepDef[] = [
   {
     step: 1,
     title: "1. Scope & Telemetry",
-    shortLabel: "Telemetry",
+    shortLabel: "1. Telemetry",
     icon: Radio,
     getHref: () => "/monitoring",
   },
   {
     step: 2,
-    title: "2. Asset Inventory",
-    shortLabel: "Inventory",
-    icon: FileKey2,
-    getHref: (p) => (p.gatewayIdentity ? `/inventory?gateway_identity=${encodeURIComponent(p.gatewayIdentity)}` : "/inventory"),
+    title: "2. Gateway Registry",
+    shortLabel: "2. Gateways",
+    icon: Server,
+    getHref: (p) => (p.gatewayIdentity ? `/monitoring?tab=gateways&gateway=${encodeURIComponent(p.gatewayIdentity)}` : "/monitoring?tab=gateways"),
   },
   {
     step: 3,
-    title: "3. Timeline & Events",
-    shortLabel: "Timeline",
+    title: "3. Event Timeline",
+    shortLabel: "3. Timeline",
     icon: Layers,
     getHref: (p) => (p.gatewayIdentity ? `/monitoring?tab=timeline&gateway=${encodeURIComponent(p.gatewayIdentity)}` : "/monitoring?tab=timeline"),
   },
   {
     step: 4,
     title: "4. Findings Triage",
-    shortLabel: "Findings",
+    shortLabel: "4. Findings",
     icon: ShieldAlert,
-    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/security` : "/analyses"),
+    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/security` : "/analyses?action=select_run"),
   },
   {
     step: 5,
     title: "5. Evidence DAG",
-    shortLabel: "Evidence",
+    shortLabel: "5. Evidence",
     icon: FileSearch,
-    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/evidence` : "/analyses"),
+    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/evidence` : "/analyses?action=select_run"),
   },
   {
     step: 6,
     title: "6. Replay & Lineage",
-    shortLabel: "Replay",
+    shortLabel: "6. Replay",
     icon: History,
-    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/evidence?view=replay` : "/analyses"),
+    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/evidence?view=replay` : "/analyses?action=select_run"),
   },
   {
     step: 7,
     title: "7. Audit Report",
-    shortLabel: "Report",
+    shortLabel: "7. Report",
     icon: FileText,
-    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/reports` : "/analyses"),
+    getHref: (p) => (p.analysisId ? `/analyses/${p.analysisId}/reports` : "/analyses?action=select_run"),
   },
 ];
 
@@ -107,7 +107,7 @@ export function SocWorkflowBanner({
             SOC Analyst Investigation Workflow
           </span>
           <span className="text-[10px] px-1.5 py-0.5 border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 uppercase">
-            Phase 18 Verified
+            OPERATOR WORKFLOW
           </span>
         </div>
 

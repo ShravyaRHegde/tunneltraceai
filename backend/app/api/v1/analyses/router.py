@@ -3,7 +3,8 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -149,24 +150,34 @@ async def list_analyses(
         elif f.severity == "HIGH":
             high_map[f.analysis_id] = high_map.get(f.analysis_id, 0) + 1
 
-    return [
-        AnalysisListItemDTO(
-            analysis_id=r.id,
-            capture_id=r.capture_id,
-            capture_filename=(r.capture.original_filename or "unknown.pcap") if r.capture else "unknown.pcap",
-            capture_sha256=(r.capture.sha256_hash or "unknown") if r.capture else "unknown",
-            status=r.status,
-            current_stage=r.current_stage,
-            created_at=r.created_at,
-            completed_at=r.completed_at,
-            security_score=score_map.get(r.id),
-            critical_findings=crit_map.get(r.id, 0),
-            high_findings=high_map.get(r.id, 0),
-            parent_analysis_id=r.parent_analysis_id,
-            replay_mode=r.replay_mode,
+    items = []
+    for r in runs:
+        is_synthetic = bool(
+            (r.provenance_metadata and r.provenance_metadata.get("is_synthetic_demo"))
+            or (r.provenance_metadata and r.provenance_metadata.get("gateway_identity") == "Perimeter-Gateway-ALPHA")
+            or (r.capture and r.capture.original_filename == "ikev2_perimeter_audit.pcap")
         )
-        for r in runs
-    ]
+        items.append(
+            AnalysisListItemDTO(
+                analysis_id=r.id,
+                capture_id=r.capture_id,
+                capture_filename=(r.capture.original_filename or "unknown.pcap") if r.capture else "unknown.pcap",
+                capture_sha256=(r.capture.sha256_hash or "unknown") if r.capture else "unknown",
+                status=r.status,
+                current_stage=r.current_stage,
+                created_at=r.created_at,
+                completed_at=r.completed_at,
+                security_score=score_map.get(r.id),
+                critical_findings=crit_map.get(r.id, 0),
+                high_findings=high_map.get(r.id, 0),
+                parent_analysis_id=r.parent_analysis_id,
+                replay_mode=r.replay_mode,
+                provenance_metadata=r.provenance_metadata,
+                is_synthetic_demo=is_synthetic,
+            )
+        )
+    return items
+
 
 
 @router.get(
@@ -179,7 +190,11 @@ async def get_analysis(
     db: AsyncSession = Depends(get_db_session),
 ) -> AnalysisRunResponseDTO:
     """Retrieve operational state and parser version of an analysis run."""
-    res = await db.execute(select(AnalysisRun).where(AnalysisRun.id == analysis_id))
+    res = await db.execute(
+        select(AnalysisRun)
+        .options(selectinload(AnalysisRun.capture))
+        .where(AnalysisRun.id == analysis_id)
+    )
     analysis = res.scalar_one_or_none()
     if not analysis:
         raise AnalysisNotFoundError(str(analysis_id))
@@ -187,6 +202,8 @@ async def get_analysis(
     return AnalysisRunResponseDTO(
         analysis_id=analysis.id,
         capture_id=analysis.capture_id,
+        capture_filename=analysis.capture.original_filename if analysis.capture else None,
+        capture_sha256=analysis.capture.sha256_hash if analysis.capture else None,
         status=analysis.status,
         current_stage=analysis.current_stage,
         parser_engine=analysis.parser_engine,
@@ -487,4 +504,187 @@ async def get_replay_lineage(
 
     service = ReplayService(db)
     return await service.get_replay_lineage(analysis_id)
+
+
+@router.get(
+    "/{analysis_id}/export/manifest",
+    summary="Download versioned structured assessment JSON manifest",
+)
+async def export_analysis_manifest(
+    analysis_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+) -> JSONResponse:
+    """Export machine-readable JSON assessment manifest including findings, hashes, and lineage."""
+    res = await db.execute(
+        select(AnalysisRun)
+        .options(selectinload(AnalysisRun.capture))
+        .where(AnalysisRun.id == analysis_id)
+    )
+    analysis = res.scalar_one_or_none()
+    if not analysis:
+        raise AnalysisNotFoundError(str(analysis_id))
+
+    stmt_findings = select(SecurityFindingModel).where(SecurityFindingModel.analysis_id == analysis_id)
+    findings = (await db.execute(stmt_findings)).scalars().all()
+
+    stmt_score = select(ScoreAssessmentModel).where(ScoreAssessmentModel.analysis_id == analysis_id)
+    score_assessment = (await db.execute(stmt_score)).scalars().first()
+
+    findings_list = []
+    for f in findings:
+        entity = getattr(f, "affected_entity", None)
+        if not entity:
+            entity_type = getattr(f, "affected_entity_type", "")
+            entity_id = getattr(f, "affected_entity_id", "")
+            entity = f"{entity_type} {entity_id}".strip() or "IPsec SA"
+
+        reason = getattr(f, "technical_description", None) or getattr(f, "decision_reason", "")
+        rec = getattr(f, "remediation_guidance", None) or getattr(f, "recommendation", "")
+        impact = getattr(f, "remediation_directive", None) or getattr(f, "remediation_impact", "")
+
+        findings_list.append({
+            "finding_id": str(getattr(f, "finding_id", getattr(f, "id", ""))),
+            "rule_id": getattr(f, "rule_id", ""),
+            "title": getattr(f, "title", ""),
+            "severity": getattr(f, "severity", "UNKNOWN"),
+            "category": getattr(f, "category", "GENERAL"),
+            "affected_entity": entity,
+            "decision_reason": reason,
+            "recommendation": rec,
+            "remediation_impact": impact,
+            "cvss_v3_score": getattr(f, "cvss_v3_score", None),
+            "epistemic_status": getattr(f, "evidence_state", None) or getattr(f, "epistemic_status", None),
+        })
+
+    score_data = None
+    if score_assessment:
+        cov = getattr(score_assessment, "coverage_percentage", None)
+        if cov is None and isinstance(getattr(score_assessment, "evidence_coverage", None), dict):
+            cov = score_assessment.evidence_coverage.get("coverage_percentage")
+
+        score_data = {
+            "score": score_assessment.overall_score,
+            "raw_score": getattr(score_assessment, "raw_score", score_assessment.overall_score),
+            "coverage_percentage": cov,
+            "status": getattr(score_assessment, "status", "EVALUATED"),
+            "policy_id": getattr(score_assessment, "score_policy_id", None),
+            "policy_version": getattr(score_assessment, "score_policy_version", None),
+        }
+
+    manifest = {
+        "manifest_schema_version": "1.0.0",
+        "export_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "tool": "TunnelTrace AI (SIH PS 26160)",
+        "analysis": {
+            "analysis_id": str(analysis.id),
+            "status": analysis.status,
+            "current_stage": analysis.current_stage,
+            "parser_engine": analysis.parser_engine,
+            "parser_version": analysis.parser_version,
+            "schema_version": analysis.schema_version,
+            "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+            "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
+            "parent_analysis_id": str(analysis.parent_analysis_id) if analysis.parent_analysis_id else None,
+            "replay_mode": analysis.replay_mode,
+            "provenance_metadata": analysis.provenance_metadata,
+        },
+        "capture": {
+            "capture_id": str(analysis.capture_id) if analysis.capture_id else None,
+            "filename": analysis.capture.original_filename if analysis.capture else None,
+            "sha256": analysis.capture.sha256_hash if analysis.capture else None,
+            "file_size_bytes": analysis.capture.file_size_bytes if analysis.capture else None,
+            "packet_count": analysis.capture.packet_count if analysis.capture else None,
+            "duration_sec": analysis.capture.duration_sec if analysis.capture else None,
+        } if analysis.capture else None,
+        "security_posture": score_data,
+        "findings_summary": {
+            "total": len(findings_list),
+            "critical": sum(1 for f in findings_list if f["severity"] == "CRITICAL"),
+            "high": sum(1 for f in findings_list if f["severity"] == "HIGH"),
+            "medium": sum(1 for f in findings_list if f["severity"] == "MEDIUM"),
+            "low": sum(1 for f in findings_list if f["severity"] == "LOW"),
+        },
+        "findings": findings_list,
+    }
+
+    return JSONResponse(
+        content=manifest,
+        headers={
+            "Content-Disposition": f'attachment; filename="tunneltrace_assessment_{str(analysis.id)[:8]}.json"',
+        },
+    )
+
+
+@router.get(
+    "/{analysis_id}/export/findings.csv",
+    summary="Download findings as RFC 4180 compliant CSV",
+)
+async def export_findings_csv(
+    analysis_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+) -> Response:
+    """Export findings formatted as RFC 4180 CSV for spreadsheet and SIEM ingestion."""
+    import csv
+    import io
+
+    res = await db.execute(
+        select(AnalysisRun).where(AnalysisRun.id == analysis_id)
+    )
+    analysis = res.scalar_one_or_none()
+    if not analysis:
+        raise AnalysisNotFoundError(str(analysis_id))
+
+    stmt_findings = select(SecurityFindingModel).where(SecurityFindingModel.analysis_id == analysis_id)
+    findings = (await db.execute(stmt_findings)).scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "Finding ID",
+        "Rule ID",
+        "Severity",
+        "Title",
+        "Category",
+        "Affected Entity",
+        "Decision Reason",
+        "Recommendation",
+        "Remediation Impact",
+        "CVSS v3.1",
+        "Epistemic Status",
+    ])
+    for f in findings:
+        entity = getattr(f, "affected_entity", None)
+        if not entity:
+            entity_type = getattr(f, "affected_entity_type", "")
+            entity_id = getattr(f, "affected_entity_id", "")
+            entity = f"{entity_type} {entity_id}".strip() or "IPsec SA"
+
+        reason = getattr(f, "technical_description", None) or getattr(f, "decision_reason", "")
+        rec = getattr(f, "remediation_guidance", None) or getattr(f, "recommendation", "")
+        impact = getattr(f, "remediation_directive", None) or getattr(f, "remediation_impact", "")
+        cvss = getattr(f, "cvss_v3_score", "")
+        epistemic = getattr(f, "evidence_state", "") or getattr(f, "epistemic_status", "")
+
+        writer.writerow([
+            str(getattr(f, "finding_id", getattr(f, "id", ""))),
+            getattr(f, "rule_id", ""),
+            getattr(f, "severity", ""),
+            getattr(f, "title", ""),
+            getattr(f, "category", ""),
+            entity,
+            reason or "",
+            rec or "",
+            impact or "",
+            str(cvss) if cvss is not None else "",
+            epistemic or "",
+        ])
+
+    csv_data = output.getvalue()
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="tunneltrace_findings_{str(analysis.id)[:8]}.csv"',
+        },
+    )
 

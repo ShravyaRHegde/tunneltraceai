@@ -615,12 +615,15 @@ async def get_evidence_graph(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence graph not found.")
 
     m_data = eg.manifest_data or {}
+    g_data = eg.graph_data or {"nodes": [], "edges": []}
     return EvidenceGraphDTO(
         analysis_id=eg.analysis_id,
         capture_sha256=eg.capture_sha256,
         nodes_count=eg.nodes_count,
         edges_count=eg.edges_count,
-        react_flow=eg.graph_data or {"nodes": [], "edges": []},
+        nodes=g_data.get("nodes", []),
+        edges=g_data.get("edges", []),
+        react_flow=g_data,
         manifest_sha256=m_data.get("manifest_sha256", ""),
     )
 

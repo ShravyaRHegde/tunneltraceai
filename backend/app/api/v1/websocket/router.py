@@ -70,6 +70,37 @@ class AnalysisConnectionManager:
 ws_manager = AnalysisConnectionManager()
 
 
+@router.websocket("/ws")
+async def general_websocket_endpoint(websocket: WebSocket) -> None:
+    """General status and heartbeat WebSocket endpoint."""
+    await websocket.accept()
+    try:
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "type": "CONNECTED",
+                    "service": "TunnelTrace AI Realtime Stream",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        )
+        while True:
+            data = await websocket.receive_text()
+            if data.strip().upper() == "PING" or '"PING"' in data:
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "PONG",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
+                )
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.debug(f"General WebSocket closed: {exc}")
+
+
 @router.websocket("/ws/analyses/{analysis_id}")
 async def analysis_websocket_endpoint(websocket: WebSocket, analysis_id: uuid.UUID) -> None:
     """Stream realtime stage transitions, counter updates, and completion notifications."""

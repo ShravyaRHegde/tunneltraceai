@@ -25,6 +25,7 @@ class TestReportingAPIEndpoints:
         service.list_reports = AsyncMock()
         service.get_report_html = AsyncMock()
         service.get_report_bytes = AsyncMock()
+        service.check_report_integrity = MagicMock(return_value=("VERIFIED", "a" * 64))
         return service
 
     @pytest.mark.asyncio

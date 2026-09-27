@@ -142,51 +142,67 @@ export default function TrafficIntelligencePage({
       ) : null}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card title="Encrypted Flow Inference">
-          <div className="space-y-1 font-mono">
-            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-              {traffic.classified_flows} / {traffic.total_flows}
-            </div>
-            <p className="text-[11px] text-neutral-500">
-              Run Status: <span className="font-semibold text-neutral-800 dark:text-neutral-200">{traffic.ml_run_status || "UNKNOWN"}</span>
-            </p>
-          </div>
-        </Card>
+      {(() => {
+        const isModelActive =
+          traffic.ml_run_status === "COMPLETED" && traffic.classified_flows > 0;
 
-        <Card title="Workload Classes Detected">
-          <div className="space-y-1 font-mono">
-            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-              {traffic.classes_detected?.length || 0}
-            </div>
-            <p className="text-[11px] text-neutral-500 truncate">
-              {traffic.classes_detected?.join(", ") || "None"}
-            </p>
-          </div>
-        </Card>
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card title="Encrypted Flow Inference">
+              <div className="space-y-1 font-mono">
+                <div className="text-2xl font-bold text-neutral-900 dark:text-white">
+                  {traffic.classified_flows} / {traffic.total_flows}
+                </div>
+                <p className="text-[11px] text-neutral-500">
+                  Run Status:{" "}
+                  <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                    {traffic.ml_run_status || "NOT_CONFIGURED"}
+                  </span>
+                </p>
+              </div>
+            </Card>
 
-        <Card title="OOD / Rejected Flows">
-          <div className="space-y-1 font-mono">
-            <div className="text-2xl font-bold text-amber-600">
-              {traffic.ood_count}
-            </div>
-            <p className="text-[11px] text-neutral-500">
-              Outside supported model distribution (Not an attack signal).
-            </p>
-          </div>
-        </Card>
+            <Card title="Workload Classes Detected">
+              <div className="space-y-1 font-mono">
+                <div className={`text-2xl font-bold ${isModelActive ? "text-neutral-900 dark:text-white" : "text-neutral-500 text-lg"}`}>
+                  {isModelActive ? (traffic.classes_detected?.length || 0) : "UNAVAILABLE"}
+                </div>
+                <p className="text-[11px] text-neutral-500 truncate">
+                  {isModelActive
+                    ? traffic.classes_detected?.join(", ") || "None"
+                    : "Active model bundle not deployed"}
+                </p>
+              </div>
+            </Card>
 
-        <Card title="Behavioral Anomalies">
-          <div className="space-y-1 font-mono">
-            <div className="text-2xl font-bold text-rose-600">
-              {traffic.anomaly_count}
-            </div>
-            <p className="text-[11px] text-neutral-500">
-              Statistical behavioral outliers (Not an attack signal).
-            </p>
+            <Card title="OOD / Rejected Flows">
+              <div className="space-y-1 font-mono">
+                <div className={`text-2xl font-bold ${isModelActive ? "text-amber-600" : "text-neutral-500 text-lg"}`}>
+                  {isModelActive ? traffic.ood_count : "UNAVAILABLE"}
+                </div>
+                <p className="text-[11px] text-neutral-500">
+                  {isModelActive
+                    ? "Outside supported model distribution (Not an attack signal)."
+                    : "Inference has not executed; OOD unavailable."}
+                </p>
+              </div>
+            </Card>
+
+            <Card title="Behavioral Anomalies">
+              <div className="space-y-1 font-mono">
+                <div className={`text-2xl font-bold ${isModelActive ? "text-rose-600" : "text-neutral-500 text-lg"}`}>
+                  {isModelActive ? traffic.anomaly_count : "UNAVAILABLE"}
+                </div>
+                <p className="text-[11px] text-neutral-500">
+                  {isModelActive
+                    ? "Statistical behavioral outliers (Not an attack signal)."
+                    : "Inference has not executed; anomaly scoring unavailable."}
+                </p>
+              </div>
+            </Card>
           </div>
-        </Card>
-      </div>
+        );
+      })()}
 
       {/* Main Workspace (12 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
