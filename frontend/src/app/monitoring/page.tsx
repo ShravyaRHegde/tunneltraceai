@@ -24,7 +24,6 @@ import {
   CopyableValue,
 } from "@/components/ui/table";
 import { InspectorDrawer } from "@/components/ui/inspector-drawer";
-import { SocWorkflowBanner } from "@/components/soc/soc-workflow-banner";
 import {
   Radio,
   Activity,
@@ -44,6 +43,7 @@ import {
   Layers,
   ChevronRight,
   Eye,
+  EyeOff,
   Trash2,
   ExternalLink,
   FileKey2,
@@ -62,6 +62,7 @@ function MonitoringContent() {
   const [isRegisterSensorOpen, setIsRegisterSensorOpen] = useState(false);
   const [issuedTokenModal, setIssuedTokenModal] = useState<RegisterSensorResponseDTO | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [showRawToken, setShowRawToken] = useState(false);
 
   // Inspector drawers
   const [selectedEvent, setSelectedEvent] = useState<MonitoringEventItemDTO | null>(null);
@@ -154,7 +155,7 @@ function MonitoringContent() {
         } catch {}
       }
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL
-        ? `${process.env.NEXT_PUBLIC_WS_URL.replace(/\/$/, "")}/monitoring/ws`
+        ? `${process.env.NEXT_PUBLIC_WS_URL.replace(/\/ws\/?$/, "").replace(/\/$/, "")}/monitoring/ws`
         : `${protocol}//${host}/api/v1/monitoring/ws`;
       ws = new WebSocket(wsUrl);
 
@@ -197,7 +198,19 @@ function MonitoringContent() {
 
     return () => {
       if (pingInterval) clearInterval(pingInterval);
-      if (ws) ws.close();
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        } else if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => {
+            try { ws?.close(); } catch {}
+          };
+        }
+      }
     };
   }, [queryClient]);
 
@@ -236,9 +249,30 @@ function MonitoringContent() {
     },
   });
 
+  const [pulseMessage, setPulseMessage] = useState<string | null>(null);
+
+  const pulseMutation = useMutation({
+    mutationFn: () => api.monitoring.triggerPulse(),
+    onSuccess: () => {
+      refetchGateways();
+      refetchSensors();
+      refetchHealth();
+      refetchSAs();
+      refetchTimeline();
+      setPulseMessage("Live telemetry pulse sent! WebSocket broadcast received.");
+      setTimeout(() => setPulseMessage(null), 4000);
+    },
+    onError: (err: any) => {
+      setPulseMessage(`Failed to send pulse: ${err?.message || "Error"}`);
+      setTimeout(() => setPulseMessage(null), 4000);
+    },
+  });
+
   // Calculate fleet stats
   const totalGateways = gateways.length;
   const totalSensors = sensors.length;
+  const activeSensorsCount = sensors.filter((s) => s.status === "ACTIVE").length;
+  const revokedSensorsCount = sensors.filter((s) => s.status === "REVOKED" || s.status === "DISABLED").length;
   const healthyCount = healthList.filter((h) => h.current_health === "HEALTHY").length;
   const degradedCount = healthList.filter((h) => h.current_health === "DEGRADED").length;
   const staleCount = healthList.filter((h) => h.current_health === "STALE").length;
@@ -281,13 +315,40 @@ function MonitoringContent() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] text-xs font-mono">
             <span
               className={`w-2 h-2 rounded-full ${
-                wsConnected ? "bg-emerald-500 animate-ping" : "bg-neutral-400"
+                wsConnected
+                  ? healthyCount > 0
+                    ? "bg-emerald-500 animate-ping"
+                    : "bg-amber-500"
+                  : "bg-neutral-400"
               }`}
             />
-            <span className={wsConnected ? "text-emerald-600 dark:text-emerald-400" : "text-neutral-500"}>
-              {wsConnected ? `LIVE WS CONNECTED (${liveEventCount})` : "POLLING (10s)"}
+            <span
+              className={
+                wsConnected
+                  ? healthyCount > 0
+                    ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                    : "text-amber-600 dark:text-amber-400 font-semibold"
+                  : "text-neutral-500"
+              }
+            >
+              {wsConnected
+                ? healthyCount > 0
+                  ? `LIVE STREAMING (${liveEventCount})`
+                  : `WS CONNECTED · SENSORS STALE (${liveEventCount})`
+                : "POLLING LOOP (10s)"}
             </span>
           </div>
+
+          {/* Actions: Send Live Pulse & Manual Refresh */}
+          <button
+            onClick={() => pulseMutation.mutate()}
+            disabled={pulseMutation.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold bg-[#FF3D00] hover:bg-[#E03600] text-white rounded transition-colors shadow-xs disabled:opacity-50"
+            title="Send genuine heartbeat and IKE SA telemetry events to verify live WebSocket streaming"
+          >
+            <Zap className={`w-3.5 h-3.5 ${pulseMutation.isPending ? "animate-spin" : ""}`} />
+            <span>{pulseMutation.isPending ? "SENDING..." : "⚡ TEST LIVE PULSE"}</span>
+          </button>
 
           <button
             onClick={() => {
@@ -305,34 +366,43 @@ function MonitoringContent() {
         </div>
       </div>
 
-      {/* SOC Analyst Workflow Stepper */}
-      <SocWorkflowBanner
-        activeStep={activeTab === "timeline" ? 3 : 1}
-        gatewayIdentity={
-          selectedGatewayDetails?.name ||
-          gateways.find((g) => g.id === filterGatewayId)?.name ||
-          undefined
-        }
-        gatewayIp={
-          selectedGatewayDetails?.gateway_ip ||
-          gateways.find((g) => g.id === filterGatewayId)?.gateway_ip ||
-          undefined
-        }
-        authorizedScope={
-          selectedGatewayDetails?.authorized_scope ||
-          gateways.find((g) => g.id === filterGatewayId)?.authorized_scope ||
-          undefined
-        }
-        sensorFreshness={
-          healthList.some((h) => h.current_health === "STALE")
-            ? "STALE"
-            : healthList.some((h) => h.current_health === "DEGRADED")
-            ? "DEGRADED"
-            : healthList.length > 0
-            ? "HEALTHY"
-            : "UNKNOWN"
-        }
-      />
+      {/* Pulse Feedback Banner */}
+      {pulseMessage && (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-mono flex items-center justify-between">
+          <div className="flex items-center space-x-2 font-bold">
+            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>{pulseMessage}</span>
+          </div>
+          <button onClick={() => setPulseMessage(null)} className="text-neutral-400 hover:text-neutral-600">×</button>
+        </div>
+      )}
+
+      {/* Telemetry Freshness & Setup Warning Banner */}
+      {healthyCount === 0 && (staleCount > 0 || degradedCount > 0) && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1.5">
+          <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Telemetry Stale: No Active Gateway Observations</span>
+          </div>
+          <p className="text-[11px] leading-relaxed">
+            {staleCount} registered sensor(s) have exceeded the 60-second freshness heartbeat threshold. 
+            The browser WebSocket connection to backend is active, but telemetry feeds are historical. 
+            Projected SA records shown below represent retained states under the non-deletion invariant; they do not indicate currently established live tunnels.
+          </p>
+          <div className="pt-1 flex flex-wrap items-center gap-3 text-[11px]">
+            <span className="font-bold text-amber-950 dark:text-amber-100">Recommended Action:</span>
+            <button
+              onClick={() => {
+                setActiveTab("sensors");
+                router.replace("/monitoring?tab=sensors", { scroll: false });
+              }}
+              className="underline font-bold text-amber-800 dark:text-amber-300 hover:text-amber-950"
+            >
+              Configure / restore sensor collector feed in Sensor Fleet →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Top Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -347,9 +417,11 @@ function MonitoringContent() {
         <Card className="p-3 border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113]">
           <div className="text-[10px] font-mono text-neutral-500 uppercase">Sensors Active</div>
           <div className="text-xl font-bold font-mono mt-1 text-neutral-900 dark:text-neutral-100">
-            {totalSensors}
+            {activeSensorsCount}
           </div>
-          <div className="text-[10px] text-neutral-400 mt-0.5">Collectors & probes</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">
+            {revokedSensorsCount > 0 ? `${revokedSensorsCount} revoked/disabled` : `${totalSensors} total collectors`}
+          </div>
         </Card>
 
         <Card className="p-3 border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113]">
@@ -375,15 +447,17 @@ function MonitoringContent() {
           <div className="text-xl font-bold font-mono mt-1 text-blue-500">
             {activeSAsCount}
           </div>
-          <div className="text-[10px] text-neutral-400 mt-0.5">Live IPsec tunnels</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">
+            {activeSAsCount > 0 ? "Live IPsec tunnels" : "0 active tunnels observed"}
+          </div>
         </Card>
 
         <Card className="p-3 border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113]">
-          <div className="text-[10px] font-mono text-neutral-400 uppercase">Stale SAs Retained</div>
+          <div className="text-[10px] font-mono text-neutral-400 uppercase">Historical SAs (Retained)</div>
           <div className="text-xl font-bold font-mono mt-1 text-neutral-400">
             {staleSAsCount}
           </div>
-          <div className="text-[10px] text-neutral-400 mt-0.5">Non-deletion invariant</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">Past observed states</div>
         </Card>
       </div>
 
@@ -1200,23 +1274,39 @@ function MonitoringContent() {
             </p>
 
             <div className="p-3 bg-neutral-100 dark:bg-black border border-neutral-300 dark:border-neutral-800 rounded font-mono text-xs break-all flex items-center justify-between gap-3">
-              <span className="text-[#FF3D00] font-semibold">{issuedTokenModal.raw_token}</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(issuedTokenModal.raw_token);
-                  setCopiedToken(true);
-                  setTimeout(() => setCopiedToken(false), 3000);
-                }}
-                className="p-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded text-neutral-500 hover:text-white transition-colors"
-              >
-                {copiedToken ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              </button>
+              <span className="text-[#FF3D00] font-semibold">
+                {showRawToken
+                  ? issuedTokenModal.raw_token
+                  : issuedTokenModal.raw_token.slice(0, 8) + "••••••••••••••••" + issuedTokenModal.raw_token.slice(-6)}
+              </span>
+              <div className="flex items-center space-x-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowRawToken(!showRawToken)}
+                  title={showRawToken ? "Hide token" : "Show token"}
+                  className="p-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                >
+                  {showRawToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(issuedTokenModal.raw_token);
+                    setCopiedToken(true);
+                    setTimeout(() => setCopiedToken(false), 3000);
+                  }}
+                  title="Copy full token"
+                  className="p-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-800 rounded text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                >
+                  {copiedToken ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="text-[11px] text-neutral-500 font-mono space-y-1">
               <div>Sensor: {issuedTokenModal.sensor_name}</div>
               <div>Scope: {issuedTokenModal.authorized_scope}</div>
-              <div>Header: <code className="text-neutral-400">X-Sensor-Token: {issuedTokenModal.raw_token}</code></div>
+              <div>Header: <code className="text-neutral-400">X-Sensor-Token: {showRawToken ? issuedTokenModal.raw_token : "••••••••••••••••"}</code></div>
             </div>
 
             <div className="flex justify-end pt-3 border-t border-neutral-200 dark:border-neutral-800">

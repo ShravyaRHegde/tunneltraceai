@@ -58,9 +58,29 @@ export default function OverviewPage({
     protocol_summary,
   } = overview;
 
-  // Deduction Chart Options
-  const deductionCategories = Object.keys(security_posture.itemized_deductions || {});
-  const deductionValues = Object.values(security_posture.itemized_deductions || {});
+  // Robust Deduction Chart Parsing (supports both object dict and {audit: [...]} array)
+  const rawDeductions = security_posture.itemized_deductions;
+  let deductionCategories: string[] = [];
+  let deductionValues: number[] = [];
+
+  if (rawDeductions && Array.isArray((rawDeductions as any).audit)) {
+    deductionCategories = (rawDeductions as any).audit.map(
+      (d: any) => d.rule_id || d.finding_id || d.category || "Rule"
+    );
+    deductionValues = (rawDeductions as any).audit.map(
+      (d: any) => Number(d.applied_deduction ?? d.raw_deduction ?? 0)
+    );
+  } else if (rawDeductions && typeof rawDeductions === "object") {
+    deductionCategories = Object.keys(rawDeductions).filter((k) => k !== "total_deduction");
+    deductionValues = deductionCategories.map((k) => Number((rawDeductions as any)[k]) || 0);
+  }
+
+  const isDemoOrSeeded = Boolean(
+    analysis?.is_synthetic_demo ||
+    overview?.analysis?.is_synthetic_demo ||
+    overview?.capture?.filename === "ikev2_perimeter_audit.pcap" ||
+    (protocol_summary?.total_observations === 0 && (findings_summary?.total || 0) > 0)
+  );
 
   const deductionChartOptions: echarts.EChartsOption = {
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
@@ -87,12 +107,43 @@ export default function OverviewPage({
 
   return (
     <div className="space-y-6">
+      {/* Demo Fixture / Reference Data Provenance Banner */}
+      {isDemoOrSeeded && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
+          <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Demonstration Fixture Reference Data</span>
+          </div>
+          <p>
+            This analysis run contains seeded reference demonstration findings and posture scores. Wire packet observations were not parsed from a raw PCAP stream for this fixture. 
+            For empirical wire analysis with live-reconstructed IKE/ESP sessions, please ingest verified samples like <code className="font-bold">real_tunnel_gcm.pcapng</code> or upload an authorized capture.
+          </p>
+        </div>
+      )}
+
+      {/* Insufficient Evidence / Not Assessable Banner */}
+      {!isDemoOrSeeded && (security_posture.score === null || (security_posture as any).status === "NOT_ASSESSABLE" || (security_posture as any).status === "INSUFFICIENT_EVIDENCE" || (security_posture.evidence_coverage !== undefined && security_posture.evidence_coverage < 0.5)) && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
+          <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Limited Protocol Evidence — Posture Score Withheld ({formatCoverage(security_posture.evidence_coverage)} coverage)</span>
+          </div>
+          <p>
+            {security_posture.evidence_coverage === 0 ? (
+              "No observable IPsec packet evidence (IKE handshake or ESP traffic) was found in this capture artifact. All policy rules are marked UNKNOWN."
+            ) : (
+              `This capture contains partial data plane traffic without the initial IKE key negotiation handshake (${compliance_counts.unknown} check(s) remain UNKNOWN). TunnelTrace AI strictly enforces epistemic honesty: an authoritative 100/100 score is withheld until complete handshake evidence is observed.`
+            )}
+          </p>
+        </div>
+      )}
+
       {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Security Posture Score */}
         <Card
           title="Security Posture Score"
-          variant={security_posture.score < 50 ? "danger" : "default"}
+          variant={security_posture.score !== null && security_posture.score < 50 ? "danger" : "default"}
           badge={
             <span className="text-[10px] font-mono px-1 border border-neutral-300 dark:border-neutral-700">
               {security_posture.methodology_version || "INTERNAL v1"}
@@ -100,12 +151,27 @@ export default function OverviewPage({
           }
         >
           <div className="space-y-2">
-            <div className="flex items-baseline space-x-2">
-              <span className="text-3xl font-mono font-bold text-neutral-900 dark:text-white">
-                {security_posture.score}
-              </span>
-              <span className="text-sm font-mono text-neutral-400">/ 100</span>
-            </div>
+            {security_posture.score !== null && security_posture.score !== undefined && (security_posture as any).status !== "INSUFFICIENT_EVIDENCE" && (security_posture as any).status !== "NOT_ASSESSABLE" ? (
+              <div className="flex items-baseline space-x-2">
+                <span className="text-3xl font-mono font-bold text-neutral-900 dark:text-white">
+                  {security_posture.score}
+                </span>
+                <span className="text-sm font-mono text-neutral-400">/ 100</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-baseline space-x-2">
+                  <span className="text-2xl font-mono font-bold text-amber-500">
+                    NOT ASSESSABLE
+                  </span>
+                </div>
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">
+                  {security_posture.evidence_coverage === 0
+                    ? "Zero observable IPsec packet evidence found in capture. Score cannot be calculated."
+                    : `Insufficient evidence (${formatCoverage(security_posture.evidence_coverage)} coverage, ${compliance_counts.unknown} unknown checks). Score withheld.`}
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-neutral-500 font-mono">
               Evaluated on observable packet evidence ({formatCoverage(security_posture.evidence_coverage)} coverage, {compliance_counts.unknown} unknown rules). Not a formal security certification.
             </p>
@@ -324,6 +390,12 @@ export default function OverviewPage({
           >
             <div className="space-y-2 text-xs font-mono">
               <div className="flex justify-between py-1 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-neutral-500">Model Pipeline:</span>
+                <span className={`font-bold ${traffic_summary.ml_run_status === "NOT_CONFIGURED" || traffic_summary.classified_flows === 0 ? "text-amber-600 dark:text-amber-400 text-[10px]" : "text-emerald-600 dark:text-emerald-400"}`}>
+                  {traffic_summary.ml_run_status === "NOT_CONFIGURED" || traffic_summary.classified_flows === 0 ? "NOT CONFIGURED (SKIPPED)" : "ACTIVE"}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-neutral-100 dark:border-neutral-800">
                 <span className="text-neutral-500">Classified Flows:</span>
                 <span className="font-bold text-neutral-900 dark:text-white">
                   {traffic_summary.classified_flows}
@@ -349,7 +421,9 @@ export default function OverviewPage({
               </div>
             </div>
             <p className="mt-3 text-[10px] text-neutral-400 font-mono italic">
-              Application classes inferred from encrypted packet timing and size metadata. Payload is not decrypted.
+              {traffic_summary.ml_run_status === "NOT_CONFIGURED" || traffic_summary.classified_flows === 0
+                ? "No machine learning classifier bundle is deployed on this node. Inferences were safely skipped rather than producing synthetic claims."
+                : "Application classes inferred from encrypted packet timing and size metadata. Payload is not decrypted."}
             </p>
           </Card>
 

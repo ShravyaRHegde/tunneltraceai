@@ -1,0 +1,21 @@
+{
+  "candidate_horizons": [
+    32,
+    64,
+    128
+  ],
+  "channels": [
+    "direction",
+    "packet_length",
+    "delta_time"
+  ],
+  "default_horizon": 32,
+  "delta_time_clip": 5.0,
+  "direction_forward": 1.0,
+  "direction_reverse": -1.0,
+  "dtype": "float32",
+  "length_norm_factor": 1500.0,
+  "min_cnn_packets": 3,
+  "padding_value": 0.0,
+  "version": "1.0.0"
+}

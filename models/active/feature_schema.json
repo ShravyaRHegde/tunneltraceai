@@ -1,0 +1,251 @@
+{
+  "burst_threshold_ms": 5.0,
+  "early_k": 10,
+  "feature_names": [
+    "duration_ms",
+    "total_packets",
+    "total_bytes",
+    "fwd_pkt_ratio",
+    "byte_direction_ratio",
+    "pkt_len_mean",
+    "pkt_len_std",
+    "pkt_len_skew",
+    "pkt_len_p10",
+    "pkt_len_p25",
+    "pkt_len_median",
+    "pkt_len_p75",
+    "pkt_len_p90",
+    "iat_mean_ms",
+    "iat_std_ms",
+    "iat_max_ms",
+    "fwd_iat_mean_ms",
+    "rev_iat_mean_ms",
+    "packets_per_second",
+    "bytes_per_second",
+    "burst_count",
+    "burst_mean_bytes",
+    "idle_ratio",
+    "first_k_bytes"
+  ],
+  "features": [
+    {
+      "category": "FLOW",
+      "description": "Total elapsed time between first and last packet of the flow",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_SINGLE_PACKET",
+      "name": "duration_ms",
+      "unit": "ms"
+    },
+    {
+      "category": "FLOW",
+      "description": "Total packet count in flow (forward + reverse)",
+      "max_bound": null,
+      "min_bound": 1.0,
+      "missing_policy": "NEVER_MISSING",
+      "name": "total_packets",
+      "unit": "count"
+    },
+    {
+      "category": "FLOW",
+      "description": "Total wire byte count in flow (forward + reverse)",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "NEVER_MISSING",
+      "name": "total_bytes",
+      "unit": "bytes"
+    },
+    {
+      "category": "DIRECTIONAL",
+      "description": "Ratio of forward packets to total packets: K_fwd / (K_fwd + K_rev)",
+      "max_bound": 1.0,
+      "min_bound": 0.0,
+      "missing_policy": "HALF_IF_ZERO_PACKETS",
+      "name": "fwd_pkt_ratio",
+      "unit": "ratio"
+    },
+    {
+      "category": "DIRECTIONAL",
+      "description": "Ratio of forward bytes to total bytes: Bytes_fwd / Total_bytes",
+      "max_bound": 1.0,
+      "min_bound": 0.0,
+      "missing_policy": "HALF_IF_ZERO_BYTES",
+      "name": "byte_direction_ratio",
+      "unit": "ratio"
+    },
+    {
+      "category": "SIZE",
+      "description": "Arithmetic mean of all packet wire lengths in flow",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "NEVER_MISSING",
+      "name": "pkt_len_mean",
+      "unit": "bytes"
+    },
+    {
+      "category": "SIZE",
+      "description": "Standard deviation of packet wire lengths",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_SINGLE_PACKET",
+      "name": "pkt_len_std",
+      "unit": "bytes"
+    },
+    {
+      "category": "SIZE",
+      "description": "Fisher-Pearson skewness of packet wire lengths clipped to [-3, 3]",
+      "max_bound": 3.0,
+      "min_bound": -3.0,
+      "missing_policy": "ZERO_IF_VARIANCE_ZERO",
+      "name": "pkt_len_skew",
+      "unit": "scalar"
+    },
+    {
+      "category": "SIZE",
+      "description": "10th percentile of packet wire lengths",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "FIRST_PACKET_LENGTH_IF_SINGLE",
+      "name": "pkt_len_p10",
+      "unit": "bytes"
+    },
+    {
+      "category": "SIZE",
+      "description": "25th percentile of packet wire lengths",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "FIRST_PACKET_LENGTH_IF_SINGLE",
+      "name": "pkt_len_p25",
+      "unit": "bytes"
+    },
+    {
+      "category": "SIZE",
+      "description": "50th percentile (median) of packet wire lengths",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "FIRST_PACKET_LENGTH_IF_SINGLE",
+      "name": "pkt_len_median",
+      "unit": "bytes"
+    },
+    {
+      "category": "SIZE",
+      "description": "75th percentile of packet wire lengths",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "FIRST_PACKET_LENGTH_IF_SINGLE",
+      "name": "pkt_len_p75",
+      "unit": "bytes"
+    },
+    {
+      "category": "SIZE",
+      "description": "90th percentile of packet wire lengths",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "FIRST_PACKET_LENGTH_IF_SINGLE",
+      "name": "pkt_len_p90",
+      "unit": "bytes"
+    },
+    {
+      "category": "TIMING",
+      "description": "Arithmetic mean of inter-packet arrival times in milliseconds",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_SINGLE_PACKET",
+      "name": "iat_mean_ms",
+      "unit": "ms"
+    },
+    {
+      "category": "TIMING",
+      "description": "Sample standard deviation of inter-packet arrival times in milliseconds",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_FEWER_THAN_THREE_PACKETS",
+      "name": "iat_std_ms",
+      "unit": "ms"
+    },
+    {
+      "category": "TIMING",
+      "description": "Maximum inter-packet arrival time in milliseconds",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_SINGLE_PACKET",
+      "name": "iat_max_ms",
+      "unit": "ms"
+    },
+    {
+      "category": "TIMING",
+      "description": "Arithmetic mean of forward stream inter-packet arrival times in milliseconds",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_FEWER_THAN_TWO_FWD_PACKETS",
+      "name": "fwd_iat_mean_ms",
+      "unit": "ms"
+    },
+    {
+      "category": "TIMING",
+      "description": "Arithmetic mean of reverse stream inter-packet arrival times in milliseconds",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_FEWER_THAN_TWO_REV_PACKETS",
+      "name": "rev_iat_mean_ms",
+      "unit": "ms"
+    },
+    {
+      "category": "RATE",
+      "description": "Total packet rate: K / (duration_sec + epsilon)",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_ZERO_DURATION",
+      "name": "packets_per_second",
+      "unit": "pkt/s"
+    },
+    {
+      "category": "RATE",
+      "description": "Total byte rate: total_bytes / (duration_sec + epsilon)",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_ZERO_DURATION",
+      "name": "bytes_per_second",
+      "unit": "byte/s"
+    },
+    {
+      "category": "BURST",
+      "description": "Number of packet trains where inter-arrival times are strictly below burst_threshold_ms",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_NO_BURSTS",
+      "name": "burst_count",
+      "unit": "count"
+    },
+    {
+      "category": "BURST",
+      "description": "Average total wire bytes per burst train",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_NO_BURSTS",
+      "name": "burst_mean_bytes",
+      "unit": "bytes"
+    },
+    {
+      "category": "IDLE",
+      "description": "Ratio of cumulative idle time (IAT > idle_threshold_ms) to total flow duration",
+      "max_bound": 1.0,
+      "min_bound": 0.0,
+      "missing_policy": "ZERO_IF_NO_IDLES_OR_ZERO_DURATION",
+      "name": "idle_ratio",
+      "unit": "ratio"
+    },
+    {
+      "category": "EARLY",
+      "description": "Cumulative wire bytes transmitted in the first K packets of the flow",
+      "max_bound": null,
+      "min_bound": 0.0,
+      "missing_policy": "SUM_OF_AVAILABLE_PACKETS",
+      "name": "first_k_bytes",
+      "unit": "bytes"
+    }
+  ],
+  "idle_threshold_ms": 500.0,
+  "num_features": 24,
+  "schema_version": "v1.0.0"
+}

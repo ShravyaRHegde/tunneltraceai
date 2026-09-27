@@ -47,6 +47,7 @@ export interface AnalysisRunResponseDTO {
   parent_analysis_id?: string | null;
   replay_mode?: string | null;
   provenance_metadata?: Record<string, any> | null;
+  is_synthetic_demo?: boolean;
   created_at: string;
 }
 
@@ -424,6 +425,9 @@ export interface AnalysisOverviewDTO {
     parser_version: string;
     created_at: string | null;
     completed_at: string | null;
+    is_synthetic_demo?: boolean;
+    evidence_note?: string;
+    status_note?: string;
   };
   security_posture: {
     score: number;
@@ -447,11 +451,14 @@ export interface AnalysisOverviewDTO {
     top_findings: SecurityFindingDTO[];
   };
   traffic_summary: {
+    total_flows?: number;
     classified_flows: number;
     classes_detected: string[];
     avg_calibrated_confidence: number | null;
     ood_count: number;
     anomaly_count: number;
+    ml_run_status?: string;
+    model_bundle_id?: string | null;
   };
   fingerprintability: {
     overall_index: number;
@@ -553,6 +560,8 @@ export interface TwinResponseDTO {
   projected_score: number | null;
   projected_score_delta: number | null;
   disclaimer: string;
+  has_linked_baseline?: boolean;
+  baseline_provenance?: string | null;
 }
 
 export interface PreflightCheckDTO {
@@ -809,6 +818,7 @@ export interface DiscoveryJobCreateRequestDTO {
   requested_targets: string[];
   exclusions?: string[];
   permitted_ports?: number[];
+  simulate_demo?: boolean;
 }
 
 export interface IkeAssessmentStatusDTO {

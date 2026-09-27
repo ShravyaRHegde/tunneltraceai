@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { Card } from "@/components/ui/card";
@@ -17,8 +18,10 @@ import {
 } from "@/components/ui/table";
 import { Plus, Search, Layers, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
 
-export default function AnalysesListPage() {
+function AnalysesListContent() {
   const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const action = searchParams.get("action");
 
   const {
     data: analyses,
@@ -75,6 +78,20 @@ export default function AnalysesListPage() {
         </div>
       </div>
 
+      {/* Select Run Explanation Banner */}
+      {action === "select_run" && (
+        <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border-l-4 border-blue-500 text-blue-900 dark:text-blue-200 text-xs font-mono space-y-1">
+          <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>Select an Active Analysis Run</span>
+          </div>
+          <p>
+            You requested a run-specific investigation view (such as Findings, Evidence DAG, or Audit Report) while outside of an active analysis workspace. 
+            Choose an existing analysis session below to inspect its results, or ingest a new capture.
+          </p>
+        </div>
+      )}
+
       {/* Search & Filter Bar */}
       <div className="flex items-center space-x-2 max-w-md">
         <div className="relative flex-1">
@@ -93,7 +110,7 @@ export default function AnalysesListPage() {
       <Card title={`Recorded Analyses (${filteredAnalyses.length})`}>
         {isLoading ? (
           <div className="py-12 text-center text-xs font-mono text-neutral-500 animate-pulse">
-            Querying analysis catalog from PostgreSQL...
+            Querying analysis catalog from database...
           </div>
         ) : isError ? (
           <div className="py-8 text-center text-xs font-mono text-rose-600 space-y-2">
@@ -210,5 +227,13 @@ export default function AnalysesListPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+export default function AnalysesListPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-xs font-mono text-neutral-500 animate-pulse">Loading analysis history...</div>}>
+      <AnalysesListContent />
+    </Suspense>
   );
 }

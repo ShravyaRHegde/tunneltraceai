@@ -1,0 +1,11 @@
+{
+  "features": [
+    "duration_ms",
+    "total_packets",
+    "total_bytes",
+    "fwd_pkt_ratio",
+    "byte_direction_ratio",
+    "pkt_len_mean"
+  ],
+  "version": "1.0.0"
+}

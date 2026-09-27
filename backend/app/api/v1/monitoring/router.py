@@ -334,6 +334,96 @@ async def get_timeline(
     }
 
 
+@router.post(
+    "/pulse",
+    summary="Trigger a demo telemetry heartbeat pulse",
+    status_code=status.HTTP_200_OK,
+)
+async def trigger_telemetry_pulse(db: AsyncSession = Depends(get_db_session)) -> dict[str, Any]:
+    """Emit a live heartbeat and established IKE SA telemetry event for testing and evaluation."""
+    from datetime import timezone
+    from app.db.models.monitoring import MonitoredSensor
+    from app.monitoring.schema import (
+        EvidenceGrade,
+        MonitoringEventDTO,
+        SAState,
+        SensorType,
+    )
+
+    sensors = await MonitoringService.list_sensors(db)
+    active_sensor = next((s for s in sensors if s.status == "ACTIVE"), None)
+    if not active_sensor:
+        gateways = await MonitoringService.list_gateways(db)
+        if not gateways:
+            gw = await MonitoringService.register_gateway(
+                db,
+                RegisterGatewayRequest(
+                    name="Perimeter-Gateway-ALPHA",
+                    gateway_ip="198.51.100.1",
+                    authorized_scope="198.51.100.0/24",
+                    operator_id="operator-admin",
+                    authorization_reference="DEMO-PULSE-01",
+                ),
+            )
+            gw_id = gw.id
+        else:
+            gw_id = gateways[0].id
+
+        reg = await MonitoringService.register_sensor(
+            db,
+            RegisterSensorRequest(
+                sensor_name="perimeter-strongswan-collector",
+                sensor_type=SensorType.GATEWAY_COLLECTOR,
+                gateway_id=gw_id,
+                authorized_scope="198.51.100.0/24",
+                freshness_window_seconds=120,
+            ),
+        )
+        active_sensor = await db.get(MonitoredSensor, reg.sensor.id)
+
+    now = datetime.now(timezone.utc)
+    batch = MonitoringEventBatchRequest(
+        events=[
+            MonitoringEventDTO(
+                event_id=uuid.uuid4(),
+                sensor_id=active_sensor.id,
+                gateway_id=active_sensor.gateway_id,
+                authorized_scope=active_sensor.authorized_scope,
+                event_kind=EventKind.GATEWAY_HEARTBEAT,
+                evidence_grade=EvidenceGrade.OBSERVED,
+                sequence_number=int(now.timestamp()),
+                source_timestamp=now,
+                payload={"status": "HEALTHY", "active_tunnels": 1, "cpu_usage_pct": 12.4, "memory_usage_pct": 28.5},
+            ),
+            MonitoringEventDTO(
+                event_id=uuid.uuid4(),
+                sensor_id=active_sensor.id,
+                gateway_id=active_sensor.gateway_id,
+                authorized_scope=active_sensor.authorized_scope,
+                event_kind=EventKind.GATEWAY_IKE_SA_ESTABLISHED,
+                evidence_grade=EvidenceGrade.OBSERVED,
+                sequence_number=int(now.timestamp()) + 1,
+                source_timestamp=now,
+                ike_version="IKEv2",
+                initiator_spi=uuid.uuid4().hex[:16],
+                responder_spi=uuid.uuid4().hex[:16],
+                local_endpoint="198.51.100.1",
+                remote_endpoint="203.0.113.50",
+                cipher_suite="AES-256-GCM-16",
+                payload={"proposal": "aes256gcm16-prfsha256-ecp256", "rekey_time": 28800},
+            ),
+        ]
+    )
+    res = await MonitoringService.ingest_event_batch(db, active_sensor, batch)
+    return {
+        "status": "PULSE_SENT",
+        "sensor_id": str(active_sensor.id),
+        "gateway_id": str(active_sensor.gateway_id),
+        "accepted_count": res.accepted_count,
+        "timestamp": now.isoformat(),
+    }
+
+
 # ------------------------------------------------------------------------------
 # WebSocket Real-Time Telemetry Feed
 # ------------------------------------------------------------------------------

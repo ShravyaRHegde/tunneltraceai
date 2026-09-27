@@ -65,6 +65,9 @@ class ReplayService:
         candidate_paths = [
             Path(capture.storage_path),
             Path("./storage") / capture.storage_path,
+            Path("./backend/storage") / capture.storage_path,
+            Path(__file__).resolve().parent.parent.parent.parent / "storage" / capture.storage_path,
+            Path(__file__).resolve().parent.parent.parent.parent / "backend" / "storage" / capture.storage_path,
             Path(__file__).resolve().parent.parent.parent.parent / capture.storage_path,
             Path(__file__).resolve().parent.parent.parent.parent / "tests" / "fixtures" / "captures" / Path(capture.storage_path).name,
         ]

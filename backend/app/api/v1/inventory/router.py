@@ -54,7 +54,13 @@ async def designate_baseline(
     request: BaselineDesignateRequest,
     db: AsyncSession = Depends(get_db_session),
 ) -> ConfigurationSnapshotResponse:
-    snapshot = await InventoryService.designate_baseline(db, snapshot_id, request)
+    try:
+        snapshot = await InventoryService.designate_baseline(db, snapshot_id, request)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     if not snapshot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -105,6 +111,12 @@ async def get_snapshot(
     summary="Evaluate Configuration Drift",
     description="Performs an evidence-based diff between baseline and observed snapshots.",
 )
+@router.post(
+    "/configurations/drift/compare",
+    response_model=ConfigurationDriftResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 async def compute_drift(
     request: DriftCompareRequest,
     db: AsyncSession = Depends(get_db_session),
@@ -122,6 +134,11 @@ async def compute_drift(
     "/configurations/drifts",
     response_model=list[ConfigurationDriftResponse],
     summary="List Drift Reports",
+)
+@router.get(
+    "/configurations/drift/history",
+    response_model=list[ConfigurationDriftResponse],
+    include_in_schema=False,
 )
 async def list_drifts(
     gateway_identity: str | None = Query(None, description="Filter by gateway identity"),

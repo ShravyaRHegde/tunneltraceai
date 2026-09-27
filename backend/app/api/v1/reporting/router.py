@@ -30,6 +30,12 @@ def get_reporting_service(db: AsyncSession = Depends(get_db_session)) -> Reporti
     status_code=status.HTTP_201_CREATED,
     summary="Generate a publication-grade Executive or Technical report",
 )
+@router.post(
+    "/generate",
+    response_model=ReportResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Generate a publication-grade Executive or Technical report (alias)",
+)
 async def generate_report(
     analysis_id: uuid.UUID,
     req: CreateReportRequestDTO,

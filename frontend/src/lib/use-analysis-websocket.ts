@@ -18,16 +18,30 @@ export function useAnalysisWebSocket(analysisId: string | null) {
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const currentUrlRef = useRef<string | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptRef = useRef(0);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectRef = useRef<() => void>(() => {});
 
-  const connect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
+  const safeClose = useCallback((socket: WebSocket | null) => {
+    if (!socket) return;
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.close();
+    } else if (socket.readyState === WebSocket.CONNECTING) {
+      socket.onopen = () => {
+        try {
+          socket.close();
+        } catch {}
+      };
     }
+  }, []);
 
+  const connect = useCallback(() => {
     const wsEnv = process.env.NEXT_PUBLIC_WS_URL;
     let wsUrl: string;
     if (wsEnv) {
@@ -54,6 +68,21 @@ export function useAnalysisWebSocket(analysisId: string | null) {
         ? `${protocol}//${host}/api/v1/ws/analyses/${analysisId}`
         : `${protocol}//${host}/api/v1/ws`;
     }
+
+    if (
+      wsRef.current &&
+      (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) &&
+      currentUrlRef.current === wsUrl
+    ) {
+      return;
+    }
+
+    if (wsRef.current) {
+      safeClose(wsRef.current);
+      wsRef.current = null;
+    }
+
+    currentUrlRef.current = wsUrl;
 
     try {
       const socket = new WebSocket(wsUrl);
@@ -121,7 +150,7 @@ export function useAnalysisWebSocket(analysisId: string | null) {
       const msg = err instanceof Error ? err.message : "Failed to initialize WebSocket";
       setConnectionError(msg);
     }
-  }, [analysisId, queryClient]);
+  }, [analysisId, queryClient, safeClose]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -131,12 +160,12 @@ export function useAnalysisWebSocket(analysisId: string | null) {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       if (wsRef.current) {
-        wsRef.current.close();
+        safeClose(wsRef.current);
         wsRef.current = null;
       }
       setIsConnected(false);
     };
-  }, [connect]);
+  }, [connect, safeClose]);
 
   return {
     isConnected,

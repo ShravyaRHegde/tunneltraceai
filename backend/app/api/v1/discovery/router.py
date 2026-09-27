@@ -75,6 +75,7 @@ async def create_discovery_job(
             requested_targets=request.requested_targets,
             exclusions=request.exclusions,
             permitted_ports=request.permitted_ports,
+            simulate_demo=request.simulate_demo,
         )
         job_full = await DiscoveryService.get_job(db, job.id)
         return DiscoveryJobResponse.model_validate(job_full or job)

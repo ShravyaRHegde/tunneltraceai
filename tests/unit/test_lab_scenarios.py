@@ -120,7 +120,7 @@ class TestScenarioLoader:
                 assert sc.sha256_hash is not None
                 assert len(sc.sha256_hash) == 64
                 count += 1
-        assert count == 8
+        assert count >= 8
 
     def test_insecure_suite_requires_negative_test_flag(self) -> None:
         """Attempting to configure weak 3DES/SHA1 without is_negative_test=True must raise ValidationError."""

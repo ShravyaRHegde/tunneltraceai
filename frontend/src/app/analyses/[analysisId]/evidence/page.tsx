@@ -13,6 +13,7 @@ import {
   useEdgesState,
   Node,
   Edge,
+  Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { api } from "@/lib/api/client";
@@ -36,6 +37,7 @@ import {
   RefreshCw,
   ExternalLink,
   FileText,
+  Table2,
 } from "lucide-react";
 
 function EvidenceExplorerContent({
@@ -48,15 +50,15 @@ function EvidenceExplorerContent({
   const viewParam = searchParams.get("view");
 
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
-  const [viewMode, setViewMode] = useState<"graph" | "lineage" | "replay">(
-    viewParam === "replay" || viewParam === "lineage" ? viewParam : "graph"
+  const [viewMode, setViewMode] = useState<"graph" | "table" | "lineage" | "replay">(
+    viewParam === "replay" || viewParam === "lineage" || viewParam === "table" ? viewParam : "graph"
   );
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [reanalysisResult, setReanalysisResult] = useState<any | null>(null);
   const [reanalysisError, setReanalysisError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (viewParam === "replay" || viewParam === "lineage" || viewParam === "graph") {
+    if (viewParam === "replay" || viewParam === "lineage" || viewParam === "graph" || viewParam === "table") {
       setViewMode(viewParam);
     }
   }, [viewParam]);
@@ -98,27 +100,60 @@ function EvidenceExplorerContent({
           capture: "#4B5563",
         };
 
-        const formattedNodes: Node[] = rawNodes.map((n: any, idx: number) => {
+        const getEvidenceTier = (nodeType: string): number => {
+          const t = (nodeType || "").toLowerCase();
+          if (t.includes("capture")) return 0;
+          if (t.includes("packet")) return 1;
+          if (t.includes("observation")) return 2;
+          if (t.includes("fact")) return 3;
+          if (t.includes("rule")) return 4;
+          if (t.includes("finding")) return 5;
+          return 2;
+        };
+
+        const presentTiers: number[] = Array.from(
+          new Set<number>(rawNodes.map((n: any) => getEvidenceTier(n.node_type)))
+        ).sort((a: number, b: number) => a - b);
+        const tierToColIndex = new Map(presentTiers.map((tier, idx) => [tier, idx]));
+
+        const NODE_WIDTH = 220;
+        const HORIZ_GAP = 180;
+        const VERT_STEP = 150;
+
+        const tierCounts: Record<number, number> = {};
+        presentTiers.forEach((t: number) => {
+          tierCounts[t] = 0;
+        });
+
+        const formattedNodes: Node[] = rawNodes.map((n: any) => {
+          const tier = getEvidenceTier(n.node_type);
+          const yIndex = tierCounts[tier] || 0;
+          tierCounts[tier] = yIndex + 1;
+
+          const colIndex = tierToColIndex.get(tier) ?? 0;
+          const xPos = 40 + colIndex * (NODE_WIDTH + HORIZ_GAP);
+          const yPos = 40 + yIndex * VERT_STEP;
+
           const isHighlight =
             highlightedFindingId && n.entity_id === highlightedFindingId;
 
           return {
             id: n.id,
             type: "default",
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
             data: { label: `${(n.node_type || "NODE").toUpperCase()}\n${n.label || n.id}` },
-            position: {
-              x: (idx % 3) * 260 + 40,
-              y: Math.floor(idx / 3) * 140 + 40,
-            },
+            position: { x: xPos, y: yPos },
             style: {
-              background: isHighlight ? "#FF3D00" : "#1A1A1E",
-              color: "#FFFFFF",
-              border: isHighlight ? "2px solid #FFFFFF" : `1px solid ${typeColors[n.node_type] || "#555"}`,
-              borderRadius: "0px",
+              background: isHighlight ? "#FF3D00" : "#FFFFFF",
+              color: isHighlight ? "#FFFFFF" : "#0F172A",
+              border: isHighlight ? "2px solid #FF3D00" : `1.5px solid ${typeColors[n.node_type] || "#555"}`,
+              borderRadius: "4px",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
               fontFamily: "monospace",
               fontSize: "11px",
-              padding: "8px",
-              width: 210,
+              padding: "10px 12px",
+              width: NODE_WIDTH,
             },
           };
         });
@@ -128,7 +163,24 @@ function EvidenceExplorerContent({
           source: e.source_id,
           target: e.target_id,
           label: e.relation_type,
-          style: { stroke: "#71717A", strokeWidth: 1.5 },
+          type: "smoothstep",
+          style: { stroke: "#64748B", strokeWidth: 2 },
+          labelStyle: {
+            fill: "#0F172A",
+            fontSize: 10,
+            fontFamily: "ui-monospace, monospace",
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+          },
+          labelBgStyle: {
+            fill: "#FFFFFF",
+            fillOpacity: 0.98,
+            stroke: "#94A3B8",
+            strokeWidth: 1.5,
+            rx: 4,
+            ry: 4,
+          },
+          labelBgPadding: [8, 4] as [number, number],
         }));
 
         setNodes(formattedNodes);
@@ -138,10 +190,16 @@ function EvidenceExplorerContent({
   }, [evidence, highlightedFindingId, setNodes, setEdges]);
 
   const onNodeClick = (_: any, node: Node) => {
-    const rawNode = evidence?.nodes?.find((n) => n.id === node.id);
-    if (rawNode) {
-      setSelectedNode(rawNode);
-    }
+    const rawNode =
+      (evidence?.nodes || []).find((n) => n.id === node.id) ||
+      (evidence as any)?.react_flow?.nodes?.find((n: any) => n.id === node.id) || {
+        id: node.id,
+        node_type: (node.data as any)?.node_type || node.type || "NODE",
+        label: (node.data as any)?.label || node.id,
+        entity_id: node.id,
+        properties: (node.data as any) || {},
+      };
+    setSelectedNode(rawNode as any);
   };
 
   if (isLoading) {
@@ -214,6 +272,17 @@ function EvidenceExplorerContent({
           >
             <Network className="w-3.5 h-3.5" />
             <span>Interactive DAG</span>
+          </button>
+          <button
+            onClick={() => setViewMode("table")}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-mono font-bold uppercase transition-colors ${
+              viewMode === "table"
+                ? "bg-[#FF3D00] text-white"
+                : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+            }`}
+          >
+            <Table2 className="w-3.5 h-3.5" />
+            <span>Table View</span>
           </button>
           <button
             onClick={() => setViewMode("lineage")}
@@ -457,7 +526,56 @@ function EvidenceExplorerContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Main Workspace (12 cols) */}
         <div className={selectedNode ? "lg:col-span-8" : "lg:col-span-12"}>
-          {viewMode === "graph" ? (
+          {viewMode === "table" ? (
+            <Card title={`Evidence Node Table Fallback (${(evidence?.nodes || []).length})`}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-mono text-xs">
+                  <thead>
+                    <tr className="border-b border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
+                      <th className="p-2.5">Tier / Type</th>
+                      <th className="p-2.5">Label</th>
+                      <th className="p-2.5">Entity ID</th>
+                      <th className="p-2.5">Properties</th>
+                      <th className="p-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                    {(evidence?.nodes || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-neutral-400 font-mono">
+                          No evidence nodes reconstructed for this run.
+                        </td>
+                      </tr>
+                    ) : (
+                      (evidence?.nodes || []).map((n) => (
+                        <tr
+                          key={n.id}
+                          onClick={() => setSelectedNode(n)}
+                          className={`cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors ${
+                            selectedNode?.id === n.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""
+                          }`}
+                        >
+                          <td className="p-2.5">
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 uppercase rounded-xs">
+                              {n.node_type || (n as any).type || "NODE"}
+                            </span>
+                          </td>
+                          <td className="p-2.5 font-bold text-neutral-900 dark:text-white">{n.label || n.id}</td>
+                          <td className="p-2.5 text-neutral-500">{n.entity_id}</td>
+                          <td className="p-2.5 text-[11px] text-neutral-400 truncate max-w-xs">
+                            {n.properties ? Object.keys(n.properties).join(", ") : "None"}
+                          </td>
+                          <td className="p-2.5 text-right">
+                            <span className="text-[10px] text-[#FF3D00] font-bold">INSPECT →</span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : viewMode === "graph" ? (
             <Card title="Evidence Lineage DAG (React Flow)">
               <div className="h-[600px] w-full border border-neutral-200 dark:border-neutral-800 bg-[#0E0E10]">
                 {nodes.length > 0 ? (
@@ -486,9 +604,9 @@ function EvidenceExplorerContent({
               </div>
             </Card>
           ) : (
-            <Card title={`Textual Evidence Lineage Nodes (${evidence.nodes.length})`}>
+            <Card title={`Textual Evidence Lineage Nodes (${(evidence?.nodes || []).length})`}>
               <div className="divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
-                {evidence.nodes.map((node) => (
+                {(evidence?.nodes || []).map((node) => (
                   <div
                     key={node.id}
                     onClick={() => setSelectedNode(node)}
@@ -499,10 +617,10 @@ function EvidenceExplorerContent({
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="px-1.5 py-0.5 font-mono text-[10px] bg-neutral-200 dark:bg-neutral-800 uppercase">
-                          {node.node_type}
+                          {node.node_type || (node as any).type || "NODE"}
                         </span>
                         <span className="font-mono text-neutral-900 dark:text-white">
-                          {node.label}
+                          {node.label || node.id}
                         </span>
                       </div>
                       <div className="text-[10px] font-mono text-neutral-500">
@@ -550,11 +668,11 @@ function EvidenceExplorerContent({
             <InspectorDrawer
               isOpen={!!selectedNode}
               onClose={() => setSelectedNode(null)}
-              title={selectedNode.label}
-              subtitle={`Node Type: ${selectedNode.node_type.toUpperCase()}`}
+              title={selectedNode?.label || selectedNode?.id || "Evidence Node"}
+              subtitle={`Node Type: ${(selectedNode?.node_type || (selectedNode as any)?.type || (selectedNode as any)?.data?.node_type || "NODE").toUpperCase()}`}
               badge={
                 <span className="px-1.5 py-0.5 font-mono text-[10px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700">
-                  {selectedNode.node_type}
+                  {selectedNode?.node_type || (selectedNode as any)?.type || "NODE"}
                 </span>
               }
             >

@@ -46,10 +46,16 @@ class ClaimGroundingGate:
         # 1. Prohibited CVE Check: No CVEs unless explicitly in FactLock or Standards
         cve_matches = cls.CVE_REGEX.findall(answer_text)
         if cve_matches:
-            # Check if any fact or standard chunk mentions this CVE
-            all_text = " ".join([str(item.value) for item in fact_lock.items])
+            # Check if any fact or finding mentions this CVE
+            all_text_parts = []
+            for item in fact_lock.items:
+                all_text_parts.append(str(item.name))
+                all_text_parts.append(str(item.source_id))
+                all_text_parts.append(str(item.value))
+            all_text = " ".join(all_text_parts).upper().replace("_", "-")
             for cve in cve_matches:
-                if cve.upper() not in all_text.upper():
+                normalized_cve = cve.upper().replace("_", "-")
+                if normalized_cve not in all_text:
                     hallucinated.append({
                         "claim_type": "CVE_HALLUCINATION",
                         "text": f"Invented ungrounded vulnerability: {cve}",

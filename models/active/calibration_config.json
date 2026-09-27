@@ -1,0 +1,15 @@
+{
+  "classes": [
+    "Web",
+    "Video Streaming",
+    "VoIP",
+    "Chat/Messaging",
+    "Email",
+    "ICMP",
+    "File Transfer"
+  ],
+  "fit_metrics": {},
+  "method": "TEMPERATURE_SCALING",
+  "num_classes": 7,
+  "temperature": 1.1
+}

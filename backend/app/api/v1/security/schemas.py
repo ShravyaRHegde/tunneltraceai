@@ -97,8 +97,8 @@ class SecurityScoreDTO(BaseModel):
     """Audited Security Posture Score breakdown."""
 
     analysis_id: uuid.UUID
-    overall_score: float
-    raw_score: float
+    overall_score: float | None = None
+    raw_score: float | None = None
     score_policy_id: str
     score_policy_version: str
     score_policy_hash: str

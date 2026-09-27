@@ -142,6 +142,7 @@ export default function DiscoveryPage() {
       requested_targets: parsedTargets,
       exclusions: parsedExclusions.length > 0 ? parsedExclusions : undefined,
       permitted_ports: parsedPorts.length > 0 ? parsedPorts : undefined,
+      simulate_demo: !statusData?.nmap_available,
     });
   };
 
@@ -375,6 +376,20 @@ export default function DiscoveryPage() {
                 />
               </div>
 
+              {/* Nmap Availability Guidance */}
+              {!statusData?.nmap_available && (
+                <div className="p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded text-[11px] font-mono text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="font-bold flex items-center space-x-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Nmap executable not found on host PATH</span>
+                  </div>
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
+                    Launching will run in <strong>Simulated Demo Mode</strong> to safely test Stage 2 service discovery, 
+                    XML parsing, and port mapping for IKE (500/udp) and NAT-T (4500/udp).
+                  </p>
+                </div>
+              )}
+
               {/* Submit Review Button */}
               <button
                 type="submit"
@@ -382,7 +397,13 @@ export default function DiscoveryPage() {
                 className="w-full py-2 px-4 rounded bg-[#FF3D00] hover:bg-[#E63700] text-white font-mono font-semibold text-xs transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>REVIEW & LAUNCH DISCOVERY SCAN</span>
+                <span>
+                  {createJobMutation.isPending
+                    ? "SUBMITTING SCAN..."
+                    : statusData?.nmap_available
+                    ? "REVIEW & LAUNCH DISCOVERY SCAN"
+                    : "⚡ REVIEW & LAUNCH DEMO SCAN"}
+                </span>
               </button>
             </form>
           </Card>
@@ -528,14 +549,14 @@ export default function DiscoveryPage() {
                   </div>
                   <div className="p-2.5 rounded bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                     <div className="text-[10px] text-neutral-500 uppercase">HOSTS UP</div>
-                    <div className="text-base font-bold text-neutral-900 dark:text-white mt-0.5">
-                      {activeJob.hosts_up_count}
+                    <div className={`text-base font-bold mt-0.5 ${activeJob.status === "TOOL_UNAVAILABLE" ? "text-amber-600 dark:text-amber-400 text-xs" : "text-neutral-900 dark:text-white"}`}>
+                      {activeJob.status === "TOOL_UNAVAILABLE" ? "UNAVAILABLE (NOT RUN)" : activeJob.hosts_up_count}
                     </div>
                   </div>
                   <div className="p-2.5 rounded bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                     <div className="text-[10px] text-neutral-500 uppercase">SERVICES OBSERVED</div>
-                    <div className="text-base font-bold text-neutral-900 dark:text-white mt-0.5">
-                      {activeJob.services_discovered_count}
+                    <div className={`text-base font-bold mt-0.5 ${activeJob.status === "TOOL_UNAVAILABLE" ? "text-amber-600 dark:text-amber-400 text-xs" : "text-neutral-900 dark:text-white"}`}>
+                      {activeJob.status === "TOOL_UNAVAILABLE" ? "UNAVAILABLE (NOT RUN)" : activeJob.services_discovered_count}
                     </div>
                   </div>
                   <div className="p-2.5 rounded bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">

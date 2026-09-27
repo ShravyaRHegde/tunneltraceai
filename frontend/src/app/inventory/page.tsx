@@ -22,7 +22,7 @@ import {
   CopyableValue,
 } from "@/components/ui/table";
 import { InspectorDrawer } from "@/components/ui/inspector-drawer";
-import { SocWorkflowBanner } from "@/components/soc/soc-workflow-banner";
+
 import {
   FileKey2,
   FileCode2,
@@ -137,6 +137,9 @@ function InventoryContent() {
       if (!attestationConfirmed) {
         throw new Error("Operator attestation confirmation is required.");
       }
+      if (!configText.trim()) {
+        throw new Error("Configuration content cannot be empty. Please provide valid swanctl.conf syntax.");
+      }
       return api.inventory.importConfiguration({
         gateway_identity: gatewayIdentity,
         authorized_scope: authorizedScope,
@@ -224,9 +227,9 @@ function InventoryContent() {
     },
   });
 
-  // Calculate summary counters
+  // Calculate summary counters (exclude e3b0c442 empty hashes from verified baseline count)
   const totalSnapshots = snapshots.length;
-  const baselineCount = snapshots.filter((s) => s.is_baseline).length;
+  const baselineCount = snapshots.filter((s) => s.is_baseline && !s.canonical_digest?.startsWith("e3b0c442")).length;
   const totalCerts = certificates.length;
   const expiringSoonCerts = certificates.filter((c) => c.validity_status === "EXPIRING_SOON").length;
   const expiredCerts = certificates.filter((c) => c.validity_status === "EXPIRED").length;
@@ -234,17 +237,17 @@ function InventoryContent() {
   return (
     <div className="space-y-6">
       {/* Top Banner & Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#2C2C2C] pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-300 dark:border-neutral-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight font-heading text-neutral-100">
+            <h1 className="text-2xl font-bold tracking-tight font-heading text-neutral-900 dark:text-neutral-100">
               Configuration & Certificate Inventory
             </h1>
-            <span className="text-[10px] bg-sky-950/80 text-sky-400 border border-sky-800 font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+            <span className="text-[10px] bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-400 border border-sky-300 dark:border-sky-800 font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider">
               strongSwan Baseline
             </span>
           </div>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             Authoritative baseline tracking, semantic configuration drift detection, and public X.509 certificate intelligence.
           </p>
         </div>
@@ -257,14 +260,14 @@ function InventoryContent() {
               refetchDrift();
               refetchCerts();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1F1F1F] hover:bg-[#2A2A2A] text-neutral-300 text-xs font-mono border border-[#333] rounded transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-[#1F1F1F] dark:hover:bg-[#2A2A2A] text-neutral-700 dark:text-neutral-300 text-xs font-mono border border-neutral-300 dark:border-[#333] rounded transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
           <button
             onClick={() => setActiveTab("import")}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-mono font-medium rounded transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-mono font-medium rounded transition-colors shadow-sm"
           >
             <PlusCircle className="w-3.5 h-3.5" />
             Import Snapshot / Cert
@@ -272,52 +275,58 @@ function InventoryContent() {
         </div>
       </div>
 
-      {/* SOC Analyst Workflow Stepper */}
-      <SocWorkflowBanner
-        activeStep={2}
-        gatewayIdentity={selectedGateway || undefined}
-      />
+      {/* Configuration Intent vs Monitored Runtime Telemetry Clarification */}
+      <div className="p-3 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 rounded text-xs font-mono text-neutral-600 dark:text-neutral-400 flex items-start gap-2.5">
+        <FileCode2 className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">Configured Intent Repository:</span> Parsed strongSwan (<code className="font-bold">swanctl.conf</code>) files represent static administrative intent and authorized baselines. For active sensor health, heartbeat telemetry, and established IPsec tunnels, navigate to{" "}
+          <Link href="/monitoring" className="text-[#FF3D00] underline font-bold">
+            Live Monitoring
+          </Link>
+          .
+        </div>
+      </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono">
-        <Card className="p-3 bg-[#161616] border-[#2A2A2A]">
-          <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Total Snapshots</div>
-          <div className="text-xl font-bold text-neutral-100 mt-1">{totalSnapshots}</div>
-          <div className="text-[10px] text-neutral-500 mt-0.5">Recorded configurations</div>
+        <Card className="p-3 bg-white dark:bg-[#141416] border-neutral-300 dark:border-neutral-800 shadow-xs">
+          <div className="text-[11px] text-neutral-500 uppercase tracking-wider">Total Snapshots</div>
+          <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">{totalSnapshots}</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">Recorded configurations</div>
         </Card>
 
-        <Card className="p-3 bg-[#161616] border-[#2A2A2A]">
-          <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Active Baselines</div>
-          <div className="text-xl font-bold text-emerald-400 mt-1">{baselineCount}</div>
-          <div className="text-[10px] text-neutral-500 mt-0.5">Approved baselines</div>
+        <Card className="p-3 bg-white dark:bg-[#141416] border-neutral-300 dark:border-neutral-800 shadow-xs">
+          <div className="text-[11px] text-neutral-500 uppercase tracking-wider">Active Baselines</div>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{baselineCount}</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">Approved baselines</div>
         </Card>
 
-        <Card className="p-3 bg-[#161616] border-[#2A2A2A]">
-          <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Total Certificates</div>
-          <div className="text-xl font-bold text-neutral-100 mt-1">{totalCerts}</div>
-          <div className="text-[10px] text-neutral-500 mt-0.5">Public X.509 credentials</div>
+        <Card className="p-3 bg-white dark:bg-[#141416] border-neutral-300 dark:border-neutral-800 shadow-xs">
+          <div className="text-[11px] text-neutral-500 uppercase tracking-wider">Total Certificates</div>
+          <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">{totalCerts}</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">Public X.509 credentials</div>
         </Card>
 
-        <Card className="p-3 bg-[#161616] border-[#2A2A2A]">
-          <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Expiring Soon</div>
-          <div className="text-xl font-bold text-amber-400 mt-1">{expiringSoonCerts}</div>
-          <div className="text-[10px] text-neutral-500 mt-0.5">&lt; 30 days remaining</div>
+        <Card className="p-3 bg-white dark:bg-[#141416] border-neutral-300 dark:border-neutral-800 shadow-xs">
+          <div className="text-[11px] text-neutral-500 uppercase tracking-wider">Expiring Soon</div>
+          <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">{expiringSoonCerts}</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">&lt; 30 days remaining</div>
         </Card>
 
-        <Card className="p-3 bg-[#161616] border-[#2A2A2A]">
-          <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Expired</div>
-          <div className={`text-xl font-bold mt-1 ${expiredCerts > 0 ? "text-rose-400" : "text-neutral-400"}`}>
+        <Card className="p-3 bg-white dark:bg-[#141416] border-neutral-300 dark:border-neutral-800 shadow-xs">
+          <div className="text-[11px] text-neutral-500 uppercase tracking-wider">Expired</div>
+          <div className={`text-xl font-bold mt-1 ${expiredCerts > 0 ? "text-rose-600 dark:text-rose-400" : "text-neutral-400"}`}>
             {expiredCerts}
           </div>
-          <div className="text-[10px] text-neutral-500 mt-0.5">Invalid validity end</div>
+          <div className="text-[10px] text-neutral-400 mt-0.5">Invalid validity end</div>
         </Card>
       </div>
 
       {/* Epistemic Invariant Callout */}
-      <div className="bg-[#121212] border border-neutral-800 p-3 rounded text-xs text-neutral-300 flex items-start gap-2.5">
-        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+      <div className="bg-neutral-100 dark:bg-[#121212] border border-neutral-200 dark:border-neutral-800 p-3 rounded text-xs text-neutral-700 dark:text-neutral-300 flex items-start gap-2.5">
+        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-semibold text-neutral-200">Epistemic Truth Guard:</span> Parsed configuration is evidence of <span className="font-mono text-sky-400">CONFIGURED INTENT</span>. Active runtime status is <span className="font-mono text-emerald-400">RUNTIME EVIDENCE</span>. All secrets (PSKs, private keys, passwords) are scrubbed and replaced with <span className="font-mono text-amber-400">[REDACTED_SECRET]</span> prior to storage. Private keys are strictly rejected at ingestion.
+          <span className="font-semibold text-neutral-900 dark:text-neutral-200">Epistemic Truth Guard:</span> Parsed configuration is evidence of <span className="font-mono text-sky-600 dark:text-sky-400">CONFIGURED INTENT</span>. Active runtime status is <span className="font-mono text-emerald-600 dark:text-emerald-400">RUNTIME EVIDENCE</span>. All secrets (PSKs, private keys, passwords) are scrubbed and replaced with <span className="font-mono text-amber-600 dark:text-amber-400">[REDACTED_SECRET]</span> prior to storage. Private keys are strictly rejected at ingestion.
         </div>
       </div>
 
@@ -431,7 +440,12 @@ function InventoryContent() {
                         </TableCell>
 
                         <TableCell>
-                          {s.is_baseline ? (
+                          {s.canonical_digest?.startsWith("e3b0c442") ? (
+                            <span className="inline-flex items-center gap-1 bg-amber-950/80 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold" title="SHA-256 digest of empty content (e3b0c442). Not an approved configuration baseline.">
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                              EMPTY SEED (UNVERIFIED)
+                            </span>
+                          ) : s.is_baseline ? (
                             <span className="inline-flex items-center gap-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
                               <CheckCircle2 className="w-3 h-3" />
                               BASELINE v{s.baseline_version || 1}
@@ -451,6 +465,11 @@ function InventoryContent() {
 
                         <TableCell className="font-mono text-xs">
                           <CopyableValue value={s.canonical_digest} truncate={true} />
+                          {s.canonical_digest?.startsWith("e3b0c442") && (
+                            <div className="text-[9px] text-amber-400 font-mono mt-0.5">
+                              (Empty Content Digest)
+                            </div>
+                          )}
                         </TableCell>
 
                         <TableCell className="font-mono text-xs text-neutral-300">
@@ -516,11 +535,19 @@ function InventoryContent() {
                   className="w-full bg-[#1F1F1F] border border-[#333] text-neutral-200 p-1.5 rounded"
                 >
                   <option value="">Select Baseline...</option>
-                  {snapshots.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.is_baseline ? "★ [BASELINE] " : ""}{s.gateway_identity} ({new Date(s.created_at).toLocaleDateString()}) - {s.canonical_digest.substring(0, 8)}
-                    </option>
-                  ))}
+                  {snapshots.map((s) => {
+                    const isEmptyDigest = s.canonical_digest?.startsWith("e3b0c442");
+                    return (
+                      <option key={s.id} value={s.id} disabled={isEmptyDigest}>
+                        {isEmptyDigest
+                          ? "⚠️ [UNVERIFIED - EMPTY DIGEST] "
+                          : s.is_baseline
+                          ? "★ [BASELINE] "
+                          : ""}
+                        {s.gateway_identity} ({new Date(s.created_at).toLocaleDateString()}) - {s.canonical_digest.substring(0, 8)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -554,10 +581,10 @@ function InventoryContent() {
 
           {/* Active Drift Comparison View */}
           {selectedDrift && (
-            <Card className="p-4 bg-[#141414] border-sky-900/60 space-y-3">
-              <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-3">
+            <Card className="p-4 bg-white dark:bg-[#141414] border border-sky-300 dark:border-sky-900/60 space-y-3">
+              <div className="flex items-center justify-between border-b border-neutral-200 dark:border-[#2A2A2A] pb-3">
                 <div>
-                  <h4 className="text-sm font-bold font-mono text-neutral-100 flex items-center gap-2">
+                  <h4 className="text-sm font-bold font-mono text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                     <span>Drift Report: {selectedDrift.gateway_identity}</span>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${

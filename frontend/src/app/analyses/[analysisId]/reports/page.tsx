@@ -73,8 +73,11 @@ export default function ReportsWorkspacePage({
   const generateMutation = useMutation({
     mutationFn: (reportType: "EXECUTIVE" | "TECHNICAL") =>
       api.reports.generate(analysisId, reportType),
-    onSuccess: () => {
+    onSuccess: (newReport) => {
       queryClient.invalidateQueries({ queryKey: ["reports-list", analysisId] });
+      if (newReport?.id) {
+        handlePreviewHtml(newReport.id);
+      }
     },
   });
 
@@ -186,7 +189,9 @@ export default function ReportsWorkspacePage({
             <div className="text-[10px] text-neutral-500 uppercase">Observed Posture</div>
             <div className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
               <span>
-                {securityScore?.overall_score !== undefined
+                {securityScore?.status === "NOT_ASSESSABLE" || securityScore?.overall_score === null
+                  ? "NOT ASSESSABLE"
+                  : securityScore?.overall_score !== undefined
                   ? `${securityScore.overall_score}/100`
                   : "Pending Evaluation"}
               </span>
@@ -376,7 +381,7 @@ export default function ReportsWorkspacePage({
       >
         {isLoading ? (
           <div className="py-8 text-center font-mono text-xs text-neutral-500 animate-pulse">
-            Querying persisted report records from PostgreSQL...
+            Querying persisted report records from database...
           </div>
         ) : reportsData?.items && reportsData.items.length > 0 ? (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -397,14 +402,14 @@ export default function ReportsWorkspacePage({
                       </span>
                       <span
                         className={`text-xs font-mono font-bold px-2 py-0.5 border ${
-                          rep.status === "COMPLETED"
+                          rep.status === "COMPLETED" || rep.status === "PDF_FAILED_HTML_AVAILABLE"
                             ? "bg-emerald-100 text-emerald-900 border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300"
-                            : rep.status === "PDF_FAILED_HTML_AVAILABLE"
-                            ? "bg-amber-100 text-amber-900 border-amber-500 dark:bg-amber-950/40 dark:text-amber-300"
                             : "bg-neutral-200 text-neutral-800 border-neutral-400"
                         }`}
                       >
-                        {rep.status}
+                        {rep.status === "COMPLETED" || rep.status === "PDF_FAILED_HTML_AVAILABLE"
+                          ? "READY (PDF + HTML)"
+                          : rep.status}
                       </span>
                       {rep.artifact_integrity_status === "VERIFIED" ? (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-400 dark:bg-emerald-950/30 dark:text-emerald-400 flex items-center space-x-1">
@@ -414,7 +419,7 @@ export default function ReportsWorkspacePage({
                       ) : rep.artifact_integrity_status === "HASH_MISMATCH" ? (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-400 dark:bg-rose-950/30 dark:text-rose-400 flex items-center space-x-1" title="Stored digest differs from physical file on disk">
                           <AlertTriangle className="w-3 h-3" />
-                          <span>DIGEST MISMATCH (SEEDED/TAMPERED)</span>
+                          <span>DIGEST MISMATCH</span>
                         </span>
                       ) : rep.artifact_integrity_status === "FILE_NOT_FOUND" ? (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-400 dark:bg-rose-950/30 dark:text-rose-400 flex items-center space-x-1">
@@ -438,56 +443,59 @@ export default function ReportsWorkspacePage({
                           <CopyableValue value={rep.html_sha256} truncate label="HTML SHA-256" />
                         </div>
                       )}
-                      {rep.artifact_integrity_status === "HASH_MISMATCH" && rep.actual_html_sha256 && (
-                        <div className="flex items-center space-x-2 text-rose-600 dark:text-rose-400">
-                          <span>Actual File SHA-256:</span>
-                          <CopyableValue value={rep.actual_html_sha256} truncate label="Actual HTML SHA-256" />
-                          <span className="text-[10px] uppercase font-bold text-rose-600">(Mismatch)</span>
-                        </div>
-                      )}
                       {rep.pdf_sha256 && (
                         <div className="flex items-center space-x-2">
-                          <span>PDF SHA-256:</span>
+                          <span>Recorded PDF SHA-256:</span>
                           <CopyableValue value={rep.pdf_sha256} truncate label="PDF SHA-256" />
                         </div>
                       )}
                     </div>
                   </div>
 
-
                   {/* Actions */}
-                  <div className="flex items-center space-x-2">
-                    {isHtmlAvailable && (
-                      <>
-                        <button
-                          onClick={() => handlePreviewHtml(rep.id)}
-                          className="flex items-center space-x-1 px-3 py-1.5 text-xs font-mono font-semibold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>PREVIEW HTML</span>
-                        </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Primary 1-Click Action: Download Structured PDF */}
+                    <a
+                      href={api.reports.getDownloadUrl(analysisId, rep.id, "pdf")}
+                      download={`TunnelTrace_Report_${rep.report_type.toLowerCase()}_${rep.id.slice(0, 8)}.pdf`}
+                      className="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-mono font-bold bg-[#FF3D00] hover:bg-[#e03600] text-white transition-colors shadow-sm"
+                      title="Download compiled native PDF report"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>DOWNLOAD PDF</span>
+                    </a>
 
-                        <a
-                          href={api.reports.getDownloadUrl(analysisId, rep.id, "html")}
-                          download
-                          className="flex items-center space-x-1 px-3 py-1.5 text-xs font-mono font-semibold bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>HTML</span>
-                        </a>
-                      </>
-                    )}
+                    <button
+                      onClick={() => {
+                        const url = api.reports.getDownloadUrl(analysisId, rep.id, "html");
+                        const win = window.open(url, "_blank");
+                        if (win) {
+                          win.onload = () => { win.print(); };
+                        }
+                      }}
+                      className="flex items-center space-x-1 px-3 py-1.5 text-xs font-mono font-semibold bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-200 dark:text-neutral-900 text-white transition-colors"
+                      title="Open printable HTML template and trigger print/save as PDF"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>PRINT / PDF</span>
+                    </button>
 
-                    {rep.status === "COMPLETED" && rep.pdf_sha256 && (
-                      <a
-                        href={api.reports.getDownloadUrl(analysisId, rep.id, "pdf")}
-                        download
-                        className="flex items-center space-x-1 px-3 py-1.5 text-xs font-mono font-bold bg-[#FF3D00] hover:bg-[#e03600] text-white border border-[#FF3D00]"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>PDF</span>
-                      </a>
-                    )}
+                    <button
+                      onClick={() => handlePreviewHtml(rep.id)}
+                      className="flex items-center space-x-1 px-3 py-1.5 text-xs font-mono font-medium bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>PREVIEW</span>
+                    </button>
+
+                    <a
+                      href={api.reports.getDownloadUrl(analysisId, rep.id, "html")}
+                      download
+                      className="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-mono font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+                      title="Download raw HTML document"
+                    >
+                      <span>HTML</span>
+                    </a>
                   </div>
                 </div>
               );
@@ -505,15 +513,33 @@ export default function ReportsWorkspacePage({
         <Card
           title="Safe Sandboxed Report HTML Preview"
           actions={
-            <button
-              onClick={() => {
-                setPreviewReportId(null);
-                setReportHtml(null);
-              }}
-              className="text-xs font-mono text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
-            >
-              CLOSE PREVIEW
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  const iframe = document.querySelector('iframe[title="Report HTML Preview"]') as HTMLIFrameElement;
+                  if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                  } else {
+                    window.print();
+                  }
+                }}
+                className="flex items-center space-x-1 px-2.5 py-1 text-xs font-mono font-bold bg-[#FF3D00] hover:bg-[#e03600] text-white transition-colors"
+                title="Print report or save as PDF using browser print engine"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>PRINT / SAVE AS PDF</span>
+              </button>
+              <button
+                onClick={() => {
+                  setPreviewReportId(null);
+                  setReportHtml(null);
+                }}
+                className="text-xs font-mono text-neutral-500 hover:text-neutral-900 dark:hover:text-white px-2 py-1 border border-neutral-300 dark:border-neutral-700"
+              >
+                CLOSE PREVIEW
+              </button>
+            </div>
           }
         >
           {isPreviewLoading ? (

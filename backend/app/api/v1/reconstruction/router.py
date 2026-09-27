@@ -200,6 +200,11 @@ async def get_ike_session_detail(
     response_model=list[ChildSecurityAssociationDTO],
     summary="List reconstructed Security Associations",
 )
+@router.get(
+    "/child-sas",
+    response_model=list[ChildSecurityAssociationDTO],
+    summary="List reconstructed Child Security Associations (alias)",
+)
 async def list_security_associations(
     analysis_id: uuid.UUID,
     db: AsyncSession = Depends(get_db_session),
@@ -259,6 +264,11 @@ async def list_security_associations(
     "/security-associations/graph",
     response_model=SAGraphResponseDTO,
     summary="Get Security Association topology graph for visualization",
+)
+@router.get(
+    "/sa-graph",
+    response_model=SAGraphResponseDTO,
+    summary="Get Security Association topology graph (alias)",
 )
 async def get_sa_graph(
     analysis_id: uuid.UUID,

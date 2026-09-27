@@ -15,6 +15,7 @@ import {
   Activity,
   CheckCircle2,
 } from "lucide-react";
+import { useAnalysis } from "@/lib/analysis-context";
 
 export type SocWorkflowStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -97,6 +98,9 @@ export function SocWorkflowBanner({
   evidenceCoverage,
   sensorFreshness,
 }: SocWorkflowBannerProps) {
+  const { activeAnalysisId } = useAnalysis();
+  const effectiveAnalysisId = analysisId ?? activeAnalysisId;
+
   return (
     <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] p-3 space-y-2.5 font-mono text-xs shadow-sm">
       {/* Top Bar: Title & Active Context Badges */}
@@ -162,10 +166,10 @@ export function SocWorkflowBanner({
             );
           })()}
 
-          {analysisId && (
+          {effectiveAnalysisId && (
             <div className="px-2 py-0.5 border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
               <span className="text-neutral-500">Run: </span>
-              <span className="font-bold text-[#FF3D00]">{analysisId.slice(0, 8)}...</span>
+              <span className="font-bold text-[#FF3D00]">{effectiveAnalysisId.slice(0, 8)}...</span>
             </div>
           )}
         </div>
@@ -179,7 +183,7 @@ export function SocWorkflowBanner({
           const isPassed = s.step < activeStep;
           const href = s.getHref({
             activeStep,
-            analysisId,
+            analysisId: effectiveAnalysisId,
             gatewayIdentity,
             gatewayIp,
             authorizedScope,

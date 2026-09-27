@@ -8,16 +8,8 @@ import { StatusBadge } from "@/components/ui/badge";
 import { CopyableValue } from "@/components/ui/table";
 import { formatCoverage } from "@/lib/format";
 import {
-  Activity,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  ChevronRight,
-  Shield,
-  Radio,
-  FileCheck2,
-  FileSearch,
-  FileText,
 } from "lucide-react";
 
 const PIPELINE_STAGES = [
@@ -54,18 +46,7 @@ export default function AnalysisLayout({
   const captureSha256 = overview?.capture?.sha256 || analysis?.capture_sha256;
   const packetCount = overview?.capture?.packet_count;
 
-  // Tab navigation for this active analysis
-  const tabs = [
-    { label: "Overview", href: `/analyses/${analysisId}/overview`, icon: Activity },
-    { label: "Protocol", href: `/analyses/${analysisId}/protocol`, icon: Radio },
-    { label: "SAs & Flows", href: `/analyses/${analysisId}/sas`, icon: Shield },
-    { label: "Traffic", href: `/analyses/${analysisId}/traffic`, icon: Radio },
-    { label: "Security", href: `/analyses/${analysisId}/security`, icon: AlertTriangle },
-    { label: "Compliance", href: `/analyses/${analysisId}/compliance`, icon: FileCheck2 },
-    { label: "Threats", href: `/analyses/${analysisId}/threats`, icon: Shield },
-    { label: "Evidence", href: `/analyses/${analysisId}/evidence`, icon: FileSearch },
-    { label: "Reports", href: `/analyses/${analysisId}/reports`, icon: FileText },
-  ];
+
 
   return (
     <div className="space-y-4">
@@ -129,10 +110,18 @@ export default function AnalysisLayout({
         <div className="flex items-center space-x-1 overflow-x-auto text-[10px] font-mono py-1">
           <span className="text-neutral-400 uppercase mr-1">Pipeline:</span>
           {PIPELINE_STAGES.map((stage, idx) => {
+            const isMlStage = stage.id === "ML_INFERENCE";
+            const isMlSkipped =
+              isMlStage &&
+              (overview?.traffic_summary?.ml_run_status === "NOT_CONFIGURED" ||
+                (overview?.traffic_summary?.classified_flows === 0 &&
+                  !overview?.traffic_summary?.model_bundle_id));
+
             const isCompleted =
-              analysis?.status === "COMPLETED" ||
-              (analysis?.current_stage &&
-                PIPELINE_STAGES.findIndex((s) => s.id === analysis.current_stage) > idx);
+              (analysis?.status === "COMPLETED" ||
+                (analysis?.current_stage &&
+                  PIPELINE_STAGES.findIndex((s) => s.id === analysis.current_stage) > idx)) &&
+              !isMlSkipped;
             const isCurrent = analysis?.current_stage === stage.id;
 
             return (
@@ -141,6 +130,8 @@ export default function AnalysisLayout({
                 className={`flex items-center space-x-1 px-2 py-0.5 border whitespace-nowrap ${
                   isCurrent
                     ? "bg-[#FF3D00] text-white border-[#FF3D00] font-bold animate-pulse"
+                    : isMlSkipped
+                    ? "bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400 border-amber-300 dark:border-amber-800"
                     : isCompleted
                     ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800"
                     : "bg-neutral-100 dark:bg-neutral-900 text-neutral-400 border-neutral-200 dark:border-neutral-800"
@@ -150,31 +141,13 @@ export default function AnalysisLayout({
                   <CheckCircle className="w-2.5 h-2.5" />
                 ) : isCurrent ? (
                   <Clock className="w-2.5 h-2.5" />
+                ) : isMlSkipped ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 ) : null}
-                <span>{stage.label}</span>
+                <span>
+                  {isMlSkipped ? "Traffic ML (Skipped: No Model)" : stage.label}
+                </span>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Analytical Tab Bar */}
-        <div className="flex items-center space-x-1 overflow-x-auto border-t border-neutral-200 dark:border-neutral-800 pt-2">
-          {tabs.map((tab) => {
-            const isActive = pathname === tab.href;
-            const Icon = tab.icon;
-            return (
-              <Link
-                key={tab.label}
-                href={tab.href}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors border ${
-                  isActive
-                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold border-neutral-900 dark:border-white"
-                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </Link>
             );
           })}
         </div>

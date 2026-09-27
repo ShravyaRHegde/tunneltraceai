@@ -207,7 +207,7 @@ export default function TrafficIntelligencePage({
       {/* Main Workspace (12 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Table & Chart Column */}
-        <div className={selectedFlow ? "lg:col-span-8" : "lg:col-span-12"} space-y-6>
+        <div className={`${selectedFlow ? "lg:col-span-8" : "lg:col-span-12"} space-y-6`}>
           {/* Class Distribution Chart */}
           <Card title="Inferred Traffic Class Distribution">
             {traffic.classified_flows > 0 ? (
@@ -261,7 +261,9 @@ export default function TrafficIntelligencePage({
                           <CopyableValue value={flow.spi} label="Flow SPI" />
                         </TableCell>
                         <TableCell mono className="text-neutral-600 dark:text-neutral-400 text-xs">
-                          {flow.supervised_hypothesis || flow.known_class || (
+                          {traffic.ml_run_status === "NOT_CONFIGURED" ? (
+                            <span className="text-neutral-400 dark:text-neutral-600">UNCONFIGURED</span>
+                          ) : flow.supervised_hypothesis || flow.known_class || (
                             <span className="text-neutral-400 dark:text-neutral-600">UNAVAILABLE</span>
                           )}
                         </TableCell>
@@ -275,11 +277,15 @@ export default function TrafficIntelligencePage({
                                 : "text-neutral-400 dark:text-neutral-600"
                             }`}
                           >
-                            {flow.accepted_prediction || flow.final_class || "UNAVAILABLE"}
+                            {traffic.ml_run_status === "NOT_CONFIGURED"
+                              ? "Classifier not configured"
+                              : flow.accepted_prediction || flow.final_class || "UNAVAILABLE"}
                           </span>
                         </TableCell>
                         <TableCell mono>
-                          {flow.calibrated_confidence !== null &&
+                          {traffic.ml_run_status === "NOT_CONFIGURED" ? (
+                            <span className="text-neutral-400 dark:text-neutral-600 text-[11px]">N/A</span>
+                          ) : flow.calibrated_confidence !== null &&
                           flow.calibrated_confidence !== undefined &&
                           flow.calibrated_confidence > 0 ? (
                             <span>
@@ -290,7 +296,9 @@ export default function TrafficIntelligencePage({
                           )}
                         </TableCell>
                         <TableCell mono>
-                          {flow.ood_status ? (
+                          {traffic.ml_run_status === "NOT_CONFIGURED" ? (
+                            <span className="text-neutral-400 dark:text-neutral-600 text-[11px]">NOT_RUN</span>
+                          ) : flow.ood_status ? (
                             isOOD ? (
                               <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-700 text-[10px] font-bold">
                                 {flow.ood_status}
@@ -303,7 +311,9 @@ export default function TrafficIntelligencePage({
                           )}
                         </TableCell>
                         <TableCell mono>
-                          {flow.behavioral_anomaly_status ? (
+                          {traffic.ml_run_status === "NOT_CONFIGURED" ? (
+                            <span className="text-neutral-400 dark:text-neutral-600 text-[11px]">UNCONFIGURED</span>
+                          ) : flow.behavioral_anomaly_status ? (
                             isAnomaly ? (
                               <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-400 border border-rose-300 dark:border-rose-700 text-[10px] font-bold">
                                 ANOMALOUS

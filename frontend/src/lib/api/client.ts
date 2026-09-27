@@ -99,7 +99,7 @@ export const api = {
     upload: async (file: File): Promise<CaptureResponseDTO> => {
       const formData = new FormData();
       formData.append("file", file);
-      return request<CaptureResponseDTO>("/captures/upload", {
+      return request<CaptureResponseDTO>("/captures", {
         method: "POST",
         body: formData,
       });
@@ -348,6 +348,9 @@ export const api = {
     getKnowledgeStatus: async (): Promise<any> => {
       return request("/ai/knowledge/status");
     },
+    ingestKnowledge: async (): Promise<any> => {
+      return request("/ai/knowledge/ingest", { method: "POST" });
+    },
   },
 
   discovery: {
@@ -535,6 +538,11 @@ export const api = {
       if (params?.offset !== undefined) sp.append("offset", String(params.offset));
       return request<import("./types").MonitoringTimelineResponseDTO>(`/monitoring/timeline?${sp.toString()}`);
     },
+    triggerPulse: async (): Promise<{ status: string; accepted_count: number }> => {
+      return request<{ status: string; accepted_count: number }>("/monitoring/pulse", {
+        method: "POST",
+      });
+    },
   },
 
   inventory: {
@@ -575,7 +583,7 @@ export const api = {
     compareDrift: async (
       data: import("./types").DriftCompareRequestDTO
     ): Promise<import("./types").ConfigurationDriftDTO> => {
-      return request<import("./types").ConfigurationDriftDTO>("/inventory/configurations/drift/compare", {
+      return request<import("./types").ConfigurationDriftDTO>("/inventory/configurations/drift", {
         method: "POST",
         body: JSON.stringify(data),
       });
@@ -588,7 +596,7 @@ export const api = {
       if (params?.gateway_identity) sp.append("gateway_identity", params.gateway_identity);
       if (params?.limit !== undefined) sp.append("limit", String(params.limit));
       const qs = sp.toString();
-      return request<import("./types").ConfigurationDriftDTO[]>(`/inventory/configurations/drift/history${qs ? `?${qs}` : ""}`);
+      return request<import("./types").ConfigurationDriftDTO[]>(`/inventory/configurations/drifts${qs ? `?${qs}` : ""}`);
     },
     importCertificate: async (
       data: import("./types").CertificateImportRequestDTO

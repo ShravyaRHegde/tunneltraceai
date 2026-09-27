@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "num_classes": 7,
+  "classes": [
+    "Web",
+    "Video Streaming",
+    "VoIP",
+    "Chat/Messaging",
+    "Email",
+    "ICMP",
+    "File Transfer"
+  ],
+  "label_to_int": {
+    "Web": 0,
+    "Video Streaming": 1,
+    "VoIP": 2,
+    "Chat/Messaging": 3,
+    "Email": 4,
+    "ICMP": 5,
+    "File Transfer": 6
+  },
+  "int_to_label": {
+    "0": "Web",
+    "1": "Video Streaming",
+    "2": "VoIP",
+    "3": "Chat/Messaging",
+    "4": "Email",
+    "5": "ICMP",
+    "6": "File Transfer"
+  }
+}

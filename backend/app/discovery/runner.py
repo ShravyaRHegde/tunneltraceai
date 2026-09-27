@@ -280,3 +280,49 @@ def _sanitize_diagnostic(text: str | None) -> str:
     sanitized = re.sub(r"[A-Za-z]:\\[\w\\\.-]+", "[REDACTED_PATH]", text)
     sanitized = re.sub(r"/(?:[a-zA-Z0-9_\.-]+/)+[a-zA-Z0-9_\.-]+", "[REDACTED_PATH]", sanitized)
     return sanitized.strip()[:500]  # Cap length
+
+
+class DemoSimulatedRunner:
+    """Simulated runner for demonstrating Stage 2 Asset Discovery when Nmap binary is unavailable."""
+
+    def __init__(self, target_ip: str = "127.0.0.1") -> None:
+        self.target_ip = target_ip
+        self.binary_info = NmapBinaryInfo(
+            is_available=True,
+            version="7.94-simulated",
+            path="simulated-nmap",
+        )
+
+    def execute(self, argv: list[str], output_path: str) -> ExecutionResult:
+        xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun scanner="nmap" version="7.94">
+<host>
+  <status state="up"/>
+  <address addr="{self.target_ip}" addrtype="ipv4"/>
+  <ports>
+    <port protocol="udp" portid="500">
+      <state state="open|filtered" reason="no-response"/>
+      <service name="isakmp" product="strongSwan IKEv2 daemon" conf="3"/>
+    </port>
+    <port protocol="udp" portid="4500">
+      <state state="open|filtered" reason="no-response"/>
+      <service name="ipsec-msft" product="NAT-Traversal RFC 3948" conf="3"/>
+    </port>
+  </ports>
+</host>
+</nmaprun>
+"""
+        raw_bytes = xml_content.encode("utf-8")
+        Path(output_path).write_bytes(raw_bytes)
+        output_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        return ExecutionResult(
+            status="COMPLETED",
+            exit_code=0,
+            raw_xml_content=xml_content,
+            output_sha256=output_sha256,
+            output_bytes_count=len(raw_bytes),
+            tool_version="7.94-simulated",
+            diagnostic_message=None,
+            executed_argv=argv,
+        )
+

@@ -106,9 +106,20 @@
             </tbody>
         </table>
         {% else %}
-        <p style="color: #00875A; font-weight: 600; padding: 10px; border: 1px solid #D1D1CB; background: #F8FFF8;">
-            No material security vulnerabilities detected. All observed parameters conform to baseline cryptographic policy profiles.
-        </p>
+            {% if snapshot.compliance.unknown_count > 0 %}
+            <div style="padding: 10px; border: 1px solid #D1D1CB; background: #FAFBF9; font-size: 8.5pt;">
+                <p style="color: #00875A; font-weight: 700; margin-bottom: 4px;">
+                    Zero policy deduction findings detected across observed wire evidence (Score: {{ snapshot.score.score | round(1) }}/100).
+                </p>
+                <p style="color: #555; margin: 0; font-size: 8pt; line-height: 1.4;">
+                    <strong>Evidence Notice:</strong> Observed evidence coverage is {{ (snapshot.score.evidence_coverage * 100) | round(1) }}% with {{ snapshot.compliance.unknown_count }} check(s) UNKNOWN due to unobserved handshake frames. Score reflects deductions from evaluated evidence and does not constitute formal certification or vulnerability-free guarantee.
+                </p>
+            </div>
+            {% else %}
+            <p style="color: #00875A; font-weight: 600; padding: 10px; border: 1px solid #D1D1CB; background: #F8FFF8;">
+                No policy deduction findings detected across fully evaluated wire evidence (Score: {{ snapshot.score.score | round(1) }}/100, 100% Evidence Coverage).
+            </p>
+            {% endif %}
         {% endif %}
     </section>
 
@@ -188,7 +199,7 @@
         <div class="grid-2">
             <div class="metric-card">
                 <div class="metric-label">Metadata Fingerprintability Index (MFI)</div>
-                <div class="metric-value">{{ snapshot.metadata_fingerprintability.overall_index | round(3) }}<span style="font-size: 10pt; color: #777;"> / 1.0</span></div>
+                <div class="metric-value">{{ snapshot.metadata_fingerprintability.overall_index | round(3) }}<span style="font-size: 10pt; color: #777;"> / 100</span></div>
                 <div class="metric-sub">
                     {% if snapshot.metadata_fingerprintability.is_experimental %}
                         [EXPERIMENTAL METHODOLOGY]
@@ -242,9 +253,17 @@
                     </tr>
                     {% endfor %}
                 {% else %}
+                    {% if snapshot.compliance.unknown_count > 0 or not snapshot.score.is_assessable %}
                     <tr>
-                        <td colspan="3" style="text-align: center; color: #00875A;">No remediation actions required. Current tunnel configuration adheres to target security baseline.</td>
+                        <td><span class="badge badge-warning">EVIDENCE GAP</span></td>
+                        <td>Incomplete Protocol Capture (<span class="mono">{{ snapshot.compliance.unknown_count }} Unknown Checks</span>)</td>
+                        <td>Action Required: Acquire a complete IKE handshake and ESP packet trace. Unobserved cryptographic and session lifecycle parameters cannot be validated under partial passive capture.</td>
                     </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: #00875A;">Zero policy violations detected. Current observed tunnel parameters conform to NIST SP 800-77 Rev. 1 and RFC 8221 security baselines.</td>
+                    </tr>
+                    {% endif %}
                 {% endif %}
             </tbody>
         </table>

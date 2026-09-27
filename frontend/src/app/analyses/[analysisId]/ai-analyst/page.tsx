@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { useAnalysis } from "@/lib/analysis-context";
 import { StatusBadge, SeverityBadge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api/client";
 import {
@@ -55,14 +56,6 @@ interface MessageItem {
   };
 }
 
-const QUICK_PROMPTS = [
-  "Why did this tunnel fail compliance?",
-  "What evidence supports finding SEC-001?",
-  "Is Perfect Forward Secrecy (PFS) enabled?",
-  "What does RFC 8247 require for IKEv2 encryption?",
-  "Has the Stage 10 configuration fix been lab-verified?",
-  "Why was this flow classified as Video?",
-];
 
 export default function AIAnalystPage({
   params,
@@ -70,6 +63,31 @@ export default function AIAnalystPage({
   params: Promise<{ analysisId: string }>;
 }) {
   const { analysisId } = use(params);
+  const { overview } = useAnalysis();
+
+  const failCount = overview?.compliance_counts?.fail ?? 0;
+  const score = overview?.security_posture?.score ?? 100;
+  const topFinding = overview?.findings_summary?.top_findings?.[0];
+
+  const quickPrompts = React.useMemo(() => {
+    const prompts: string[] = [];
+    if (failCount > 0 || score < 100) {
+      prompts.push("Why did this tunnel fail compliance?");
+      if (topFinding) {
+        prompts.push(`What evidence supports finding ${topFinding.rule_id || topFinding.finding_id}?`);
+      }
+    } else {
+      prompts.push("Summarize verified cryptographic transforms in this tunnel");
+      prompts.push("Explain why this tunnel received a 100/100 score");
+    }
+    prompts.push("Is Perfect Forward Secrecy (PFS) enabled for Child SAs?");
+    prompts.push("What does RFC 8247 require for IKEv2 encryption algorithms?");
+    if (overview?.traffic_summary?.total_flows && overview.traffic_summary.total_flows > 0) {
+      prompts.push("Explain how encrypted flow timing and metadata were analyzed");
+    }
+    prompts.push("List the observed Diffie-Hellman groups and key lengths");
+    return prompts.slice(0, 5);
+  }, [failCount, score, topFinding, overview]);
 
   // Subsystem state
   const [health, setHealth] = useState<AIHealthResponseDTO | null>(null);
@@ -81,6 +99,7 @@ export default function AIAnalystPage({
   const [selectedModel, setSelectedModel] = useState<string>("qwen3:4b-instruct-2507-q4_K_M");
   const [evidenceOnlyMode, setEvidenceOnlyMode] = useState(false);
   const [evidenceSearchResults, setEvidenceSearchResults] = useState<EvidenceSearchResponseDTO | null>(null);
+  const [isIngestingKnowledge, setIsIngestingKnowledge] = useState(false);
 
   // Selected source for highlight in right panel
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
@@ -179,11 +198,26 @@ export default function AIAnalystPage({
         setGenerationStep(`Generating grounded response via ${selectedModel.split(":")[0]}...`);
       }, 1500);
 
-      const resp: AIChatQueryResponseDTO = await apiClient.ai.chat(analysisId, {
-        question: q,
-        session_id: sessionId || undefined,
-        model_override: selectedModel,
-      });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Local model query timed out (15s bounded limit). Local Ollama runtime is busy or model weights are loading."
+              )
+            ),
+          15000
+        )
+      );
+
+      const resp = await Promise.race([
+        apiClient.ai.chat(analysisId, {
+          question: q,
+          session_id: sessionId || undefined,
+          model_override: selectedModel,
+        }),
+        timeoutPromise,
+      ]);
 
       setGenerationStep("Validating citation integrity & fact grounding...");
 
@@ -215,9 +249,12 @@ export default function AIAnalystPage({
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: `AI Analyst execution error: ${err.message || "Model timeout or offline"}`,
-          status: "MODEL_UNAVAILABLE",
-          limitations: ["Local model unavailable or timed out."],
+          content: `AI Analyst Execution Notice: ${err.message || "Model timeout or offline."}\n\nNote: The local LLM provides supplementary natural language explanations only. All deterministic cryptographic facts, policy compliance decisions, and threat matrices remain authoritative and fully accessible in the Evidence DAG and Security tabs.`,
+          status: "MODEL_TIMEOUT",
+          limitations: [
+            "Bounded 15s timeout reached before local LLM completed token generation.",
+            "Deterministic facts in database remain 100% accessible and unimpacted.",
+          ],
         },
       ]);
     } finally {
@@ -260,25 +297,66 @@ export default function AIAnalystPage({
             </span>
           </div>
           <p className="text-xs text-neutral-500 font-mono mt-1">
-            Analysis Scope: <span className="font-bold text-neutral-800 dark:text-neutral-200">{analysisId.slice(0, 13)}...</span> · Strict Fact-Locked Evidence · Zero Hallucination
+            Analysis Scope: <span className="font-bold text-neutral-800 dark:text-neutral-200">{analysisId.slice(0, 13)}...</span> · Strict Fact-Locked Evidence · Grounded Fact Verification
           </p>
         </div>
 
-        {/* Runtime Controls */}
+        {/* Runtime Controls & 4 Independent Status Chips */}
         <div className="flex items-center flex-wrap gap-2 text-xs font-mono">
-          {/* Model Selector */}
+          {/* Chip 1: Provider Connected */}
+          <div
+            className="flex items-center px-2 py-1 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+            title={`Local Ollama Base URL: ${health?.base_url || "http://localhost:11434"}`}
+          >
+            <span
+              className={`w-2 h-2 mr-1.5 rounded-full ${
+                health?.status === "healthy"
+                  ? "bg-emerald-500"
+                  : health?.status === "degraded"
+                  ? "bg-amber-500"
+                  : "bg-rose-500"
+              }`}
+            />
+            <span className="uppercase text-[10px] text-neutral-600 dark:text-neutral-400 font-bold">
+              Provider: {health?.runtime || "OLLAMA"} ({health?.status || "PROBING"})
+            </span>
+          </div>
+
+          {/* Chip 2: Model Selector / Loaded Status */}
           <div className="flex items-center border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1">
             <Cpu className="w-3.5 h-3.5 text-neutral-500 mr-1.5" />
-            <span className="text-neutral-500 mr-1">Model:</span>
+            <span className="text-neutral-500 mr-1 text-[10px] uppercase font-bold">Model:</span>
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               disabled={isGenerating}
-              className="bg-transparent font-bold text-neutral-800 dark:text-neutral-200 outline-none cursor-pointer"
+              className="bg-transparent font-bold text-neutral-800 dark:text-neutral-200 outline-none cursor-pointer text-xs"
             >
-              <option value="qwen3:4b-instruct-2507-q4_K_M">Qwen 3 4B (Local)</option>
               <option value="gemma3:4b">Gemma 3 4B (Local)</option>
+              <option value="qwen3:4b-instruct-2507-q4_K_M">Qwen 3 4B (Local)</option>
             </select>
+          </div>
+
+          {/* Chip 3: Knowledge Chunks Count */}
+          <div
+            className="flex items-center px-2 py-1 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+            title={`${health?.total_documents_indexed || 0} standards documents indexed into vector corpus`}
+          >
+            <BookOpen className="w-3 h-3 text-neutral-500 mr-1.5" />
+            <span className="text-[10px] text-neutral-600 dark:text-neutral-400 font-bold uppercase">
+              RAG: {health?.total_chunks_indexed ?? 0} Chunks
+            </span>
+          </div>
+
+          {/* Chip 4: Packet Evidence Linked */}
+          <div
+            className="flex items-center px-2 py-1 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+            title="Fact-locked packet observations and rule violations from current analysis"
+          >
+            <ShieldCheck className="w-3 h-3 text-neutral-500 mr-1.5" />
+            <span className="text-[10px] text-neutral-600 dark:text-neutral-400 font-bold uppercase">
+              Evidence: {overview?.protocol_summary?.total_observations ?? 0} Facts · {overview?.findings_summary?.total ?? 0} Findings
+            </span>
           </div>
 
           {/* Evidence Only Toggle */}
@@ -294,19 +372,47 @@ export default function AIAnalystPage({
             <Search className="w-3.5 h-3.5 mr-1" />
             Evidence Search {evidenceOnlyMode ? "ON" : "OFF"}
           </button>
-
-          {/* Health Pill */}
-          <div className="flex items-center px-2 py-1 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-            <span
-              className={`w-2 h-2 mr-1.5 ${
-                health?.status === "healthy" ? "bg-emerald-500" : "bg-amber-500"
-              }`}
-            />
-            <span className="uppercase text-[10px] text-neutral-600 dark:text-neutral-400 font-bold">
-              {health?.status || "PROBING"} (OLLAMA LOCAL)
-            </span>
-          </div>
         </div>
+      </div>
+
+      {/* Unindexed Knowledge Warning Banner with Ingest Trigger */}
+      {health && health.total_chunks_indexed === 0 && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 text-xs font-mono text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center space-x-2 font-bold uppercase">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Knowledge base unindexed (0 chunks) — RAG search unavailable</span>
+          </div>
+          <button
+            disabled={isIngestingKnowledge}
+            onClick={async () => {
+              setIsIngestingKnowledge(true);
+              try {
+                await apiClient.ai.ingestKnowledge();
+                const h = await apiClient.ai.getHealth();
+                setHealth(h);
+              } catch (e) {
+                console.error("Failed to ingest knowledge:", e);
+              } finally {
+                setIsIngestingKnowledge(false);
+              }
+            }}
+            className="px-3 py-1 bg-amber-600 text-white font-bold hover:bg-amber-700 text-xs uppercase transition-colors shrink-0 disabled:opacity-50"
+          >
+            {isIngestingKnowledge ? "INDEXING STANDARDS..." : "INDEX STANDARDS NOW"}
+          </button>
+        </div>
+      )}
+
+      {/* Explicit Explanatory Role & Grounding Philosophy Banner */}
+      <div className="p-4 bg-neutral-100 dark:bg-neutral-900 border-l-4 border-blue-500 text-xs font-mono space-y-1 text-neutral-800 dark:text-neutral-200">
+        <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span>Local Explanatory AI Analyst · Grounded In Evidence</span>
+        </div>
+        <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+          This local assistant (<code className="font-bold text-neutral-900 dark:text-white">{selectedModel}</code>) operates strictly as an <strong>explanatory analyst</strong> grounded in persisted packet facts and cited IETF/NIST standards. 
+          It is <strong>separate from the Stage 7 encrypted traffic ML classifier</strong> and <strong>cannot create security findings, alter posture scores, or validate configuration fixes</strong>. All assertions require cited evidence hashes or published standard clauses.
+        </p>
       </div>
 
       {/* Main Workspace Layout (8 cols chat + 4 cols sources) */}
@@ -356,10 +462,10 @@ export default function AIAnalystPage({
                     {/* Quick suggestion prompt chips */}
                     <div className="pt-2 w-full max-w-lg space-y-2">
                       <p className="text-[10px] text-neutral-400 uppercase tracking-wider">
-                        Suggested Forensic Inquiries
+                        Suggested Forensic Inquiries (Run-Specific)
                       </p>
                       <div className="flex flex-wrap justify-center gap-1.5">
-                        {QUICK_PROMPTS.map((prompt, idx) => (
+                        {quickPrompts.map((prompt, idx) => (
                           <button
                             key={idx}
                             onClick={() => handleSend(prompt)}

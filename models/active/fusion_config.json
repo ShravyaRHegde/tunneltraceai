@@ -1,0 +1,15 @@
+{
+  "alpha": 0.6,
+  "classes": [
+    "Web",
+    "Video Streaming",
+    "VoIP",
+    "Chat/Messaging",
+    "Email",
+    "ICMP",
+    "File Transfer"
+  ],
+  "method": "WEIGHTED_AVERAGE",
+  "num_classes": 7,
+  "search_metrics": {}
+}

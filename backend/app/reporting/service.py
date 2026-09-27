@@ -91,6 +91,33 @@ class ReportingService:
         res = await self.db.execute(stmt)
         return res.scalar_one_or_none()
 
+    def _read_artifact_bytes(self, rel_path: str) -> bytes | None:
+        """Safely read artifact bytes from configured storage provider or candidate workspace storage roots."""
+        if not rel_path:
+            return None
+        if self.storage.exists(rel_path):
+            try:
+                return self.storage.read_file(rel_path)
+            except Exception:
+                pass
+        import os
+        from pathlib import Path
+        clean_rel = rel_path.replace("\\", "/").lstrip("/")
+        candidate_roots = [
+            Path("storage"),
+            Path("backend/storage"),
+            Path(__file__).resolve().parent.parent.parent.parent / "storage",
+            Path(__file__).resolve().parent.parent.parent / "storage",
+        ]
+        for root in candidate_roots:
+            candidate = root / clean_rel
+            if candidate.is_file():
+                try:
+                    return candidate.read_bytes()
+                except Exception:
+                    pass
+        return None
+
     def check_report_integrity(self, report: ReportModel) -> tuple[str, str | None]:
         """Verify on-disk report artifact SHA-256 against recorded database digest.
 
@@ -100,10 +127,10 @@ class ReportingService:
         """
         if not report.html_artifact_path:
             return "UNAVAILABLE", None
-        if not self.storage.exists(report.html_artifact_path):
+        content = self._read_artifact_bytes(report.html_artifact_path)
+        if content is None:
             return "FILE_NOT_FOUND", None
         try:
-            content = self.storage.read_file(report.html_artifact_path)
             actual_sha = hashlib.sha256(content).hexdigest()
             if report.html_sha256 and actual_sha.lower() == report.html_sha256.lower():
                 return "VERIFIED", actual_sha
@@ -127,7 +154,9 @@ class ReportingService:
         if not report or not report.html_artifact_path:
             raise ValueError(f"Report '{report_id}' HTML artifact not found")
 
-        raw_bytes = self.storage.read_file(report.html_artifact_path)
+        raw_bytes = self._read_artifact_bytes(report.html_artifact_path)
+        if raw_bytes is None:
+            raise ValueError(f"Report '{report_id}' file not found on disk")
         return raw_bytes.decode("utf-8")
 
     async def get_report_bytes(
@@ -139,15 +168,36 @@ class ReportingService:
             raise ValueError(f"Report '{report_id}' not found")
 
         clean_format = requested_format.lower()
-        if clean_format == "pdf" and report.pdf_artifact_path and self.storage.exists(report.pdf_artifact_path):
-            data = self.storage.read_file(report.pdf_artifact_path)
-            media_type = "application/pdf"
-            filename = f"TunnelTrace_Report_{report.report_type.lower()}_{str(report.id)[:8]}.pdf"
-            return data, media_type, filename
-        elif report.html_artifact_path and self.storage.exists(report.html_artifact_path):
-            data = self.storage.read_file(report.html_artifact_path)
-            media_type = "text/html; charset=utf-8"
-            filename = f"TunnelTrace_Report_{report.report_type.lower()}_{str(report.id)[:8]}.html"
-            return data, media_type, filename
-        else:
-            raise FileNotFoundError(f"Requested artifact format '{requested_format}' unavailable for report '{report_id}'")
+        if clean_format == "pdf":
+            if report.pdf_artifact_path:
+                data = self._read_artifact_bytes(report.pdf_artifact_path)
+                if data:
+                    media_type = "application/pdf"
+                    filename = f"TunnelTrace_Report_{report.report_type.lower()}_{str(report.id)[:8]}.pdf"
+                    return data, media_type, filename
+
+            # On-the-fly generation if PDF artifact was not rendered at creation time
+            try:
+                from app.reporting.pdf import build_report_pdf
+                snapshot = await self.snapshot_builder.build_snapshot(report.analysis_id)
+                pdf_bytes = build_report_pdf(report.report_type, snapshot)
+                rel_pdf_path = f"reports/{report.analysis_id}/{report.id}_{report.report_type.lower()}.pdf"
+                self.storage.save_file(rel_pdf_path, pdf_bytes)
+                report.pdf_artifact_path = rel_pdf_path
+                report.pdf_sha256 = hashlib.sha256(pdf_bytes).hexdigest()
+                if report.status == "PDF_FAILED_HTML_AVAILABLE":
+                    report.status = "COMPLETED"
+                    report.format = "BOTH"
+                await self.db.commit()
+                return pdf_bytes, "application/pdf", f"TunnelTrace_Report_{report.report_type.lower()}_{str(report.id)[:8]}.pdf"
+            except Exception as e:
+                logger.warning(f"On-the-fly PDF generation fallback failed: {e}")
+
+        if report.html_artifact_path:
+            data = self._read_artifact_bytes(report.html_artifact_path)
+            if data:
+                media_type = "text/html; charset=utf-8"
+                filename = f"TunnelTrace_Report_{report.report_type.lower()}_{str(report.id)[:8]}.html"
+                return data, media_type, filename
+
+        raise FileNotFoundError(f"Requested artifact format '{requested_format}' unavailable for report '{report_id}'")

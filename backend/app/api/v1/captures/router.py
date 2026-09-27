@@ -135,6 +135,18 @@ async def ingest_sample_capture(
     status_code=status.HTTP_201_CREATED,
     summary="Upload and ingest a packet capture file (PCAP/PCAPNG)",
 )
+@router.post(
+    "/",
+    response_model=CaptureResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload and ingest a packet capture file (PCAP/PCAPNG) [trailing slash]",
+)
+@router.post(
+    "/upload",
+    response_model=CaptureResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload and ingest a packet capture file (PCAP/PCAPNG) [alias]",
+)
 async def upload_capture(
     file: UploadFile = File(..., description="Binary packet capture file (PCAP or PCAPNG)"),
     db: AsyncSession = Depends(get_db_session),
@@ -158,6 +170,42 @@ async def upload_capture(
         validation_state=capture.validation_state,
         created_at=capture.created_at,
     )
+
+
+@router.get(
+    "",
+    response_model=list[CaptureResponseDTO],
+    summary="List recently ingested capture records",
+)
+@router.get(
+    "/",
+    response_model=list[CaptureResponseDTO],
+    summary="List recently ingested capture records [trailing slash]",
+)
+async def list_captures(
+    db: AsyncSession = Depends(get_db_session),
+) -> list[CaptureResponseDTO]:
+    """Retrieve catalog of ingested packet captures ordered newest first."""
+    res = await db.execute(select(Capture).order_by(Capture.created_at.desc()).limit(50))
+    captures = res.scalars().all()
+    return [
+        CaptureResponseDTO(
+            capture_id=c.id,
+            capture_source=c.capture_source,
+            capture_format=c.capture_format,
+            original_filename=c.original_filename,
+            file_size_bytes=c.file_size_bytes,
+            sha256=c.sha256_hash,
+            packet_count=c.packet_count,
+            duration_sec=c.duration_sec,
+            first_packet_at=c.first_packet_at,
+            last_packet_at=c.last_packet_at,
+            link_layer_type=c.link_layer_type,
+            validation_state=c.validation_state,
+            created_at=c.created_at,
+        )
+        for c in captures
+    ]
 
 
 @router.get(

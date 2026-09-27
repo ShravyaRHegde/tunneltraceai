@@ -135,6 +135,7 @@ class GroundedAIAnalystService:
                 status="RETRIEVAL_FAILED",
                 answer="Failed to retrieve forensic analysis facts from database.",
                 error=str(exc),
+                analysis_id=aid,
             )
 
         # 4. Local Model Generation Pass
@@ -175,6 +176,7 @@ class GroundedAIAnalystService:
                     status="MODEL_UNAVAILABLE",
                     answer="Local AI model runtime is currently offline or timed out.",
                     error=str(fb_exc),
+                    analysis_id=aid,
                 )
         except StructuredOutputError as exc:
             logger.warning("Structured output error from model: %s", exc)
@@ -255,6 +257,26 @@ class GroundedAIAnalystService:
                 claims = []
                 citations = []
                 limitations = ["Grounding validation failed to verify model citations/claims against authoritative evidence."]
+
+        # Ensure answer is never empty string
+        if not raw_answer.strip():
+            score_items = assembled.fact_lock.get_items_by_type("SECURITY_SCORE")
+            is_unassessable = False
+            if score_items:
+                sc_val = score_items[0].value
+                if isinstance(sc_val, dict) and sc_val.get("coverage_percentage", 100.0) == 0.0:
+                    is_unassessable = True
+            elif not assembled.fact_lock.items:
+                is_unassessable = True
+
+            if is_unassessable:
+                status = "INSUFFICIENT_EVIDENCE"
+                raw_answer = "No observable IPsec packet evidence (IKE negotiation or ESP traffic) was found in this capture artifact. Consequently, cryptographic parameters and compliance posture cannot be verified, and policy rules remain in an UNKNOWN evidence state."
+                limitations = ["Zero observable IPsec packet evidence found in capture."]
+            else:
+                status = "INSUFFICIENT_EVIDENCE"
+                raw_answer = CANONICAL_ABSTENTION_MESSAGE
+                limitations = ["Model produced empty structured answer; enforced canonical evidence abstention."]
 
         total_latency_ms = (time.perf_counter() - start_time) * 1000.0
 
@@ -340,11 +362,17 @@ class GroundedAIAnalystService:
         }
 
     def _build_error_response(
-        self, session_id: uuid.UUID, status: str, answer: str, error: str
+        self,
+        session_id: uuid.UUID,
+        status: str,
+        answer: str,
+        error: str,
+        analysis_id: uuid.UUID | str | None = None,
     ) -> dict[str, Any]:
         return {
             "query_run_id": str(uuid.uuid4()),
             "session_id": str(session_id),
+            "analysis_id": str(analysis_id) if analysis_id else "",
             "status": status,
             "answer": answer,
             "claims": [],

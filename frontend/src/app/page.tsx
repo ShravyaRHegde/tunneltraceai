@@ -19,6 +19,9 @@ import {
   FileSearch,
   ExternalLink,
   Info,
+  Network,
+  GitBranch,
+  FileText,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -80,12 +83,20 @@ export default function HomePage() {
 
       {/* 3 Core Workflow Pathways */}
       <div>
-        <h2 className="text-xs font-mono uppercase tracking-wider font-bold text-neutral-500 dark:text-neutral-400 mb-3">
-          Select Investigation Workflow
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-mono uppercase tracking-wider font-bold text-neutral-500 dark:text-neutral-400">
+            Select Investigation Workflow
+          </h2>
+          <span className="text-[11px] font-mono text-neutral-400">
+            Step-by-step journeys for security analysts
+          </span>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Pathway 1: Analyze a Capture */}
-          <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#141416] p-5 flex flex-col justify-between hover:border-[#FF3D00] transition-colors group">
+          <div className="border-2 border-[#FF3D00] bg-white dark:bg-[#141416] p-5 flex flex-col justify-between hover:shadow-md transition-all group relative">
+            <div className="absolute -top-2.5 right-4 bg-[#FF3D00] text-white text-[9px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
+              Recommended First Step
+            </div>
             <div className="space-y-3">
               <div className="w-9 h-9 bg-orange-100 dark:bg-orange-950/40 text-[#FF3D00] flex items-center justify-center border border-orange-200 dark:border-orange-800/60">
                 <UploadCloud className="w-5 h-5" />
@@ -94,10 +105,24 @@ export default function HomePage() {
                 1. Analyze a Capture
               </h3>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Ingest forensic PCAP/PCAPNG files or try verified benchmark samples. Dissects IKEv2 exchanges, verifies ESP payloads, audits cryptographic suites, and produces evidence graphs.
+                Ingest forensic PCAP/PCAPNG files or try verified benchmark samples. Dissects IKEv2 exchanges, verifies ESP payloads, audits cryptographic suites against NIST standards, and renders evidence DAGs.
               </p>
+              {/* Explicit 6-Step Analysis Progression */}
+              <div className="p-2.5 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 text-[10px] font-mono text-neutral-500 space-y-1.5">
+                <span className="font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 block">
+                  6-Step Analysis Workflow:
+                </span>
+                <ol className="space-y-1 list-decimal list-inside text-neutral-600 dark:text-neutral-400">
+                  <li><span className="font-semibold text-neutral-900 dark:text-neutral-200">Select PCAP / verified sample</span></li>
+                  <li><span className="font-semibold text-neutral-900 dark:text-neutral-200">Ingest & validate SHA-256</span></li>
+                  <li><span className="font-semibold text-neutral-900 dark:text-neutral-200">Deterministic dissection & SAs</span></li>
+                  <li><span className="font-semibold text-neutral-900 dark:text-neutral-200">Review overview & posture score</span></li>
+                  <li><span className="font-semibold text-neutral-900 dark:text-neutral-200">Inspect findings & evidence DAG</span></li>
+                  <li><span className="font-semibold text-neutral-900 dark:text-neutral-200">Generate report & export JSON/CSV</span></li>
+                </ol>
+              </div>
             </div>
-            <div className="pt-5 mt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between">
+            <div className="pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between">
               <Link
                 href="/analyses/new"
                 className="text-xs font-mono font-bold text-[#FF3D00] hover:underline flex items-center space-x-1 uppercase"
@@ -105,12 +130,12 @@ export default function HomePage() {
                 <span>Upload or Sample</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-              <span className="text-[10px] font-mono text-neutral-400">Offline / Forensic</span>
+              <span className="text-[10px] font-mono text-neutral-400">Zero Setup Required</span>
             </div>
           </div>
 
           {/* Pathway 2: Set Up Live Monitoring */}
-          <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#141416] p-5 flex flex-col justify-between hover:border-[#FF3D00] transition-colors group">
+          <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#141416] p-5 flex flex-col justify-between hover:border-blue-500 transition-colors group">
             <div className="space-y-3">
               <div className="w-9 h-9 bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800/60">
                 <Radio className="w-5 h-5" />
@@ -119,10 +144,16 @@ export default function HomePage() {
                 2. Set Up Live Monitoring
               </h3>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Register authorized VPN gateways and deploy lightweight telemetry sensors. Ingests heartbeat lifecycle events, tracks projected SAs, and monitors gateway health.
+                Continuous telemetry monitoring for authorized VPN gateways. Tracks heartbeat lifecycle events, projected SAs, and gateway health freshness.
               </p>
+              <div className="p-2 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 text-[10px] font-mono text-neutral-500 space-y-1">
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">Prerequisites:</span>
+                <p className="leading-tight">
+                  1) Register gateway • 2) Provision sensor token • 3) Deploy telemetry agent. Consumes events, not raw packet capture.
+                </p>
+              </div>
             </div>
-            <div className="pt-5 mt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between">
+            <div className="pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between">
               <Link
                 href="/monitoring"
                 className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1 uppercase"
@@ -135,7 +166,7 @@ export default function HomePage() {
           </div>
 
           {/* Pathway 3: Controlled Lab Scenario */}
-          <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#141416] p-5 flex flex-col justify-between hover:border-[#FF3D00] transition-colors group">
+          <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#141416] p-5 flex flex-col justify-between hover:border-emerald-500 transition-colors group">
             <div className="space-y-3">
               <div className="w-9 h-9 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800/60">
                 <FlaskConical className="w-5 h-5" />
@@ -144,18 +175,24 @@ export default function HomePage() {
                 3. Run Controlled Lab Scenario
               </h3>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Execute reproducible dual-strongSwan Linux namespace testbed scenarios. Safely inject misconfigurations, simulate workloads, capture WAN PCAPs, and test policy twins.
+                Reproducible dual-strongSwan testbed scenarios across 9 versioned profiles. Safely test ciphers, PFS, NAT-T, and latency impairment in isolated network namespaces.
               </p>
+              <div className="p-2 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 text-[10px] font-mono text-neutral-500 space-y-1">
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">Prerequisites:</span>
+                <p className="leading-tight">
+                  Requires Linux kernel namespaces and CAP_NET_ADMIN privileges. On this host, browse specs and CLI runbooks.
+                </p>
+              </div>
             </div>
-            <div className="pt-5 mt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between">
+            <div className="pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between">
               <Link
                 href="/lab"
                 className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center space-x-1 uppercase"
               >
-                <span>Lab Orchestrator</span>
+                <span>Lab Catalog</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-              <span className="text-[10px] font-mono text-neutral-400">Active Testbed</span>
+              <span className="text-[10px] font-mono text-neutral-400">Namespace Runner</span>
             </div>
           </div>
         </div>
@@ -185,7 +222,9 @@ export default function HomePage() {
           <div className="border border-neutral-200 dark:border-neutral-800 p-3 space-y-1">
             <div className="flex items-center justify-between text-[11px] font-mono">
               <span className="text-neutral-500">DATABASE</span>
-              {deps.database?.status === "UP" ? (
+              {isReadinessLoading ? (
+                <span className="text-neutral-400 font-bold">Checking...</span>
+              ) : deps.database?.status === "UP" ? (
                 <span className="text-emerald-600 font-bold flex items-center space-x-0.5">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>UP</span>
@@ -206,7 +245,9 @@ export default function HomePage() {
           <div className="border border-neutral-200 dark:border-neutral-800 p-3 space-y-1">
             <div className="flex items-center justify-between text-[11px] font-mono">
               <span className="text-neutral-500">STORAGE</span>
-              {deps.storage?.status === "UP" ? (
+              {isReadinessLoading ? (
+                <span className="text-neutral-400 font-bold">Checking...</span>
+              ) : deps.storage?.status === "UP" ? (
                 <span className="text-emerald-600 font-bold flex items-center space-x-0.5">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>UP</span>
@@ -227,7 +268,9 @@ export default function HomePage() {
           <div className="border border-neutral-200 dark:border-neutral-800 p-3 space-y-1">
             <div className="flex items-center justify-between text-[11px] font-mono">
               <span className="text-neutral-500">TSHARK ENGINE</span>
-              {deps.tshark?.status === "UP" ? (
+              {isReadinessLoading ? (
+                <span className="text-neutral-400 font-bold">Checking...</span>
+              ) : deps.tshark?.status === "UP" ? (
                 <span className="text-emerald-600 font-bold flex items-center space-x-0.5">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>UP</span>
@@ -293,6 +336,98 @@ export default function HomePage() {
             <div className="text-[10px] text-neutral-400 font-mono">
               models/active empty
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* What You Get with TunnelTrace AI */}
+      <div className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#141416] p-5 space-y-4">
+        <div className="border-b border-neutral-200 dark:border-neutral-800 pb-3">
+          <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
+            What You Get with TunnelTrace AI
+          </h3>
+          <p className="text-xs text-neutral-500">
+            Deterministic protocol forensics, normative policy auditing, and publication-grade reporting. Output states are explicitly communicated.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-mono">
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 space-y-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
+                <Network className="w-3.5 h-3.5 text-[#FF3D00]" />
+                <span>Protocol Facts</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold">AVAILABLE</span>
+            </div>
+            <p className="text-neutral-500 text-[11px] font-sans leading-relaxed">
+              RFC 7296 IKEv1/IKEv2 negotiation dissection, cryptographic proposal extraction, DH exchange parameter audit, and NAT-T encapsulation facts.
+            </p>
+          </div>
+
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 space-y-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
+                <GitBranch className="w-3.5 h-3.5 text-blue-500" />
+                <span>SAs & ESP Flows</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold">AVAILABLE</span>
+            </div>
+            <p className="text-neutral-500 text-[11px] font-sans leading-relaxed">
+              Directional Security Associations, inbound/outbound SPI pairing, Child SA lifecycle states, and traffic packet accounting.
+            </p>
+          </div>
+
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 space-y-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Security Posture & Score</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold">AVAILABLE</span>
+            </div>
+            <p className="text-neutral-500 text-[11px] font-sans leading-relaxed">
+              Deterministic NIST SP 800-77 Rev 1 rule evaluations, itemized score deductions, evidence coverage percentage, and risk tiers.
+            </p>
+          </div>
+
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 space-y-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
+                <Radio className="w-3.5 h-3.5 text-purple-500" />
+                <span>Encrypted Traffic ML</span>
+              </span>
+              <span className="text-[10px] text-neutral-500 font-bold">OPTIONAL / MODEL BUNDLE</span>
+            </div>
+            <p className="text-neutral-500 text-[11px] font-sans leading-relaxed">
+              XGBoost / 1D-CNN packet distribution classification with calibrated confidence, OOD rejection, and SHAP explainability.
+            </p>
+          </div>
+
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 space-y-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
+                <FileSearch className="w-3.5 h-3.5 text-sky-500" />
+                <span>Traceable Evidence DAG</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold">AVAILABLE</span>
+            </div>
+            <p className="text-neutral-500 text-[11px] font-sans leading-relaxed">
+              Full provenance graph linking findings directly to raw packet frames, configuration drift, and reproducible re-analysis lineages.
+            </p>
+          </div>
+
+          <div className="p-3 border border-neutral-200 dark:border-neutral-800 space-y-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-neutral-900 dark:text-white flex items-center space-x-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-500" />
+                <span>Audit Reports & Data Export</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold">AVAILABLE</span>
+            </div>
+            <p className="text-neutral-500 text-[11px] font-sans leading-relaxed">
+              Publication-grade Executive and Technical HTML reports, versioned JSON assessment manifests, and RFC 4180 CSV finding registers.
+            </p>
           </div>
         </div>
       </div>

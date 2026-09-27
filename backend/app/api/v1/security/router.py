@@ -64,9 +64,13 @@ async def _ensure_assessment_executed(
 ) -> None:
     """Check if assessment exists in DB; if not, execute assessment and persist."""
     # Check if finding or evaluation exists
-    stmt_check = select(ScoreAssessmentModel).where(ScoreAssessmentModel.analysis_id == analysis_id)
+    stmt_check = (
+        select(ScoreAssessmentModel)
+        .where(ScoreAssessmentModel.analysis_id == analysis_id)
+        .order_by(ScoreAssessmentModel.created_at.desc())
+    )
     res_check = await db.execute(stmt_check)
-    if res_check.scalar_one_or_none() is not None:
+    if res_check.scalars().first() is not None:
         return
 
     # Fetch AnalysisRun & Capture
@@ -281,8 +285,18 @@ async def get_compliance_summary(
     """Retrieve itemized rule compliance evaluations (PASS/FAIL/UNKNOWN/NOT_APPLICABLE)."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(ComplianceEvaluationModel).where(ComplianceEvaluationModel.analysis_id == analysis_id)
-    records = (await db.execute(stmt)).scalars().all()
+    stmt = (
+        select(ComplianceEvaluationModel)
+        .where(ComplianceEvaluationModel.analysis_id == analysis_id)
+        .order_by(ComplianceEvaluationModel.created_at.desc())
+    )
+    raw_records = (await db.execute(stmt)).scalars().all()
+    records = []
+    seen_rules = set()
+    for r in raw_records:
+        if r.rule_id not in seen_rules:
+            seen_rules.add(r.rule_id)
+            records.append(r)
 
     pass_count = sum(1 for r in records if r.compliance_state == "PASS")
     fail_count = sum(1 for r in records if r.compliance_state == "FAIL")
@@ -327,13 +341,24 @@ async def get_security_findings(
     """Retrieve structured security findings with deterministic filtering."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(SecurityFindingModel).where(SecurityFindingModel.analysis_id == analysis_id)
+    stmt = (
+        select(SecurityFindingModel)
+        .where(SecurityFindingModel.analysis_id == analysis_id)
+        .order_by(SecurityFindingModel.created_at.desc())
+    )
     if severity:
         stmt = stmt.where(SecurityFindingModel.severity == severity.upper())
     if category:
         stmt = stmt.where(SecurityFindingModel.category == category.upper())
 
-    findings = (await db.execute(stmt)).scalars().all()
+    raw_findings = (await db.execute(stmt)).scalars().all()
+    findings = []
+    seen_find_keys = set()
+    for f in raw_findings:
+        f_key = f.finding_id or f.rule_id
+        if f_key not in seen_find_keys:
+            seen_find_keys.add(f_key)
+            findings.append(f)
 
     return [
         SecurityFindingDTO(
@@ -370,8 +395,12 @@ async def get_security_score(
     """Retrieve transparent Security Posture Score and separate Evidence Coverage."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(ScoreAssessmentModel).where(ScoreAssessmentModel.analysis_id == analysis_id)
-    sa = (await db.execute(stmt)).scalar_one_or_none()
+    stmt = (
+        select(ScoreAssessmentModel)
+        .where(ScoreAssessmentModel.analysis_id == analysis_id)
+        .order_by(ScoreAssessmentModel.created_at.desc())
+    )
+    sa = (await db.execute(stmt)).scalars().first()
     if not sa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Score assessment not found.")
 
@@ -401,14 +430,31 @@ async def get_security_score(
         coverage_percentage=float(cov_data.get("coverage_percentage", 100.0)),
     )
 
+    cov_pct = float(cov_data.get("coverage_percentage", 100.0))
+    unknown_r = int(cov_data.get("unknown_rules", 0))
+    eval_r = int(cov_data.get("evaluated_rules", 0))
+    is_not_assessable = (
+        sa.status in ("NOT_ASSESSABLE", "INSUFFICIENT_EVIDENCE")
+        or sa.coverage_percentage == 0.0
+        or cov_pct < 50.0
+        or (unknown_r > eval_r and unknown_r > 0)
+    )
+    effective_score = None if is_not_assessable else sa.overall_score
+    effective_raw_score = None if is_not_assessable else sa.raw_score
+    effective_status = (
+        "INSUFFICIENT_EVIDENCE"
+        if is_not_assessable and (sa.coverage_percentage > 0.0 or cov_pct > 0.0)
+        else ("NOT_ASSESSABLE" if is_not_assessable else sa.status)
+    )
+
     return SecurityScoreDTO(
         analysis_id=sa.analysis_id,
-        overall_score=sa.overall_score,
-        raw_score=sa.raw_score,
+        overall_score=effective_score,
+        raw_score=effective_raw_score,
         score_policy_id=sa.score_policy_id,
         score_policy_version=sa.score_policy_version,
         score_policy_hash=sa.score_policy_hash,
-        status=sa.status,
+        status=effective_status,
         coverage_percentage=sa.coverage_percentage,
         category_scores=sa.category_scores or {},
         deduction_audit=ded_list,
@@ -425,8 +471,12 @@ async def get_risk_assessment(
     """Retrieve deterministic risk tiers, factor breakdowns, and policy hashes."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(RiskAssessmentModel).where(RiskAssessmentModel.analysis_id == analysis_id)
-    ra = (await db.execute(stmt)).scalar_one_or_none()
+    stmt = (
+        select(RiskAssessmentModel)
+        .where(RiskAssessmentModel.analysis_id == analysis_id)
+        .order_by(RiskAssessmentModel.created_at.desc())
+    )
+    ra = (await db.execute(stmt)).scalars().first()
     if not ra:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Risk assessment not found.")
 
@@ -470,12 +520,17 @@ async def get_risk_assessment(
                 )
             )
 
+    # Truthful handling of zero evidence runs: if coverage is 0.0 and no findings, tier is INSUFFICIENT_EVIDENCE
+    risk_tier = ra.overall_risk_tier
+    if (ra.evidence_coverage is not None and ra.evidence_coverage == 0.0 and len(items_list) == 0) or risk_tier == "LOW" and (ra.evidence_coverage == 0.0):
+        risk_tier = "INSUFFICIENT_EVIDENCE"
+
     return RiskAssessmentDTO(
         analysis_id=ra.analysis_id,
         risk_policy_id=ra.risk_policy_id,
         risk_policy_version=ra.risk_policy_version,
         risk_policy_hash=ra.risk_policy_hash,
-        overall_risk_tier=ra.overall_risk_tier,
+        overall_risk_tier=risk_tier,
         items=items_list,
         evidence_coverage=ra.evidence_coverage,
         evidence_gaps_count=ra.evidence_gaps_count or 0,
@@ -492,8 +547,19 @@ async def get_threat_matrix(
     """Retrieve catalog-mapped threat instances linked to observed violations with verified ATT&CK context."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(ThreatInstanceModel).where(ThreatInstanceModel.analysis_id == analysis_id)
-    threats = (await db.execute(stmt)).scalars().all()
+    stmt = (
+        select(ThreatInstanceModel)
+        .where(ThreatInstanceModel.analysis_id == analysis_id)
+        .order_by(ThreatInstanceModel.created_at.desc())
+    )
+    raw_threats = (await db.execute(stmt)).scalars().all()
+    threats = []
+    seen_threats = set()
+    for t in raw_threats:
+        t_key = (t.finding_id, t.threat_id)
+        if t_key not in seen_threats:
+            seen_threats.add(t_key)
+            threats.append(t)
 
     return [
         ThreatInstanceDTO(
@@ -565,10 +631,12 @@ async def get_metadata_fingerprintability(
     """Retrieve behavioral metadata side-channel distinguishability assessment."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(FingerprintabilityAssessmentModel).where(
-        FingerprintabilityAssessmentModel.analysis_id == analysis_id
+    stmt = (
+        select(FingerprintabilityAssessmentModel)
+        .where(FingerprintabilityAssessmentModel.analysis_id == analysis_id)
+        .order_by(FingerprintabilityAssessmentModel.created_at.desc())
     )
-    fa = (await db.execute(stmt)).scalar_one_or_none()
+    fa = (await db.execute(stmt)).scalars().first()
     if not fa:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -609,8 +677,12 @@ async def get_evidence_graph(
     """Retrieve complete forensic provenance graph formatted for React Flow canvas."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
-    stmt = select(EvidenceGraphModel).where(EvidenceGraphModel.analysis_id == analysis_id)
-    eg = (await db.execute(stmt)).scalar_one_or_none()
+    stmt = (
+        select(EvidenceGraphModel)
+        .where(EvidenceGraphModel.analysis_id == analysis_id)
+        .order_by(EvidenceGraphModel.created_at.desc())
+    )
+    eg = (await db.execute(stmt)).scalars().first()
     if not eg:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence graph not found.")
 
@@ -635,14 +707,22 @@ async def get_finding_evidence_lineage(
     service: SecurityAssessmentService = Depends(get_security_service),
 ) -> dict[str, Any]:
     """Resolve full upstream packet frames and downstream consequences for a specific finding."""
-    stmt_find = select(SecurityFindingModel).where(SecurityFindingModel.finding_id == finding_id)
-    find = (await db.execute(stmt_find)).scalar_one_or_none()
+    stmt_find = (
+        select(SecurityFindingModel)
+        .where(SecurityFindingModel.finding_id == finding_id)
+        .order_by(SecurityFindingModel.created_at.desc())
+    )
+    find = (await db.execute(stmt_find)).scalars().first()
     if not find:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Finding '{finding_id}' not found.")
 
     # Retrieve associated evidence graph
-    stmt_eg = select(EvidenceGraphModel).where(EvidenceGraphModel.analysis_id == find.analysis_id)
-    eg = (await db.execute(stmt_eg)).scalar_one_or_none()
+    stmt_eg = (
+        select(EvidenceGraphModel)
+        .where(EvidenceGraphModel.analysis_id == find.analysis_id)
+        .order_by(EvidenceGraphModel.created_at.desc())
+    )
+    eg = (await db.execute(stmt_eg)).scalars().first()
     if not eg:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence graph not found.")
 

@@ -39,6 +39,9 @@ class InventoryService:
         request: ConfigurationImportRequest,
     ) -> GatewayConfigurationSnapshot:
         """Parse, scrub, and persist a strongSwan configuration snapshot."""
+        if not request.config_text or not request.config_text.strip():
+            raise ConfigurationParseError("Configuration content cannot be empty. Please provide valid swanctl.conf syntax.")
+
         # In-memory parse and secret scrubbing
         parse_result = SafeSwanctlParser.parse(request.config_text)
         normalized_ir = parse_result["normalized_ir"]
@@ -95,6 +98,12 @@ class InventoryService:
         snapshot = (await db.execute(query)).scalar_one_or_none()
         if not snapshot:
             return None
+
+        # Guard: Prohibit empty-content snapshots from being designated as verified baselines
+        if snapshot.canonical_digest and snapshot.canonical_digest.startswith("e3b0c442"):
+            raise ValueError(
+                "Cannot designate unverified configuration snapshot with empty-content digest (e3b0c442...) as an authoritative baseline."
+            )
 
         # Demote existing baselines for this gateway
         demote_stmt = (

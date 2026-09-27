@@ -172,7 +172,7 @@ class AnalysisSnapshotBuilder:
             "ml_run_status": current_run.status if current_run else ("COMPLETED" if ml_records else "NOT_CONFIGURED"),
             "model_version": current_run.bundle_version if current_run else (getattr(ml_records[0].artifact, "version", None) if (ml_records and ml_records[0].artifact) else None),
             "model_bundle_id": current_run.bundle_id if current_run else (getattr(ml_records[0].artifact, "bundle_id", None) if (ml_records and ml_records[0].artifact) else None),
-            "total_flows": len(ml_records),
+            "total_flows": len(flows),
             "classified_flows": len(classified_records),
             "skipped_flows": current_run.skipped_count if current_run else sum(1 for m in ml_records if m.input_status not in ("VALID", "COMPLETE")),
             "classes_detected": sorted({m.final_class for m in classified_records if m.final_class not in ["UNKNOWN", "UNAVAILABLE"]}),
@@ -194,9 +194,16 @@ class AnalysisSnapshotBuilder:
         stmt_evals = (
             select(ComplianceEvaluationModel)
             .where(ComplianceEvaluationModel.analysis_id == analysis_id)
+            .order_by(ComplianceEvaluationModel.created_at.desc())
         )
         res_evals = await self.db.execute(stmt_evals)
-        evals = res_evals.scalars().all()
+        raw_evals = res_evals.scalars().all()
+        evals = []
+        seen_eval_rules = set()
+        for e in raw_evals:
+            if e.rule_id not in seen_eval_rules:
+                seen_eval_rules.add(e.rule_id)
+                evals.append(e)
 
         compliance_summary = {
             "total_evaluations": len(evals),
@@ -225,10 +232,17 @@ class AnalysisSnapshotBuilder:
         stmt_find = (
             select(SecurityFindingModel)
             .where(SecurityFindingModel.analysis_id == analysis_id)
-            .order_by(SecurityFindingModel.created_at)
+            .order_by(SecurityFindingModel.created_at.desc())
         )
         res_find = await self.db.execute(stmt_find)
-        findings = res_find.scalars().all()
+        raw_findings = res_find.scalars().all()
+        findings = []
+        seen_finding_keys = set()
+        for f in raw_findings:
+            f_key = f.finding_id or f.rule_id
+            if f_key not in seen_finding_keys:
+                seen_finding_keys.add(f_key)
+                findings.append(f)
 
         findings_summary = {
             "total_findings": len(findings),
@@ -259,30 +273,113 @@ class AnalysisSnapshotBuilder:
         stmt_score = (
             select(ScoreAssessmentModel)
             .where(ScoreAssessmentModel.analysis_id == analysis_id)
+            .order_by(ScoreAssessmentModel.created_at.desc())
         )
         res_score = await self.db.execute(stmt_score)
-        score_row = res_score.scalar_one_or_none()
+        score_row = res_score.scalars().first()
+
+        # Deductions reconciliation: if deduction_audit is empty or None but findings exist
+        itemized_deductions = score_row.deduction_audit if (score_row and score_row.deduction_audit) else {}
+        if not itemized_deductions and findings:
+            itemized_deductions = {
+                (f.rule_id or getattr(f, "finding_id", str(f.id))): float(
+                    getattr(f, "score_deduction", 0.0)
+                    or (20.0 if f.severity == "CRITICAL" else 6.0 if f.severity == "HIGH" else 0.0)
+                )
+                for f in findings
+                if getattr(f, "score_deduction", 0.0) or f.severity in ("CRITICAL", "HIGH")
+            }
+
+        # Severe evidence gaps: if coverage is under 50% or unknown checks outnumber evaluated checks,
+        # the overall score cannot be legitimately claimed as an authoritative 100/100.
+        eval_pass = compliance_summary.get("pass_count", 0)
+        eval_fail = compliance_summary.get("fail_count", 0)
+        eval_unknown = compliance_summary.get("unknown_count", 0)
+        coverage_pct = score_row.coverage_percentage if score_row else (
+            (eval_pass + eval_fail) / (eval_pass + eval_fail + eval_unknown) * 100.0
+            if (eval_pass + eval_fail + eval_unknown) > 0
+            else 0.0
+        )
+        is_coverage_insufficient = coverage_pct < 50.0 or (eval_unknown > (eval_pass + eval_fail))
+
+        is_score_unassessable = (
+            score_row is not None and (score_row.status in ("NOT_ASSESSABLE", "INSUFFICIENT_EVIDENCE") or score_row.coverage_percentage == 0.0)
+        ) or (
+            score_row is None and len(evals) == 0
+        ) or (
+            len(evals) > 0 and all(e.compliance_state == "UNKNOWN" for e in evals)
+        ) or is_coverage_insufficient
+
+        score_status = "NOT_ASSESSABLE"
+        if is_score_unassessable:
+            score_status = "INSUFFICIENT_EVIDENCE" if (score_row and score_row.coverage_percentage > 0.0) else "NOT_ASSESSABLE"
+        else:
+            score_status = score_row.status if score_row else "VALIDATED"
 
         score_data = {
-            "score": score_row.overall_score if score_row else 100.0,
+            "score": None if is_score_unassessable else (score_row.overall_score if score_row else 100.0),
             "evidence_coverage": (score_row.coverage_percentage / 100.0) if score_row else 0.0,
             "methodology_version": score_row.score_policy_version if score_row else "1.0.0",
             "score_policy_hash": score_row.score_policy_hash if score_row else "default",
-            "itemized_deductions": score_row.deduction_audit if score_row else {},
+            "itemized_deductions": itemized_deductions,
+            "status": score_status,
+            "is_assessable": not is_score_unassessable,
         }
 
         stmt_risk = (
             select(RiskAssessmentModel)
             .where(RiskAssessmentModel.analysis_id == analysis_id)
+            .order_by(RiskAssessmentModel.created_at.desc())
         )
         res_risk = await self.db.execute(stmt_risk)
-        risk_row = res_risk.scalar_one_or_none()
+        risk_row = res_risk.scalars().first()
+
+        # Deterministic risk tier calculation from findings to prevent CRITICAL/HIGH findings coexisting with LOW risk
+        if is_score_unassessable and len(findings) == 0:
+            computed_risk_tier = "INSUFFICIENT_EVIDENCE"
+            computed_risk_score = 0.0
+            computed_rationale = (
+                f"Insufficient protocol evidence (only {coverage_pct:.1f}% coverage, "
+                f"{eval_unknown} unknown check(s)). Posture score unassessable to prevent false sense of security."
+            )
+        elif findings_summary["critical_count"] > 0:
+            computed_risk_tier = "CRITICAL"
+            computed_risk_score = 95.0
+            computed_rationale = f"Critical risk: {findings_summary['critical_count']} critical severity finding(s) observed requiring immediate remediation."
+        elif findings_summary["high_count"] > 0:
+            computed_risk_tier = "HIGH"
+            computed_risk_score = 75.0
+            computed_rationale = f"High risk: {findings_summary['high_count']} high severity finding(s) observed."
+        elif findings_summary["medium_count"] > 0:
+            computed_risk_tier = "MEDIUM"
+            computed_risk_score = 45.0
+            computed_rationale = f"Moderate risk: {findings_summary['medium_count']} medium severity finding(s) observed."
+        else:
+            computed_risk_tier = "LOW"
+            computed_risk_score = 0.0
+            computed_rationale = "No severe security violations observed."
+
+        persisted_risk_tier = getattr(risk_row, "overall_risk_tier", getattr(risk_row, "aggregate_risk_tier", None)) if risk_row else None
+
+        # Enforce consistency: a critical finding can never report as LOW risk; insufficient evidence is INSUFFICIENT_EVIDENCE
+        if is_score_unassessable and len(findings) == 0:
+            effective_risk_tier = "INSUFFICIENT_EVIDENCE"
+            effective_risk_score = 0.0
+            effective_rationale = computed_rationale
+        elif not persisted_risk_tier or (persisted_risk_tier == "LOW" and computed_risk_tier in ("CRITICAL", "HIGH", "MEDIUM")):
+            effective_risk_tier = computed_risk_tier
+            effective_risk_score = computed_risk_score if (not risk_row or risk_row.risk_score == 0.0) else risk_row.risk_score
+            effective_rationale = computed_rationale
+        else:
+            effective_risk_tier = persisted_risk_tier
+            effective_risk_score = getattr(risk_row, "risk_score", computed_risk_score)
+            effective_rationale = getattr(risk_row, "rationale", computed_rationale)
 
         risk_data = {
-            "aggregate_risk_tier": getattr(risk_row, "overall_risk_tier", getattr(risk_row, "aggregate_risk_tier", "LOW")) if risk_row else "LOW",
-            "overall_risk_tier": getattr(risk_row, "overall_risk_tier", "LOW") if risk_row else "LOW",
-            "risk_score": getattr(risk_row, "risk_score", 0.0) if risk_row else 0.0,
-            "rationale": getattr(risk_row, "rationale", "No severe security violations observed.") if risk_row else "No severe security violations observed.",
+            "aggregate_risk_tier": effective_risk_tier,
+            "overall_risk_tier": effective_risk_tier,
+            "risk_score": effective_risk_score,
+            "rationale": effective_rationale,
             "risk_policy_id": getattr(risk_row, "risk_policy_id", "risk_policy_canonical_v1") if risk_row else "risk_policy_canonical_v1",
             "risk_policy_version": getattr(risk_row, "risk_policy_version", "1.0.0") if risk_row else "1.0.0",
             "risk_policy_hash": getattr(risk_row, "risk_policy_hash", "") if risk_row else "",
@@ -294,9 +391,17 @@ class AnalysisSnapshotBuilder:
         stmt_threats = (
             select(ThreatInstanceModel)
             .where(ThreatInstanceModel.analysis_id == analysis_id)
+            .order_by(ThreatInstanceModel.created_at.desc())
         )
         res_threats = await self.db.execute(stmt_threats)
-        threat_rows = res_threats.scalars().all()
+        raw_threat_rows = res_threats.scalars().all()
+        threat_rows = []
+        seen_threat_keys = set()
+        for t in raw_threat_rows:
+            t_key = (t.finding_id, t.threat_id)
+            if t_key not in seen_threat_keys:
+                seen_threat_keys.add(t_key)
+                threat_rows.append(t)
 
         threats_data = [
             {
@@ -322,9 +427,10 @@ class AnalysisSnapshotBuilder:
         stmt_mfi = (
             select(FingerprintabilityAssessmentModel)
             .where(FingerprintabilityAssessmentModel.analysis_id == analysis_id)
+            .order_by(FingerprintabilityAssessmentModel.created_at.desc())
         )
         res_mfi = await self.db.execute(stmt_mfi)
-        mfi_row = res_mfi.scalar_one_or_none()
+        mfi_row = res_mfi.scalars().first()
 
         raw_components = getattr(mfi_row, "components", {}) if mfi_row else {}
         comp_scores = {}
@@ -349,6 +455,19 @@ class AnalysisSnapshotBuilder:
             ),
         }
 
+        is_synthetic = bool(
+            (run.provenance_metadata and run.provenance_metadata.get("is_synthetic_demo"))
+            or (run.provenance_metadata and run.provenance_metadata.get("gateway_identity") == "Perimeter-Gateway-ALPHA")
+            or (capture and capture.original_filename == "ikev2_perimeter_audit.pcap")
+            or (len(observations) == 0 and findings_summary["total_findings"] > 0)
+        )
+
+        if is_synthetic and len(observations) == 0:
+            protocol_facts["evidence_note"] = "Demonstration fixture: Wire packet observations were not parsed from a raw PCAP stream for this reference run."
+
+        if compliance_summary["total_evaluations"] == 0:
+            compliance_summary["status_note"] = "No compliance rules evaluated for this run."
+
         # Build master snapshot dictionary
         snapshot = {
             "analysis_id": str(analysis_id),
@@ -367,6 +486,7 @@ class AnalysisSnapshotBuilder:
                 "schema_version": run.schema_version,
                 "created_at": run.created_at.isoformat() if run.created_at else None,
                 "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+                "is_synthetic_demo": is_synthetic,
             },
             "protocol": protocol_facts,
             "security_associations": sa_summary,

@@ -29,6 +29,7 @@ from app.api.v1.security.router import (
     get_risk_assessment,
     get_security_findings,
     get_security_score,
+    get_threat_intelligence,
     get_threat_matrix,
 )
 from app.api.v1.security.schemas import (
@@ -39,6 +40,7 @@ from app.api.v1.security.schemas import (
     SecurityFindingDTO,
     SecurityScoreDTO,
     ThreatInstanceDTO,
+    ThreatIntelResponseDTO,
 )
 from app.core.errors import AnalysisNotFoundError, CaptureNotFoundError
 from app.db.models.capture import AnalysisRun, Capture
@@ -97,6 +99,8 @@ async def create_analysis(
     return AnalysisRunResponseDTO(
         analysis_id=analysis.id,
         capture_id=analysis.capture_id,
+        capture_filename=capture.original_filename,
+        capture_sha256=capture.sha256_hash,
         status=analysis.status,
         current_stage=analysis.current_stage,
         parser_engine=analysis.parser_engine,
@@ -135,9 +139,18 @@ async def list_analyses(
     run_ids = [r.id for r in runs]
 
     # Batch fetch scores
-    stmt_scores = select(ScoreAssessmentModel).where(ScoreAssessmentModel.analysis_id.in_(run_ids))
+    stmt_scores = (
+        select(ScoreAssessmentModel)
+        .where(ScoreAssessmentModel.analysis_id.in_(run_ids))
+        .order_by(ScoreAssessmentModel.created_at.asc())
+    )
     score_rows = (await db.execute(stmt_scores)).scalars().all()
-    score_map = {s.analysis_id: s.overall_score for s in score_rows}
+    score_map: dict[uuid.UUID, float | None] = {}
+    for s in score_rows:
+        if s.status == "NOT_ASSESSABLE" or s.coverage_percentage == 0.0:
+            score_map[s.analysis_id] = None
+        else:
+            score_map[s.analysis_id] = s.overall_score
 
     # Batch fetch findings counts
     stmt_finds = select(SecurityFindingModel).where(SecurityFindingModel.analysis_id.in_(run_ids))
@@ -271,6 +284,13 @@ router.add_api_route(
     summary="Retrieve threat matrix instances",
 )
 router.add_api_route(
+    "/{analysis_id}/threat-intelligence",
+    get_threat_intelligence,
+    methods=["GET"],
+    response_model=ThreatIntelResponseDTO,
+    summary="Retrieve offline threat intelligence context",
+)
+router.add_api_route(
     "/{analysis_id}/metadata-fingerprintability",
     get_metadata_fingerprintability,
     methods=["GET"],
@@ -308,6 +328,8 @@ async def get_analysis_overview(
         analysis=snap["analysis"],
         security_posture={
             "score": snap["score"]["score"],
+            "status": snap["score"].get("status", "VALIDATED"),
+            "is_assessable": snap["score"].get("is_assessable", True),
             "evidence_coverage": snap["score"]["evidence_coverage"],
             "aggregate_risk_tier": snap["risk"]["aggregate_risk_tier"],
             "itemized_deductions": snap["score"]["itemized_deductions"],

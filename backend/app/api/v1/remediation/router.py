@@ -23,7 +23,13 @@ from app.db.models.remediation import (
     RemediationVerificationClaimModel,
     RemediationVerificationModel,
 )
-from app.db.models.security import ComplianceEvaluationModel, SecurityFindingModel
+from app.db.models.inventory import GatewayConfigurationSnapshot
+from app.db.models.security import (
+    ComplianceEvaluationModel,
+    RiskAssessmentModel,
+    ScoreAssessmentModel,
+    SecurityFindingModel,
+)
 from app.db.session import get_db_session
 from app.remediation.ir import ConfigurationIR
 from app.remediation.parser import ForensicFactsSnapshotBuilder, SwanctlParser
@@ -32,6 +38,7 @@ from app.remediation.runner import ClosedLoopRemediationRunner
 from app.remediation.twin import ConfigurationSecurityTwin
 from app.security.facts.models import EvidenceState, SecurityFact, SubjectType
 from app.security.findings.models import SecurityFinding
+from app.security.policy.schema import FindingCategory, Severity
 
 router = APIRouter(prefix="/analyses/{analysis_id}/remediation", tags=["Remediation & Security Twin"])
 
@@ -71,6 +78,8 @@ class TwinResponse(BaseModel):
     projected_score: float | None
     projected_score_delta: float | None
     disclaimer: str
+    has_linked_baseline: bool = False
+    baseline_provenance: str | None = None
 
 
 class RemediationRunStepResponse(BaseModel):
@@ -151,6 +160,16 @@ async def _get_or_create_twin(
     finding_models = res_f.scalars().all()
     baseline_findings: list[SecurityFinding] = []
     for fm in finding_models:
+        sev_obj = (
+            fm.severity if isinstance(fm.severity, Severity)
+            else (Severity[fm.severity] if fm.severity in Severity.__members__
+                  else (Severity(fm.severity) if fm.severity in [s.value for s in Severity] else Severity.MEDIUM))
+        )
+        cat_obj = (
+            fm.category if isinstance(fm.category, FindingCategory)
+            else (FindingCategory[fm.category] if fm.category in FindingCategory.__members__
+                  else (FindingCategory(fm.category) if fm.category in [c.value for c in FindingCategory] else FindingCategory.CRYPTOGRAPHY))
+        )
         baseline_findings.append(
             SecurityFinding.create(
                 finding_id=str(fm.id),
@@ -158,8 +177,8 @@ async def _get_or_create_twin(
                 rule_id=fm.rule_id,
                 rule_version=fm.rule_version,
                 profile_id=fm.profile_id or "profile_nist_sp800_77",
-                category=fm.category,
-                severity=fm.severity,
+                category=cat_obj,
+                severity=sev_obj,
                 title=fm.title,
                 technical_description=fm.technical_description,
                 root_cause_key=fm.root_cause_key,
@@ -182,6 +201,23 @@ async def _get_or_create_twin(
 
     twin_engine = ConfigurationSecurityTwin()
 
+    res_score = await db.execute(
+        select(ScoreAssessmentModel)
+        .where(ScoreAssessmentModel.analysis_id == analysis_id)
+        .order_by(ScoreAssessmentModel.created_at.desc())
+    )
+    score_model = res_score.scalars().first()
+    real_baseline_score = float(score_model.overall_score) if score_model and score_model.overall_score is not None else 100.0
+
+    res_risk = await db.execute(
+        select(RiskAssessmentModel)
+        .where(RiskAssessmentModel.analysis_id == analysis_id)
+        .order_by(RiskAssessmentModel.created_at.desc())
+    )
+    risk_model = res_risk.scalars().first()
+    tier_scores = {"CRITICAL": 95.0, "HIGH": 75.0, "MEDIUM": 45.0, "LOW": 15.0}
+    real_risk_score = tier_scores.get(getattr(risk_model, "overall_risk_tier", "LOW"), 20.0)
+
     if custom_proposal_text:
         proposed_ir = SwanctlParser.parse_text(custom_proposal_text)
     else:
@@ -191,8 +227,27 @@ async def _get_or_create_twin(
             .where(ConfigurationTwinModel.analysis_id == analysis_id)
             .order_by(desc(ConfigurationTwinModel.created_at))
         )
-        existing_twin = res_existing.scalar_one_or_none()
+        existing_twin = res_existing.scalars().first()
         if existing_twin:
+            existing_audit = existing_twin.projected_regression_audit or {}
+            # Reconcile if baseline_score in audit was the hardcoded legacy 45.0 while real score differs
+            if existing_audit.get("baseline_score") is not None and existing_audit.get("baseline_score") != real_baseline_score:
+                proposed_ir = twin_engine.generate_remediation_proposal(current_snapshot, baseline_findings)
+                sim_result = twin_engine.run_projection(
+                    analysis_id=str(analysis_id),
+                    current_snapshot=current_snapshot,
+                    proposed_ir=proposed_ir,
+                    baseline_findings=baseline_findings,
+                    baseline_score=real_baseline_score,
+                    baseline_risk_score=real_risk_score,
+                )
+                existing_twin.projected_score = sim_result.projected_score
+                existing_twin.projected_score_delta = sim_result.projected_score_delta
+                existing_twin.diff_text = sim_result.text_diff
+                existing_twin.semantic_diff = sim_result.semantic_diff
+                existing_twin.projected_regression_audit = sim_result.regression_audit.to_dict()
+                await db.commit()
+                await db.refresh(existing_twin)
             return existing_twin
 
         # Deterministically synthesize proposal from findings
@@ -204,8 +259,8 @@ async def _get_or_create_twin(
         current_snapshot=current_snapshot,
         proposed_ir=proposed_ir,
         baseline_findings=baseline_findings,
-        baseline_score=45.0,  # Contextual baseline
-        baseline_risk_score=75.0,
+        baseline_score=real_baseline_score,
+        baseline_risk_score=real_risk_score,
     )
 
     # Create Snapshots in DB
@@ -270,6 +325,23 @@ async def get_configuration_twin(
     )
     hard_snap = res_hard.scalar_one()
 
+    # Check if analysis has an associated gateway with a non-empty configuration baseline
+    has_linked_baseline = False
+    baseline_provenance = None
+    res_ar = await db.execute(select(AnalysisRun).where(AnalysisRun.id == analysis_id))
+    ar = res_ar.scalar_one_or_none()
+    gw_identity = ar.provenance_metadata.get("gateway_identity") if (ar and ar.provenance_metadata) else None
+    if gw_identity:
+        res_gw_snap = await db.execute(
+            select(GatewayConfigurationSnapshot).where(
+                GatewayConfigurationSnapshot.gateway_identity == gw_identity
+            )
+        )
+        gw_snap = res_gw_snap.scalars().first()
+        if gw_snap and gw_snap.canonical_digest and not gw_snap.canonical_digest.startswith("e3b0c442"):
+            has_linked_baseline = True
+            baseline_provenance = f"Gateway '{gw_identity}' Configuration ({gw_snap.canonical_digest[:12]}...)"
+
     return TwinResponse(
         twin_id=twin.id,
         analysis_id=twin.analysis_id,
@@ -286,6 +358,8 @@ async def get_configuration_twin(
         disclaimer=(twin.projected_regression_audit or {}).get(
             "disclaimer", "Counterfactual projection only. Fresh lab re-testing required for verification."
         ),
+        has_linked_baseline=has_linked_baseline,
+        baseline_provenance=baseline_provenance,
     )
 
 

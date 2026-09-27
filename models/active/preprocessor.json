@@ -1,0 +1,33 @@
+{
+  "apply_log1p": true,
+  "center_params": {},
+  "fitted_columns": [
+    "duration_ms",
+    "total_packets",
+    "total_bytes",
+    "fwd_pkt_ratio",
+    "byte_direction_ratio",
+    "pkt_len_mean",
+    "pkt_len_std",
+    "pkt_len_skew",
+    "pkt_len_p10",
+    "pkt_len_p25",
+    "pkt_len_median",
+    "pkt_len_p75",
+    "pkt_len_p90",
+    "iat_mean_ms",
+    "iat_std_ms",
+    "iat_max_ms",
+    "fwd_iat_mean_ms",
+    "rev_iat_mean_ms",
+    "packets_per_second",
+    "bytes_per_second",
+    "burst_count",
+    "burst_mean_bytes",
+    "idle_ratio",
+    "first_k_bytes"
+  ],
+  "is_fitted": true,
+  "scale_params": {},
+  "scaling_strategy": "NONE"
+}

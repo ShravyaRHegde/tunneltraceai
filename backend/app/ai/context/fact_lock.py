@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.capture import AnalysisRun, Capture
+from app.db.models.ml import FlowClassification
 from app.db.models.reconstruction import (
     ChildSecurityAssociation,
     ESPFlow,
@@ -228,12 +229,21 @@ class FactLockBuilder:
         flow_res = await session.execute(
             select(ESPFlow).where(ESPFlow.analysis_id == aid)
         )
-        for flow in flow_res.scalars().all():
-            pred = flow.traffic_prediction or {}
-            top_class = pred.get("predicted_class", "UNKNOWN")
-            conf = pred.get("calibrated_confidence", pred.get("confidence", 0.0))
-            is_ood = pred.get("is_ood", False)
-            entropy = pred.get("entropy", 0.0)
+        flows = flow_res.scalars().all()
+        fc_res = await session.execute(
+            select(FlowClassification)
+            .join(ESPFlow, FlowClassification.flow_id == ESPFlow.id)
+            .where(ESPFlow.analysis_id == aid)
+        )
+        classifications_by_flow = {fc.flow_id: fc for fc in fc_res.scalars().all()}
+
+        for flow in flows:
+            fc = classifications_by_flow.get(flow.id)
+            pred = getattr(flow, "traffic_prediction", None) or {}
+            top_class = fc.final_class if fc else pred.get("predicted_class", "UNKNOWN")
+            conf = fc.calibrated_confidence if fc else pred.get("calibrated_confidence", pred.get("confidence", 0.0))
+            is_ood = (fc.ood_status in ("OOD_REJECTED", "UNKNOWN_UNSEEN")) if fc else pred.get("is_ood", False)
+            entropy = getattr(fc, "entropy", 0.0) if fc else pred.get("entropy", 0.0)
             items.append(
                 FactLockItem(
                     source_id=f"flow:{flow.id}",
@@ -255,9 +265,11 @@ class FactLockBuilder:
 
         # 4. Security Posture Score (Stage 8)
         score_res = await session.execute(
-            select(ScoreAssessmentModel).where(ScoreAssessmentModel.analysis_id == aid)
+            select(ScoreAssessmentModel)
+            .where(ScoreAssessmentModel.analysis_id == aid)
+            .order_by(ScoreAssessmentModel.created_at.desc())
         )
-        score_obj = score_res.scalar_one_or_none()
+        score_obj = score_res.scalars().first()
         if score_obj:
             items.append(
                 FactLockItem(
@@ -350,11 +362,11 @@ class FactLockBuilder:
 
         # 7. Metadata Fingerprintability (Stage 8)
         fp_res = await session.execute(
-            select(FingerprintabilityAssessmentModel).where(
-                FingerprintabilityAssessmentModel.analysis_id == aid
-            )
+            select(FingerprintabilityAssessmentModel)
+            .where(FingerprintabilityAssessmentModel.analysis_id == aid)
+            .order_by(FingerprintabilityAssessmentModel.created_at.desc())
         )
-        fp_obj = fp_res.scalar_one_or_none()
+        fp_obj = fp_res.scalars().first()
         if fp_obj:
             items.append(
                 FactLockItem(
@@ -362,8 +374,11 @@ class FactLockBuilder:
                     fact_type="FINGERPRINTABILITY",
                     name="metadata_fingerprintability",
                     value={
-                        "overall_distinguishability": fp_obj.overall_distinguishability,
-                        "class_fingerprintability": fp_obj.class_fingerprintability,
+                        "overall_distinguishability": getattr(fp_obj, "overall_index", None),
+                        "overall_index": getattr(fp_obj, "overall_index", None),
+                        "class_fingerprintability": getattr(fp_obj, "components", {}),
+                        "components": getattr(fp_obj, "components", {}),
+                        "status": getattr(fp_obj, "status", "EVALUATED"),
                     },
                     epistemic_state="INFERRED",
                     entity="FingerprintabilityAssessment",
@@ -373,11 +388,11 @@ class FactLockBuilder:
 
         # 8. Stage 10 Configuration Security Twin (Projected)
         twin_res = await session.execute(
-            select(ConfigurationTwinModel).where(
-                ConfigurationTwinModel.analysis_id == aid
-            )
+            select(ConfigurationTwinModel)
+            .where(ConfigurationTwinModel.analysis_id == aid)
+            .order_by(ConfigurationTwinModel.created_at.desc())
         )
-        twin_obj = twin_res.scalar_one_or_none()
+        twin_obj = twin_res.scalars().first()
         if twin_obj:
             items.append(
                 FactLockItem(
@@ -398,11 +413,11 @@ class FactLockBuilder:
 
         # 9. Stage 10 Closed-Loop Remediation Verification
         verif_res = await session.execute(
-            select(RemediationVerificationModel).where(
-                RemediationVerificationModel.baseline_analysis_id == aid
-            )
+            select(RemediationVerificationModel)
+            .where(RemediationVerificationModel.baseline_analysis_id == aid)
+            .order_by(RemediationVerificationModel.verified_at.desc())
         )
-        verif_obj = verif_res.scalar_one_or_none()
+        verif_obj = verif_res.scalars().first()
         if verif_obj:
             items.append(
                 FactLockItem(

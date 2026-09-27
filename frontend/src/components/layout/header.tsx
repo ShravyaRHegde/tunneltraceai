@@ -87,33 +87,32 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         {/* Persistent Active Run Selector */}
         <div className="relative" ref={pickerRef}>
           {activeAnalysisId ? (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <button
                 onClick={() => setIsRunPickerOpen((prev) => !prev)}
-                className="flex items-center space-x-2 text-xs py-1 px-2 border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 hover:border-[#FF3D00] transition-colors"
+                className="flex items-center space-x-1.5 text-xs py-1 px-1.5 sm:px-2 border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 hover:border-[#FF3D00] transition-colors max-w-[145px] xs:max-w-[210px] sm:max-w-none"
                 title="Switch active investigation run"
               >
-                <span className="font-mono text-neutral-400 uppercase font-bold">RUN:</span>
-                <span className="font-mono font-bold text-neutral-900 dark:text-white">
+                <span className="font-mono text-neutral-400 uppercase font-bold text-[10px] sm:text-xs">RUN:</span>
+                <span className="font-mono font-bold text-neutral-900 dark:text-white truncate">
                   {activeAnalysisId.slice(0, 8)}...
                 </span>
                 {overview?.capture?.filename && (
-                  <>
-                    <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
-                    <span className="font-mono text-neutral-600 dark:text-neutral-300 truncate max-w-[160px] sm:max-w-[220px]">
-                      {overview.capture.filename}
-                    </span>
-                  </>
+                  <span className="hidden md:inline font-mono text-neutral-600 dark:text-neutral-300 truncate max-w-[120px] lg:max-w-[180px]">
+                    • {overview.capture.filename}
+                  </span>
                 )}
                 {analysis?.status && (
-                  <StatusBadge status={analysis.status} />
+                  <div className="hidden sm:block">
+                    <StatusBadge status={analysis.status} />
+                  </div>
                 )}
-                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                <ChevronDown className="w-3 h-3 text-neutral-400 shrink-0" />
               </button>
 
               <button
                 onClick={handleClearRun}
-                className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
                 title="Deselect active run"
               >
                 <X className="w-3 h-3" />
@@ -137,7 +136,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
           {/* Run Picker Dropdown Menu */}
           {isRunPickerOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 bg-white dark:bg-[#141416] border border-neutral-300 dark:border-neutral-800 shadow-lg p-2 z-50 space-y-2">
+            <div className="absolute left-0 top-full mt-1.5 w-72 xs:w-80 sm:w-96 bg-white dark:bg-[#141416] border border-neutral-300 dark:border-neutral-800 shadow-lg p-2 z-50 space-y-2">
               <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-1.5 px-1">
                 <span className="text-[10px] font-mono font-bold uppercase text-neutral-500">
                   Select Active Investigation Run
@@ -228,8 +227,8 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           {wsConnected ? (
             <>
               <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-              <span className="hidden sm:inline text-emerald-600 dark:text-emerald-400 font-semibold">
-                STREAM ACTIVE
+              <span className="hidden sm:inline text-emerald-600 dark:text-emerald-400 font-semibold" title="Browser WebSocket connection to backend event stream is active">
+                APP CONNECTION ACTIVE
               </span>
             </>
           ) : !isReadinessError && readiness?.dependencies?.database?.status === "UP" ? (

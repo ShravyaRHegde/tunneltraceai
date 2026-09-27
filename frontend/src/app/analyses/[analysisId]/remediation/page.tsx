@@ -271,13 +271,33 @@ export default function RemediationTwinPage({
       {/* Tab 1: Twin Workbench (3-Column Progression: Current -> Projected -> Verified) */}
       {activeTab === "twin" && (
         <div className="space-y-6">
+          {/* Baseline Linkage Status Notice */}
+          {twin && !twin.has_linked_baseline && (
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
+              <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>No Linked Configuration Baseline</span>
+              </div>
+              <p>
+                This capture analysis is not linked to an approved configuration file in Configuration &amp; Certificate Inventory. 
+                The observable properties and baseline score below were derived solely from observed PCAP wire metadata. Counterfactual configuration projections represent synthetic models until an authoritative gateway configuration file is imported.
+              </p>
+            </div>
+          )}
+          {twin && twin.has_linked_baseline && twin.baseline_provenance && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 text-emerald-900 dark:text-emerald-200 text-xs font-mono flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Linked Configuration Baseline: <strong>{twin.baseline_provenance}</strong></span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 font-mono text-xs">
             {/* COLUMN 1: CURRENT OBSERVED */}
             <div className="border border-neutral-300 dark:border-neutral-800 p-4 space-y-4 bg-white dark:bg-neutral-950">
               <div className="border-b border-neutral-200 dark:border-neutral-800 pb-2 flex items-center justify-between">
                 <div>
                   <span className="px-2 py-0.5 bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-[10px] font-bold uppercase">
-                    Stage 8 Baseline Fact
+                    {twin?.has_linked_baseline ? "Approved Gateway Baseline" : "Wire-Observed PCAP Facts"}
                   </span>
                   <h3 className="font-bold text-sm text-neutral-900 dark:text-white mt-1 uppercase">
                     1. Observed Model
@@ -294,7 +314,9 @@ export default function RemediationTwinPage({
               </div>
 
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-neutral-400 uppercase">Observable Properties</div>
+                <div className="text-[11px] font-bold text-neutral-400 uppercase">
+                  {twin?.has_linked_baseline ? "Configured Properties" : "Observable Wire Properties"}
+                </div>
                 {twin?.semantic_diff?.map((prop: SemanticDiffItemDTO) => (
                   <div key={prop.field} className="p-2 border border-neutral-200 dark:border-neutral-800 space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
@@ -325,8 +347,10 @@ export default function RemediationTwinPage({
                   <div className="text-[10px] text-neutral-400">Projected Delta</div>
                   <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
                     {twin?.projected_score_delta != null
-                      ? (twin.projected_score_delta >= 0
+                      ? (twin.projected_score_delta > 0
                           ? `+${twin.projected_score_delta}`
+                          : twin.projected_score_delta === 0
+                          ? "0 (No Deficiencies)"
                           : `${twin.projected_score_delta}`)
                       : "—"}
                   </div>

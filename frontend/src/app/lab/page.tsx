@@ -275,7 +275,7 @@ export default function LabTestbedPage() {
           {`# 1. Execute scenario inside isolated network namespaces with root capabilities\n`}
           {`sudo python -m lab.runner --scenario scn-01-tunnel-v4-gcm-pfs --workload HTTPS --duration 30\n\n`}
           {`# 2. Ingest the recorded encrypted WAN capture into TunnelTrace AI for analysis\n`}
-          {`curl -X POST http://127.0.0.1:8000/api/v1/captures/upload -F "file=@storage/lab/runs/<run-id>/wan.pcap"`}
+          {`curl -X POST http://127.0.0.1:8000/api/v1/captures -F "file=@storage/lab/runs/<run-id>/wan.pcap"`}
         </pre>
       </div>
     </div>

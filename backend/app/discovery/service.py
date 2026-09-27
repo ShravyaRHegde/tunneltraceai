@@ -37,6 +37,7 @@ class DiscoveryService:
         exclusions: list[str] | None = None,
         permitted_ports: list[int] | None = None,
         mock_runner: Any = None,
+        simulate_demo: bool = False,
     ) -> DiscoveryJob:
         """Validate request scope, persist initial job, execute bounded scan, and record evidence."""
         # 1. Scope validation
@@ -72,6 +73,11 @@ class DiscoveryService:
         await db.refresh(job)
 
         # 3. Subprocess execution in worker thread to prevent blocking event loop
+        if mock_runner is None and simulate_demo:
+            target_ip = validated_scope.canonical_targets[0] if validated_scope.canonical_targets else "127.0.0.1"
+            from app.discovery.runner import DemoSimulatedRunner
+            mock_runner = DemoSimulatedRunner(target_ip=target_ip)
+
         exec_result = await asyncio.to_thread(
             run_discovery_scan,
             job_id=job.id,

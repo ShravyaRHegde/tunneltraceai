@@ -1,0 +1,34 @@
+{
+  "anomaly_schema_hash": "987017a7668787ab13943bd55913120837daca77ec057c8b38862d9df351b9e1",
+  "artifact_state": "ACTIVE",
+  "bundle_id": "stage7_active_bundle",
+  "bundle_version": "v1.0.0-production",
+  "calibration_config_hash": "1f50f2d3b2c4646db89f69c5abc6611f250dd24b78ae2bb0a83c93bfcd508bf4",
+  "created_at": "2026-09-27T15:12:06.053922+00:00",
+  "dataset_manifest_hash": "STAGE7_DATASET_HASH",
+  "feature_schema_hash": "dd9f5c25066baf6a8782438421c708e9ce5f33f463ded6d4eb97d957d5995995",
+  "files": {
+    "anomaly_model.json": "bd8ed589728956a83c336d3d36a3ddfb61d94db9b7cbd1e3e486fc691251a68a",
+    "anomaly_schema.json": "384cf4c15eb0fba3040110cda9e5a957ece926b371c89ddccd48848656b72e13",
+    "calibration_config.json": "e5d308b2e7a3413340df8f7591d846da02ffbcb13deb21e39c0e4b8d2eae8f53",
+    "cnn/model.pt": "ffdf3693604157714fe98b4023f5cac6dcfd0fa73a64e6ffa80b5cf6ae95942f",
+    "feature_schema.json": "c17dab5d4ab8b7b7636182916f9fa72e78a87222e8b5ffcb0e7d67a9b784e32b",
+    "fusion_config.json": "c8bedb8963932e46cccfe909432b5d8a93b5255de91d22ca59609b6e65604665",
+    "label_mapping.json": "e8bcc40e8c6765d46a0ba79e5739f7b500c5c69311772147f88ee7a038da5deb",
+    "ood_config.json": "5470bf40fab7a768717f56213a2066499e704c02440b1119cc350fbfacb6abf0",
+    "preprocessor.json": "f25e78ad1364a67fad677ed43f419d1408e9113338b78862f95b1a2f850afa0e",
+    "sequence_schema.json": "5d14ceddd7ce6acc7a4bb5f10b0c553e733cb47e5743e1ca0e0a598b78cb0d59",
+    "xgboost/model.json": "025018dfaf668b42527f69c2ea751ea65ab7e21e69f0cb4c7e9a832473ab0f12"
+  },
+  "frameworks": {
+    "scikit_learn": "1.7.2",
+    "torch": "2.14.0+cpu",
+    "xgboost": "3.2.0"
+  },
+  "fusion_config_hash": "a4395d84a3dcafa7cd12e26f3a10f8f1c0efa81b290b0b150697d6ee1b96a4ca",
+  "is_active": false,
+  "ood_config_hash": "af2dec3cb1c8e7303061e9f1d33dd6be03fd8d741508c79147cef93f4aa1c8a0",
+  "sequence_schema_hash": "58cc807fd4ffdd999c380b9606c6183575aaddf6fa4a588a8c132dc554c2cda2",
+  "split_manifest_hash": "STAGE7_SPLIT_HASH",
+  "target_device": "cpu"
+}

@@ -43,16 +43,17 @@ export function AnalysisProvider({
   const pathMatch = pathname ? pathname.match(/^\/analyses\/([^/]+)/) : null;
   const pathAnalysisId = pathMatch && pathMatch[1] !== "new" ? pathMatch[1] : null;
 
-  const [storedAnalysisId, setStoredAnalysisId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        return localStorage.getItem("tunneltrace_active_analysis_id");
-      } catch {
-        return null;
+  const [storedAnalysisId, setStoredAnalysisId] = useState<string | null>(null);
+
+  // Restore stored state only after hydration on client to prevent SSR mismatch
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem("tunneltrace_active_analysis_id");
+      if (stored) {
+        setStoredAnalysisId(stored);
       }
-    }
-    return null;
-  });
+    } catch {}
+  }, []);
 
   // Effective ID prioritizes initial prop, current URL path, or last stored ID
   const activeAnalysisId = initialAnalysisId ?? pathAnalysisId ?? storedAnalysisId;

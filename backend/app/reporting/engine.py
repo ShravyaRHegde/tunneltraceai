@@ -51,20 +51,32 @@ class ReportGeneratorEngine:
             css_content=css_content,
         )
 
-    def render_pdf(self, html_content: str) -> tuple[bytes | None, str | None]:
-        """Attempt server-side PDF generation via WeasyPrint. Returns (pdf_bytes, error_message)."""
+    def render_pdf(
+        self,
+        report_type: str,
+        snapshot: dict[str, Any],
+        html_content: str | None = None,
+    ) -> tuple[bytes | None, str | None]:
+        """Render deterministic server-side PDF report via ReportLab with WeasyPrint fallback."""
         try:
-            import weasyprint
+            from app.reporting.pdf import build_report_pdf
 
-            pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
+            pdf_bytes = build_report_pdf(report_type, snapshot)
             return pdf_bytes, None
-        except ImportError:
-            msg = "WeasyPrint is not installed in the current environment; PDF generation unavailable."
-            logger.info(msg)
-            return None, msg
         except Exception as exc:
-            msg = f"PDF rendering failed: {exc}"
-            logger.warning(msg)
+            logger.warning(f"ReportLab PDF generation failed: {exc}. Attempting WeasyPrint fallback...")
+            try:
+                import weasyprint
+
+                if html_content:
+                    pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
+                    return pdf_bytes, None
+            except ImportError:
+                pass
+            except Exception as w_exc:
+                logger.warning(f"WeasyPrint fallback also failed: {w_exc}")
+
+            msg = f"PDF rendering error: {exc}"
             return None, msg
 
     def generate_report_artifacts(
@@ -88,7 +100,7 @@ class ReportGeneratorEngine:
         storage.save_file(rel_html_path, html_bytes)
 
         # 2. Render PDF with Graceful Fallback
-        pdf_bytes, pdf_err = self.render_pdf(html_content)
+        pdf_bytes, pdf_err = self.render_pdf(report_type, snapshot, html_content=html_content)
         rel_pdf_path = None
         pdf_sha256 = None
         status = "COMPLETED"

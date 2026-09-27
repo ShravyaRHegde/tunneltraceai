@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CreateReportRequestDTO(BaseModel):
@@ -16,6 +16,15 @@ class CreateReportRequestDTO(BaseModel):
         default="EXECUTIVE",
         description="Type of report to compile: 'EXECUTIVE' or 'TECHNICAL'",
     )
+
+    @field_validator("report_type", mode="before")
+    @classmethod
+    def normalize_report_type(cls, v: str) -> str:
+        if isinstance(v, str):
+            clean = v.strip().upper()
+            if clean in ("EXECUTIVE", "TECHNICAL"):
+                return clean
+        return v
 
 
 class ReportResponseDTO(BaseModel):

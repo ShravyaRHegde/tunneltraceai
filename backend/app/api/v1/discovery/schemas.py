@@ -51,6 +51,10 @@ class DiscoveryJobCreateRequest(BaseModel):
         default=None,
         description="Explicit port allowlist; defaults to profile defaults if omitted",
     )
+    simulate_demo: bool = Field(
+        default=False,
+        description="Run in simulated demo mode if Nmap binary is unavailable on the host",
+    )
 
 
 class DiscoveredServiceResponse(BaseModel):
