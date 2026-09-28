@@ -110,6 +110,23 @@ def test_upload_valid_pcap(api_client: TestClient):
     assert data["validation_state"] == "VALIDATED"
 
 
+def test_upload_trailing_slash_and_alias_endpoints(api_client: TestClient):
+    """Verify both trailing slash (/captures/) and alias (/captures/upload) accept POST without 405."""
+    header = _make_pcap_header()
+
+    # Test trailing slash
+    files_slash = {"file": ("test_slash.pcap", io.BytesIO(header), "application/vnd.tcpdump.pcap")}
+    res_slash = api_client.post("/api/v1/captures/", files=files_slash)
+    assert res_slash.status_code == 201
+    assert "capture_id" in res_slash.json()
+
+    # Test /upload alias
+    files_alias = {"file": ("test_alias.pcap", io.BytesIO(header), "application/vnd.tcpdump.pcap")}
+    res_alias = api_client.post("/api/v1/captures/upload", files=files_alias)
+    assert res_alias.status_code == 201
+    assert "capture_id" in res_alias.json()
+
+
 def test_upload_empty_capture_rejected(api_client: TestClient):
     """Verify zero-byte upload returns 400 CAPTURE_EMPTY."""
     files = {"file": ("empty.pcap", io.BytesIO(b""), "application/octet-stream")}

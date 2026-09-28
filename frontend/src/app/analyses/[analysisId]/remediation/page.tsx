@@ -1,6 +1,7 @@
 "use client";
 
 import React, { use, useState, useEffect } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import {
@@ -133,8 +134,8 @@ export default function RemediationTwinPage({
               Configuration Security Twin & Closed-Loop Remediation
             </h1>
           </div>
-          <p className="text-xs text-neutral-500 mt-1 font-mono">
-            Deterministic Counterfactual Policy Projection → Isolated strongSwan Lab Apply → Fresh Wire Verification.
+          <p className="text-xs text-neutral-500 mt-1">
+            <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> Simulated configuration changes for strongSwan/Libreswan to fix cryptographic weaknesses. Shows projected score uplift before applying, and verifies fixes in an isolated testbed before production deployment.
           </p>
         </div>
 
@@ -174,8 +175,8 @@ export default function RemediationTwinPage({
           <span>Closed-Loop Verification Philosophy</span>
         </div>
         <p className="text-neutral-300">
-          The <strong>Configuration Security Twin is a counterfactual projection</strong>, not proof.
-          Only applying the proposed configuration to our controlled Linux namespace strongSwan lab, establishing a fresh Security Association, generating synthetic traffic, and re-analyzing fresh packet capture creates <strong>VERIFIED</strong> remediation claims.
+          The <strong>Configuration Security Twin is a simulated what-if model</strong>, not final proof.
+          Only applying the proposed configuration to an isolated Linux namespace strongSwan testbed, establishing a fresh Security Association, generating synthetic traffic, and re-analyzing fresh packet capture creates <strong>VERIFIED</strong> remediation claims.
         </p>
       </div>
 
@@ -271,18 +272,47 @@ export default function RemediationTwinPage({
       {/* Tab 1: Twin Workbench (3-Column Progression: Current -> Projected -> Verified) */}
       {activeTab === "twin" && (
         <div className="space-y-6">
-          {/* Baseline Linkage Status Notice */}
+          {/* Baseline Linkage Status Notice / Unassessable Notice */}
           {twin && !twin.has_linked_baseline && (
-            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
-              <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>No Linked Configuration Baseline</span>
+            (twin.projected_score == null || twin.projected_regression_audit?.baseline_score == null) ? (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-2">
+                <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Configuration Posture Not Assessable</span>
+                </div>
+                <p>
+                  This capture does not contain observed IKE negotiation exchanges or a linked configuration baseline.
+                  Cryptographic configuration posture cannot be verified from encrypted payload frames alone without handshake parameters or authoritative gateway configurations.
+                </p>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Link
+                    href="/lab"
+                    className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#FF3D00] hover:underline uppercase"
+                  >
+                    <span>Evaluate in Controlled Lab</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <span className="text-neutral-400">|</span>
+                  <Link
+                    href="/analyses/new"
+                    className="text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:underline uppercase"
+                  >
+                    Ingest Handshake Capture
+                  </Link>
+                </div>
               </div>
-              <p>
-                This capture analysis is not linked to an approved configuration file in Configuration &amp; Certificate Inventory. 
-                The observable properties and baseline score below were derived solely from observed PCAP wire metadata. Counterfactual configuration projections represent synthetic models until an authoritative gateway configuration file is imported.
-              </p>
-            </div>
+            ) : (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
+                <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>No Linked Configuration Baseline</span>
+                </div>
+                <p>
+                  This capture analysis is not linked to an approved configuration file in Configuration &amp; Certificate Inventory. 
+                  The observable properties and baseline score below were derived solely from observed PCAP wire metadata. Counterfactual configuration projections represent synthetic models until an authoritative gateway configuration file is imported.
+                </p>
+              </div>
+            )
           )}
           {twin && twin.has_linked_baseline && twin.baseline_provenance && (
             <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 text-emerald-900 dark:text-emerald-200 text-xs font-mono flex items-center space-x-2">
@@ -305,10 +335,10 @@ export default function RemediationTwinPage({
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] text-neutral-400">Baseline Score</div>
-                  <div className="text-base font-bold text-neutral-800 dark:text-neutral-200">
+                  <div className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                     {twin?.projected_regression_audit?.baseline_score != null
-                      ? twin.projected_regression_audit.baseline_score
-                      : "UNKNOWN"}
+                      ? `${twin.projected_regression_audit.baseline_score}/100`
+                      : "UNKNOWN / NOT ASSESSABLE"}
                   </div>
                 </div>
               </div>
@@ -345,13 +375,15 @@ export default function RemediationTwinPage({
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] text-neutral-400">Projected Delta</div>
-                  <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     {twin?.projected_score_delta != null
                       ? (twin.projected_score_delta > 0
                           ? `+${twin.projected_score_delta}`
                           : twin.projected_score_delta === 0
                           ? "0 (No Deficiencies)"
                           : `${twin.projected_score_delta}`)
+                      : (twin && !twin.has_linked_baseline && (twin.projected_score == null || twin.projected_regression_audit?.baseline_score == null))
+                      ? "NOT ASSESSABLE"
                       : "—"}
                   </div>
                 </div>

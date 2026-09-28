@@ -22,12 +22,19 @@ class ComplianceEvaluationDTO(BaseModel):
     """Itemized rule compliance evaluation record."""
 
     rule_id: str
-    rule_version: str
-    subject_type: str
-    subject_id: str
+    rule_version: str = "1.0.0"
+    rule_title: str = ""
+    category: str = ""
+    severity: str = "INFORMATIONAL"
+    standard: str = ""
+    normative_reference: str = ""
+    subject_type: str = "IPSEC_ENTITY"
+    subject_id: str = "GLOBAL"
     compliance_state: str  # PASS, FAIL, UNKNOWN, NOT_APPLICABLE
-    evidence_state: str
-    rationale: str
+    evidence_state: str = "UNKNOWN"
+    observed_value: Any = None
+    expected_value: Any = None
+    rationale: str = ""
 
 
 class ComplianceSummaryDTO(BaseModel):
@@ -35,9 +42,12 @@ class ComplianceSummaryDTO(BaseModel):
 
     analysis_id: uuid.UUID
     profile_id: str
-    bundle_id: str
-    bundle_hash: str
+    profile_name: str = "NIST SP 800-77 Rev. 1 Federal Security Profile"
+    bundle_id: str = "bundle-nist-sp800-77"
+    bundle_hash: str = ""
+    policy_bundle_hash: str = ""
     total_rules_evaluated: int
+    total_evaluations: int = 0
     pass_count: int
     fail_count: int
     unknown_count: int
@@ -265,4 +275,5 @@ class EvidenceGraphDTO(BaseModel):
     edges: list[dict[str, Any]] = []
     react_flow: dict[str, Any] = {}
     manifest_sha256: str = ""
+    evidence_gaps: list[dict[str, Any]] = []
 

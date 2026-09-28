@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,6 +84,7 @@ async def list_sample_captures() -> list[SampleCaptureDTO]:
 )
 async def ingest_sample_capture(
     sample_id: str,
+    force_rerun: bool = Query(False, description="Force new analysis run even if already analyzed"),
     db: AsyncSession = Depends(get_db_session),
 ) -> CaptureResponseDTO:
     """Read a verified repository test fixture and ingest it immutably into the analysis pipeline."""
@@ -112,6 +113,21 @@ async def ingest_sample_capture(
     service = CaptureIngestionService(db)
     capture = await service.ingest_upload(upload_file, capture_source="SAMPLE_FIXTURE")
 
+    # Check if a completed analysis already exists for this capture
+    from app.db.models.capture import AnalysisRun
+
+    stmt_run = (
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.capture_id == capture.id,
+            AnalysisRun.status == "COMPLETED",
+            AnalysisRun.is_archived == False,
+        )
+        .order_by(AnalysisRun.created_at.desc())
+    )
+    existing_run = (await db.execute(stmt_run)).scalars().first()
+    already_analyzed = (existing_run is not None and not force_rerun)
+
     return CaptureResponseDTO(
         capture_id=capture.id,
         capture_source=capture.capture_source,
@@ -125,6 +141,10 @@ async def ingest_sample_capture(
         last_packet_at=capture.last_packet_at,
         link_layer_type=capture.link_layer_type,
         validation_state=capture.validation_state,
+        already_analyzed=already_analyzed,
+        existing_analysis_id=existing_run.id if existing_run else None,
+        existing_run_status=existing_run.status if existing_run else None,
+        existing_pipeline_version=getattr(existing_run, "pipeline_version", None) if existing_run else None,
         created_at=capture.created_at,
     )
 
@@ -149,11 +169,27 @@ async def ingest_sample_capture(
 )
 async def upload_capture(
     file: UploadFile = File(..., description="Binary packet capture file (PCAP or PCAPNG)"),
+    force_rerun: bool = Query(False, description="Force new analysis run even if already analyzed"),
     db: AsyncSession = Depends(get_db_session),
 ) -> CaptureResponseDTO:
     """Safely stream, validate, hash, and persist an offline packet capture file."""
     service = CaptureIngestionService(db)
     capture = await service.ingest_upload(file, capture_source="OFFLINE_UPLOAD")
+
+    # Check if a completed analysis already exists for this capture
+    from app.db.models.capture import AnalysisRun
+
+    stmt_run = (
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.capture_id == capture.id,
+            AnalysisRun.status == "COMPLETED",
+            AnalysisRun.is_archived == False,
+        )
+        .order_by(AnalysisRun.created_at.desc())
+    )
+    existing_run = (await db.execute(stmt_run)).scalars().first()
+    already_analyzed = (existing_run is not None and not force_rerun)
 
     return CaptureResponseDTO(
         capture_id=capture.id,
@@ -168,6 +204,10 @@ async def upload_capture(
         last_packet_at=capture.last_packet_at,
         link_layer_type=capture.link_layer_type,
         validation_state=capture.validation_state,
+        already_analyzed=already_analyzed,
+        existing_analysis_id=existing_run.id if existing_run else None,
+        existing_run_status=existing_run.status if existing_run else None,
+        existing_pipeline_version=getattr(existing_run, "pipeline_version", None) if existing_run else None,
         created_at=capture.created_at,
     )
 

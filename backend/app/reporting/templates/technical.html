@@ -27,12 +27,20 @@
     <div class="grid-4">
         <div class="metric-card">
             <div class="metric-label">Security Posture Score</div>
+            {% if snapshot.score.score is not none and snapshot.score.get('is_assessable', true) %}
             <div class="metric-value score">{{ snapshot.score.score | round(1) }}<span style="font-size: 10pt; color: #777;"> / 100</span></div>
-            <div class="metric-sub">Methodology v{{ snapshot.score.methodology_version }}</div>
+            {% else %}
+            <div class="metric-value score" style="color: #D97706; font-size: 13pt;">NOT ASSESSABLE</div>
+            {% endif %}
+            <div class="metric-sub">{{ snapshot.score.get('status') or ('Methodology v' ~ snapshot.score.methodology_version) }}</div>
         </div>
         <div class="metric-card">
             <div class="metric-label">Evidence Coverage</div>
-            <div class="metric-value">{{ (snapshot.score.evidence_coverage * 100) | round(1) }}%</div>
+            {% if snapshot.score.evidence_coverage is not none %}
+            <div class="metric-value">{{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}%</div>
+            {% else %}
+            <div class="metric-value">0%</div>
+            {% endif %}
             <div class="metric-sub">Observed vs Expected Facts</div>
         </div>
         <div class="metric-card">
@@ -248,7 +256,13 @@
             </tbody>
         </table>
         {% else %}
-        <p style="color: #00875A; padding: 8px; border: 1px solid #D1D1CB;">No security findings generated.</p>
+            {% if snapshot.score.score is none or snapshot.compliance.unknown_count > 0 or snapshot.score.get('is_assessable') is sameas false %}
+            <div style="background-color: #FFF7ED; border: 1px solid #FDBA74; padding: 10px; font-size: 8.5pt; color: #9A3412;">
+                <strong>INCOMPLETE EVIDENCE NOTICE:</strong> Zero deterministic policy violations were triggered on available wire packets. However, because key exchange packets were unobserved ({{ snapshot.compliance.unknown_count }} unknown checks, {{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}% coverage), cryptographic parameters cannot be certified. Remediation: Acquire a complete IKE handshake and ESP packet trace.
+            </div>
+            {% else %}
+            <p style="color: #00875A; padding: 8px; border: 1px solid #D1D1CB;">Zero policy violations detected. Current observed parameters conform to NIST SP 800-77 Rev. 1 and RFC 8221 baselines.</p>
+            {% endif %}
         {% endif %}
     </section>
 

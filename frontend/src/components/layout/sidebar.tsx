@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -25,11 +25,12 @@ import {
   ShieldCheck,
   FileKey2,
   Server,
-  Cpu,
   PanelLeftClose,
-  PanelLeftOpen,
-  Info,
   HelpCircle,
+  ChevronDown,
+  ChevronRight,
+  Terminal,
+  X,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -49,7 +50,6 @@ function SidebarInner({
 }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const currentTab = searchParams ? searchParams.get("tab") : null;
   const id = analysisId || "";
 
   // Query live readiness for truthful status in sidebar footer
@@ -59,7 +59,37 @@ function SidebarInner({
     refetchInterval: 30000,
   });
 
-  const isMonitoringRoute = pathname === "/monitoring";
+  // Group accordion state: by default, only open the active group
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    home: pathname === "/",
+    analyze: pathname.startsWith("/analyses"),
+    testbed: pathname.startsWith("/monitoring") || pathname.startsWith("/lab"),
+    advanced:
+      pathname.startsWith("/discovery") ||
+      pathname.startsWith("/inventory") ||
+      pathname.startsWith("/vulnerabilities"),
+  });
+
+  // Keep group containing active route open on navigation
+  useEffect(() => {
+    if (pathname === "/") {
+      setOpenGroups((prev) => ({ ...prev, home: true }));
+    } else if (pathname.startsWith("/analyses")) {
+      setOpenGroups((prev) => ({ ...prev, analyze: true }));
+    } else if (pathname.startsWith("/monitoring") || pathname.startsWith("/lab")) {
+      setOpenGroups((prev) => ({ ...prev, testbed: true }));
+    } else if (
+      pathname.startsWith("/discovery") ||
+      pathname.startsWith("/inventory") ||
+      pathname.startsWith("/vulnerabilities")
+    ) {
+      setOpenGroups((prev) => ({ ...prev, advanced: true }));
+    }
+  }, [pathname]);
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <aside
@@ -101,6 +131,7 @@ function SidebarInner({
               <span className="text-[10px] font-mono px-1.5 py-0.5 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold uppercase">
                 PS 26160
               </span>
+              {/* Desktop Collapse Toggle */}
               {onToggleCollapse && (
                 <button
                   type="button"
@@ -112,390 +143,313 @@ function SidebarInner({
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
               )}
+              {/* Mobile Close Button */}
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="lg:hidden p-1 text-neutral-500 hover:text-neutral-900 dark:hover:text-white rounded hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors"
+                  title="Close sidebar"
+                  aria-label="Close sidebar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </>
         )}
       </div>
 
-      {/* Navigation Groups */}
-      <div className={`flex-1 overflow-y-auto ${isCollapsed ? "p-1.5 space-y-3" : "p-3 space-y-4"}`}>
-        {/* GROUP 1: START */}
+      {/* Navigation Groups (4 Collapsible Groups) */}
+      <div className={`flex-1 overflow-y-auto ${isCollapsed ? "p-1.5 space-y-3" : "p-3 space-y-3"}`}>
+        {/* GROUP 1: HOME */}
         <div className="space-y-1">
           {!isCollapsed && (
-            <div className="px-2 pb-0.5">
-              <h4 className="text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                START
-              </h4>
+            <button
+              type="button"
+              onClick={() => toggleGroup("home")}
+              className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors"
+            >
+              <span>Home</span>
+              {openGroups.home ? (
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-neutral-400" />
+              )}
+            </button>
+          )}
+
+          {(isCollapsed || openGroups.home) && (
+            <div className="space-y-0.5">
+              <Link
+                href="/"
+                onClick={onClose}
+                title="Home Dashboard"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Dashboard</span>}
+                </div>
+              </Link>
             </div>
           )}
-          <div className="space-y-0.5">
-            <Link
-              href="/"
-              onClick={onClose}
-              title="Home Dashboard"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Home Dashboard</span>}
-              </div>
-            </Link>
-
-            <Link
-              href="/how-it-works"
-              onClick={onClose}
-              title="How It Works (System Architecture & Flow)"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/how-it-works"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <HelpCircle className="w-3.5 h-3.5 shrink-0 text-[#FF3D00]" />
-                {!isCollapsed && <span className="font-semibold text-neutral-900 dark:text-neutral-200">How It Works (Guide)</span>}
-              </div>
-              {!isCollapsed && (
-                <span className="text-[9px] font-mono px-1 py-0.2 bg-[#FF3D00]/10 text-[#FF3D00] font-bold uppercase rounded-xs">
-                  FLOW
-                </span>
-              )}
-            </Link>
-          </div>
         </div>
 
         {/* GROUP 2: ANALYZE */}
         <div className="space-y-1">
           {!isCollapsed && (
-            <div className="px-2 pb-0.5">
-              <h4 className="text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                ANALYZE
-              </h4>
-              <p className="text-[9px] text-neutral-400 dark:text-neutral-500 leading-tight">
-                Forensic capture ingestion & catalog
-              </p>
+            <button
+              type="button"
+              onClick={() => toggleGroup("analyze")}
+              className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors"
+            >
+              <span>Analyze</span>
+              {openGroups.analyze ? (
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-neutral-400" />
+              )}
+            </button>
+          )}
+
+          {(isCollapsed || openGroups.analyze) && (
+            <div className="space-y-0.5">
+              <Link
+                href="/analyses/new"
+                onClick={onClose}
+                title="New Analysis (Upload PCAP/PCAPNG)"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/analyses/new"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <UploadCloud className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>New Analysis</span>}
+                </div>
+                {!isCollapsed && <span className="text-[9px] font-mono text-neutral-400 uppercase">Upload</span>}
+              </Link>
+
+              <Link
+                href="/analyses"
+                onClick={onClose}
+                title="Investigation Catalog"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/analyses"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Layers className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Investigation Catalog</span>}
+                </div>
+              </Link>
+
+              {/* Run Forensics Sub-group: Only visible when a run is active */}
+              {analysisId && (
+                <div className={`${isCollapsed ? "pt-1" : "pt-2 pl-2 border-l-2 border-neutral-200 dark:border-neutral-800 ml-2 mt-2"} space-y-0.5`}>
+                  {!isCollapsed && (
+                    <div className="px-1 pb-1">
+                      <span className="text-[9px] font-mono font-bold text-neutral-400 uppercase block truncate">
+                        Run: {analysisId.slice(0, 8)}...
+                      </span>
+                    </div>
+                  )}
+
+                  {[
+                    { name: "Overview", href: `/analyses/${id}/overview`, icon: Activity },
+                    { name: "Protocol", href: `/analyses/${id}/protocol`, icon: Network },
+                    { name: "SAs & ESP Flows", href: `/analyses/${id}/sas`, icon: GitBranch },
+                    { name: "Traffic & ML", href: `/analyses/${id}/traffic`, icon: Radio },
+                    { name: "Security Assessment", href: `/analyses/${id}/security`, icon: ShieldAlert },
+                    { name: "Compliance Scorecard", href: `/analyses/${id}/compliance`, icon: FileCheck2 },
+                    { name: "Threat Matrix", href: `/analyses/${id}/threats`, icon: Grid },
+                    { name: "Evidence DAG", href: `/analyses/${id}/evidence`, icon: FileSearch },
+                    { name: "Audit Reports", href: `/analyses/${id}/reports`, icon: FileText },
+                    { name: "AI Analyst", href: `/analyses/${id}/ai-analyst`, icon: Bot },
+                    { name: "Configuration Twin", href: `/analyses/${id}/remediation`, icon: SlidersHorizontal },
+                  ].map((sub) => {
+                    const Icon = sub.icon;
+                    const isActive = pathname === sub.href;
+
+                    return (
+                      <Link
+                        key={sub.name}
+                        href={sub.href}
+                        onClick={onClose}
+                        title={sub.name}
+                        className={`flex items-center ${
+                          isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2 py-1"
+                        } text-[11px] transition-colors border ${
+                          isActive
+                            ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                            : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          {!isCollapsed && <span className="truncate">{sub.name}</span>}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-          <div className="space-y-0.5">
-            <Link
-              href="/analyses/new"
-              onClick={onClose}
-              title="Ingest Capture (Upload PCAP/PCAPNG)"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/analyses/new"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <UploadCloud className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Ingest Capture</span>}
-              </div>
-              {!isCollapsed && <span className="text-[9px] font-mono text-neutral-400 uppercase">Upload</span>}
-            </Link>
+        </div>
 
-            <Link
-              href="/analyses"
-              onClick={onClose}
-              title="Investigation Catalog"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/analyses"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
+        {/* GROUP 3: TESTBED & CAPTURE (LINUX REQUIRED) */}
+        <div className="space-y-1">
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={() => toggleGroup("testbed")}
+              className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors"
             >
-              <div className="flex items-center space-x-2.5">
-                <Layers className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Investigation Catalog</span>}
-              </div>
-            </Link>
-          </div>
-
-          {/* Run-scoped Forensic Sections */}
-          <div className={`${isCollapsed ? "pt-1" : "pt-2 pl-2 border-l border-neutral-200 dark:border-neutral-800 ml-2 mt-2"} space-y-0.5`}>
-            {!isCollapsed && (
-              <div className="px-1 pb-1">
-                <span className="text-[9px] font-mono font-bold text-neutral-400 uppercase">
-                  {analysisId ? `RUN: ${analysisId.slice(0, 8)}...` : "RUN FORENSICS (SELECT RUN)"}
+              <div className="flex items-center space-x-1.5">
+                <span>Testbed & Capture</span>
+                <span className="text-[9px] font-mono px-1 py-0.2 border border-neutral-300 dark:border-neutral-700 text-neutral-500 rounded-xs">
+                  Linux
                 </span>
               </div>
-            )}
+              {openGroups.testbed ? (
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-neutral-400" />
+              )}
+            </button>
+          )}
 
-            {!analysisId && !isCollapsed && (
-              <div className="p-2 mb-1.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-[10px] text-neutral-500 font-mono space-y-1.5">
-                <div className="flex items-start space-x-1">
-                  <Info className="w-3 h-3 text-[#FF3D00] shrink-0 mt-0.5" />
-                  <span>Select a run to unlock dissection:</span>
+          {(isCollapsed || openGroups.testbed) && (
+            <div className="space-y-0.5">
+              <Link
+                href="/lab"
+                onClick={onClose}
+                title="Lab Scenarios (strongSwan namespace testbed)"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/lab"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <FlaskConical className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Lab Scenarios</span>}
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Link
-                    href="/analyses"
-                    onClick={onClose}
-                    className="text-[#FF3D00] font-bold hover:underline"
-                  >
-                    Choose Run
-                  </Link>
-                  <span>or</span>
-                  <Link
-                    href="/analyses/new"
-                    onClick={onClose}
-                    className="text-[#FF3D00] font-bold hover:underline"
-                  >
-                    Upload
-                  </Link>
+                {!isCollapsed && <span className="text-[9px] font-mono text-neutral-400 uppercase">Namespace</span>}
+              </Link>
+
+              <Link
+                href="/monitoring"
+                onClick={onClose}
+                title="Live Gateway Monitor & Telemetry"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/monitoring"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Server className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Live Monitor</span>}
                 </div>
-              </div>
-            )}
-
-            {[
-              { name: "Session Overview", href: `/analyses/${id}/overview`, icon: Activity },
-              { name: "Protocol Dissection", href: `/analyses/${id}/protocol`, icon: Network },
-              { name: "SAs & ESP Flows", href: `/analyses/${id}/sas`, icon: GitBranch },
-              { name: "Traffic & ML Intelligence", href: `/analyses/${id}/traffic`, icon: Radio },
-              { name: "Security Assessment", href: `/analyses/${id}/security`, icon: ShieldAlert },
-              { name: "Compliance Scorecard", href: `/analyses/${id}/compliance`, icon: FileCheck2 },
-              { name: "Threat Matrix", href: `/analyses/${id}/threats`, icon: Grid },
-              { name: "Evidence DAG", href: `/analyses/${id}/evidence`, icon: FileSearch },
-              { name: "Audit Reports", href: `/analyses/${id}/reports`, icon: FileText },
-              { name: "SOC AI Copilot", href: `/analyses/${id}/ai-analyst`, icon: Bot },
-              { name: "Configuration Twin", href: `/analyses/${id}/remediation`, icon: SlidersHorizontal },
-            ].map((sub) => {
-              const Icon = sub.icon;
-              const isActive = analysisId ? pathname === sub.href : false;
-
-              if (!analysisId) {
-                return (
-                  <Link
-                    key={sub.name}
-                    href="/analyses"
-                    onClick={onClose}
-                    title={sub.name}
-                    className={`flex items-center ${
-                      isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2 py-1"
-                    } text-[11px] text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      {!isCollapsed && <span className="truncate">{sub.name}</span>}
-                    </div>
-                  </Link>
-                );
-              }
-
-              return (
-                <Link
-                  key={sub.name}
-                  href={sub.href}
-                  onClick={onClose}
-                  title={sub.name}
-                  className={`flex items-center ${
-                    isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2 py-1"
-                  } text-[11px] transition-colors border ${
-                    isActive
-                      ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    {!isCollapsed && <span className="truncate">{sub.name}</span>}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* GROUP 3: LIVE MONITOR */}
-        <div className="space-y-1">
-          {!isCollapsed && (
-            <div className="px-2 pb-0.5">
-              <h4 className="text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                LIVE MONITOR
-              </h4>
-              <p className="text-[9px] text-neutral-400 dark:text-neutral-500 leading-tight">
-                Gateway telemetry & SA lifecycle
-              </p>
+              </Link>
             </div>
           )}
-          <div className="space-y-0.5">
-            {[
-              {
-                name: "Fleet Health & Status",
-                href: "/monitoring?tab=fleet",
-                tabKey: "fleet",
-                icon: Activity,
-                defaultTab: true,
-              },
-              {
-                name: "Monitored Gateways",
-                href: "/monitoring?tab=gateways",
-                tabKey: "gateways",
-                icon: Server,
-              },
-              {
-                name: "Telemetry Sensors",
-                href: "/monitoring?tab=sensors",
-                tabKey: "sensors",
-                icon: Cpu,
-              },
-              {
-                name: "Projected SAs",
-                href: "/monitoring?tab=sa_states",
-                tabKey: "sa_states",
-                icon: GitBranch,
-              },
-              {
-                name: "Event Timeline",
-                href: "/monitoring?tab=timeline",
-                tabKey: "timeline",
-                icon: Layers,
-              },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive =
-                isMonitoringRoute &&
-                (currentTab === tab.tabKey || (!currentTab && tab.defaultTab));
-
-              return (
-                <Link
-                  key={tab.name}
-                  href={tab.href}
-                  onClick={onClose}
-                  title={tab.name}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex items-center ${
-                    isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
-                  } text-xs transition-colors border ${
-                    isActive
-                      ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                      : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-                  }`}
-                >
-                  <div className="flex items-center space-x-2.5">
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    {!isCollapsed && <span className="truncate">{tab.name}</span>}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
         </div>
 
-        {/* GROUP 4: ASSETS & ASSESSMENTS */}
+        {/* GROUP 4: ADVANCED / OPERATIONS */}
         <div className="space-y-1">
           {!isCollapsed && (
-            <div className="px-2 pb-0.5">
-              <h4 className="text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                ASSETS & ASSESSMENTS
-              </h4>
-              <p className="text-[9px] text-neutral-400 dark:text-neutral-500 leading-tight">
-                Network probes & vulnerability ingestion
-              </p>
+            <button
+              type="button"
+              onClick={() => toggleGroup("advanced")}
+              className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors"
+            >
+              <span>Advanced / Ops</span>
+              {openGroups.advanced ? (
+                <ChevronDown className="w-3 h-3 text-neutral-400" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-neutral-400" />
+              )}
+            </button>
+          )}
+
+          {(isCollapsed || openGroups.advanced) && (
+            <div className="space-y-0.5">
+              <Link
+                href="/inventory"
+                onClick={onClose}
+                title="Configuration & Cert Inventory"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/inventory"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <FileKey2 className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Config & Certs</span>}
+                </div>
+              </Link>
+
+              <Link
+                href="/discovery"
+                onClick={onClose}
+                title="Nmap Asset Discovery (Requires Nmap)"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/discovery"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Asset Discovery</span>}
+                </div>
+              </Link>
+
+              <Link
+                href="/vulnerabilities"
+                onClick={onClose}
+                title="Vulnerability Feed (Greenbone / OpenVAS)"
+                className={`flex items-center ${
+                  isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
+                } text-xs transition-colors border ${
+                  pathname === "/vulnerabilities"
+                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  {!isCollapsed && <span>Vulnerability Feed</span>}
+                </div>
+              </Link>
             </div>
           )}
-          <div className="space-y-0.5">
-            <Link
-              href="/discovery"
-              onClick={onClose}
-              title="Nmap Asset Discovery"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/discovery"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <Globe className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Nmap Asset Discovery</span>}
-              </div>
-            </Link>
-
-            <Link
-              href="/inventory"
-              onClick={onClose}
-              title="Config & Cert Inventory"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/inventory"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <FileKey2 className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Config & Cert Inventory</span>}
-              </div>
-            </Link>
-
-            <Link
-              href="/vulnerabilities"
-              onClick={onClose}
-              title="Vulnerability Feed (OpenVAS/Greenbone)"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/vulnerabilities"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Vulnerability Feed</span>}
-              </div>
-              {!isCollapsed && <span className="text-[9px] font-mono text-neutral-400 uppercase">OpenVAS</span>}
-            </Link>
-          </div>
-        </div>
-
-        {/* GROUP 5: LAB & TESTBED */}
-        <div className="space-y-1">
-          {!isCollapsed && (
-            <div className="px-2 pb-0.5">
-              <h4 className="text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                LAB & TESTBED
-              </h4>
-              <p className="text-[9px] text-neutral-400 dark:text-neutral-500 leading-tight">
-                strongSwan namespace testbed
-              </p>
-            </div>
-          )}
-          <div className="space-y-0.5">
-            <Link
-              href="/lab"
-              onClick={onClose}
-              title="Lab Testbed Orchestrator (9 Dual-strongSwan Scenarios)"
-              className={`flex items-center ${
-                isCollapsed ? "justify-center px-1 py-1.5" : "justify-between px-2.5 py-1.5"
-              } text-xs transition-colors border ${
-                pathname === "/lab"
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <FlaskConical className="w-3.5 h-3.5 shrink-0" />
-                {!isCollapsed && <span>Lab Testbed Orchestrator</span>}
-              </div>
-              {!isCollapsed && <span className="text-[9px] font-mono text-neutral-400 uppercase">Namespace</span>}
-            </Link>
-          </div>
         </div>
       </div>
 

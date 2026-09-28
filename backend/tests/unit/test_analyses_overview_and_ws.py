@@ -68,10 +68,13 @@ class TestAnalysesOverviewAndWebSocket:
         )
         mock_res_scores.scalars().all.return_value = [mock_score]
 
+        mock_res_risks = MagicMock()
+        mock_res_risks.scalars().all.return_value = []
+
         mock_res_finds = MagicMock()
         mock_res_finds.scalars().all.return_value = []
 
-        mock_db.execute.side_effect = [mock_res_runs, mock_res_scores, mock_res_finds]
+        mock_db.execute.side_effect = [mock_res_runs, mock_res_scores, mock_res_risks, mock_res_finds]
 
         app.dependency_overrides[get_db_session] = lambda: mock_db
         try:

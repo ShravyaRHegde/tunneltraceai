@@ -47,6 +47,7 @@ import {
   Trash2,
   ExternalLink,
   FileKey2,
+  X,
 } from "lucide-react";
 
 function MonitoringContent() {
@@ -63,6 +64,7 @@ function MonitoringContent() {
   const [issuedTokenModal, setIssuedTokenModal] = useState<RegisterSensorResponseDTO | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [showRawToken, setShowRawToken] = useState(false);
+  const [showHistorical, setShowHistorical] = useState(false);
 
   // Inspector drawers
   const [selectedEvent, setSelectedEvent] = useState<MonitoringEventItemDTO | null>(null);
@@ -269,16 +271,16 @@ function MonitoringContent() {
   });
 
   // Calculate fleet stats
-  const totalGateways = gateways.length;
-  const totalSensors = sensors.length;
-  const activeSensorsCount = sensors.filter((s) => s.status === "ACTIVE").length;
-  const revokedSensorsCount = sensors.filter((s) => s.status === "REVOKED" || s.status === "DISABLED").length;
-  const healthyCount = healthList.filter((h) => h.current_health === "HEALTHY").length;
-  const degradedCount = healthList.filter((h) => h.current_health === "DEGRADED").length;
-  const staleCount = healthList.filter((h) => h.current_health === "STALE").length;
-  const unknownCount = healthList.filter((h) => h.current_health === "UNKNOWN").length;
-  const activeSAsCount = saStates.filter((sa) => sa.state === "ESTABLISHED" && !sa.is_stale).length;
-  const staleSAsCount = saStates.filter((sa) => sa.is_stale).length;
+  const totalGateways = (gateways || []).length;
+  const totalSensors = (sensors || []).length;
+  const activeSensorsCount = (sensors || []).filter((s) => s.status === "ACTIVE").length;
+  const revokedSensorsCount = (sensors || []).filter((s) => s.status === "REVOKED" || s.status === "DISABLED").length;
+  const healthyCount = (healthList || []).filter((h) => h.current_health === "HEALTHY").length;
+  const degradedCount = (healthList || []).filter((h) => h.current_health === "DEGRADED").length;
+  const staleCount = (healthList || []).filter((h) => h.current_health === "STALE").length;
+  const unknownCount = (healthList || []).filter((h) => h.current_health === "UNKNOWN").length;
+  const activeSAsCount = (saStates || []).filter((sa) => sa.state === "ESTABLISHED" && !sa.is_stale).length;
+  const staleSAsCount = (saStates || []).filter((sa) => sa.is_stale).length;
 
   return (
     <div className="space-y-6">
@@ -347,7 +349,7 @@ function MonitoringContent() {
             title="Send genuine heartbeat and IKE SA telemetry events to verify live WebSocket streaming"
           >
             <Zap className={`w-3.5 h-3.5 ${pulseMutation.isPending ? "animate-spin" : ""}`} />
-            <span>{pulseMutation.isPending ? "SENDING..." : "⚡ TEST LIVE PULSE"}</span>
+            <span>{pulseMutation.isPending ? "SENDING..." : "TEST LIVE PULSE"}</span>
           </button>
 
           <button
@@ -366,6 +368,29 @@ function MonitoringContent() {
         </div>
       </div>
 
+      {/* Phase 8 Architecture Disclosure: Live Telemetry vs Live Packet Capture */}
+      <div className="p-3.5 bg-white dark:bg-[#111113] border border-neutral-300 dark:border-neutral-800 text-xs font-mono space-y-2">
+        <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2">
+          <div className="flex items-center space-x-2 text-neutral-900 dark:text-white font-bold">
+            <ShieldCheck className="w-4 h-4 text-[#FF3D00]" />
+            <span>CONTINUOUS TELEMETRY VS. LIVE PACKET CAPTURE ARCHITECTURE</span>
+          </div>
+          <span className="text-[10px] px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-bold uppercase">
+            RFC 7296 / NTRO AUDIT DISCLOSURE
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed pt-0.5">
+          <div>
+            <span className="font-bold text-neutral-900 dark:text-white block mb-0.5">Live Monitoring (Stream Active):</span>
+            Ingests authenticated heartbeat telemetry, health metrics, and projected IPsec Security Association states from distributed gateway collectors over WebSocket/REST APIs. Retains verifiable historical state transitions without artificial synthetic data.
+          </div>
+          <div>
+            <span className="font-bold text-neutral-900 dark:text-white block mb-0.5">Live Packet Capture (Host Requirements):</span>
+            Direct raw packet capture requires the privileged Linux Capture Daemon running with kernel <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 font-bold">CAP_NET_ADMIN</code> / eBPF / strongSwan XFRM access. Windows development hosts operate in offline PCAP forensics mode and receive remote sensor telemetry.
+          </div>
+        </div>
+      </div>
+
       {/* Pulse Feedback Banner */}
       {pulseMessage && (
         <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-mono flex items-center justify-between">
@@ -378,19 +403,26 @@ function MonitoringContent() {
       )}
 
       {/* Telemetry Freshness & Setup Warning Banner */}
-      {healthyCount === 0 && (staleCount > 0 || degradedCount > 0) && (
-        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1.5">
+      {healthyCount === 0 && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-2">
           <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>Telemetry Stale: No Active Gateway Observations</span>
+            <span>Telemetry Inactive: No Gateway Currently Connected</span>
           </div>
           <p className="text-[11px] leading-relaxed">
-            {staleCount} registered sensor(s) have exceeded the 60-second freshness heartbeat threshold. 
-            The browser WebSocket connection to backend is active, but telemetry feeds are historical. 
-            Projected SA records shown below represent retained states under the non-deletion invariant; they do not indicate currently established live tunnels.
+            {staleCount > 0
+              ? `${staleCount} registered sensor(s) have exceeded the 60-second freshness heartbeat threshold. Feeds are currently dormant.`
+              : "No telemetry sensors are currently reporting to the TunnelTrace API. The browser WebSocket is connected, waiting for gateway heartbeats."}
+            Projected SA records shown below represent retained historical states under the non-deletion invariant; they do not indicate currently established live tunnels.
           </p>
-          <div className="pt-1 flex flex-wrap items-center gap-3 text-[11px]">
-            <span className="font-bold text-amber-950 dark:text-amber-100">Recommended Action:</span>
+          <div className="p-2.5 bg-neutral-900 text-neutral-200 rounded border border-neutral-800 space-y-1">
+            <div className="text-[10px] text-neutral-400">Launch standalone collector on your strongSwan / Linux router:</div>
+            <code className="text-emerald-400 text-[11px] block select-all">
+              python scripts/gateway_collector.py --gateway &quot;edge-router&quot; --interface eth0
+            </code>
+          </div>
+          <div className="pt-0.5 flex flex-wrap items-center gap-3 text-[11px]">
+            <span className="font-bold text-amber-950 dark:text-amber-100">Alternative:</span>
             <button
               onClick={() => {
                 setActiveTab("sensors");
@@ -398,7 +430,7 @@ function MonitoringContent() {
               }}
               className="underline font-bold text-amber-800 dark:text-amber-300 hover:text-amber-950"
             >
-              Configure / restore sensor collector feed in Sensor Fleet →
+              Register a new sensor token in Sensor Fleet →
             </button>
           </div>
         </div>
@@ -510,7 +542,57 @@ function MonitoringContent() {
             </button>
           </div>
 
-          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] overflow-hidden">
+          {!healthList.some((h) => h.current_health === "HEALTHY") && !showHistorical ? (
+            <Card className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] p-8 text-center space-y-4 font-mono">
+              <div className="w-12 h-12 mx-auto rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400">
+                <Radio className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase">
+                  No Gateway Currently Connected
+                </h3>
+                <p className="text-xs text-neutral-500 mt-1 max-w-lg mx-auto">
+                  Continuous monitoring requires an active strongSwan gateway streaming live telemetry over WebSockets. No active probes are currently transmitting fresh observations.
+                </p>
+              </div>
+              <div className="max-w-xl mx-auto p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-left text-xs space-y-2">
+                <div className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 uppercase">
+                  Deploy Collector on strongSwan Gateway (5-Minute Setup):
+                </div>
+                <div className="flex items-center justify-between bg-black/80 text-emerald-400 p-2 rounded text-[11px] font-mono select-all">
+                  <code>python scripts/gateway_collector.py --gateway-url http://localhost:8002</code>
+                  <CopyableValue value="python scripts/gateway_collector.py --gateway-url http://localhost:8002" label="" />
+                </div>
+              </div>
+              {healthList.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setShowHistorical(true)}
+                    className="text-xs text-[#FF3D00] hover:underline font-mono inline-flex items-center space-x-1"
+                  >
+                    <span>View historical retained observations ({healthList.length})</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {!healthList.some((h) => h.current_health === "HEALTHY") && (
+                <div className="flex items-center justify-between p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs font-mono text-amber-800 dark:text-amber-300">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Viewing historical retained observations (no gateway actively streaming).</span>
+                  </div>
+                  <button
+                    onClick={() => setShowHistorical(false)}
+                    className="underline text-[11px] hover:text-amber-900 font-bold"
+                  >
+                    Hide Historical
+                  </button>
+                </div>
+              )}
+              <Card className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -600,6 +682,8 @@ function MonitoringContent() {
           </Card>
         </div>
       )}
+    </div>
+  )}
 
       {/* ========================================================================= */}
       {/* TAB 2: PROJECTED SECURITY ASSOCIATIONS (NON-DELETION INVARIANT)            */}
@@ -1064,8 +1148,9 @@ function MonitoringContent() {
               <button
                 onClick={() => setIsRegisterGwOpen(false)}
                 className="text-neutral-400 hover:text-neutral-600 dark:hover:text-white"
+                aria-label="Close"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1155,8 +1240,9 @@ function MonitoringContent() {
               <button
                 onClick={() => setIsRegisterSensorOpen(false)}
                 className="text-neutral-400 hover:text-neutral-600 dark:hover:text-white"
+                aria-label="Close"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 

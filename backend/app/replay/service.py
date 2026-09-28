@@ -235,11 +235,12 @@ class ReplayService:
             {
                 "initiator_spi": s.initiator_spi,
                 "responder_spi": s.responder_spi,
-                "version": s.version,
-                "chosen_encryption": s.chosen_encryption,
-                "chosen_integrity": s.chosen_integrity,
-                "chosen_dh_group": s.chosen_dh_group,
-                "chosen_prf": s.chosen_prf,
+                "version": getattr(s, "ike_version", getattr(s, "version", "IKEv2")),
+                "chosen_encryption": getattr(s, "chosen_encryption", None),
+                "chosen_integrity": getattr(s, "chosen_integrity", None),
+                "chosen_dh_group": getattr(s, "chosen_dh_group", None),
+                "chosen_prf": getattr(s, "chosen_prf", None),
+                "lifecycle_state": getattr(s, "lifecycle_state", None),
             }
             for s in ike_rows
         ]

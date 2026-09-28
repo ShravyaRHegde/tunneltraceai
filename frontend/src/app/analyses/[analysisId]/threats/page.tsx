@@ -88,7 +88,7 @@ export default function ThreatMatrixPage({
           </h1>
         </div>
         <p className="text-xs text-neutral-500 mt-1">
-          Stage-8 deterministic catalog mappings correlating protocol vulnerabilities to MITRE ATT&CK Enterprise techniques and NIST controls.
+          <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> Correlated adversary tactics and exploitable vectors mapped from detected protocol weaknesses to MITRE ATT&CK techniques.
         </p>
       </div>
 
@@ -183,8 +183,14 @@ export default function ThreatMatrixPage({
                 </TableBody>
               </Table>
             ) : (
-              <div className="py-12 text-center font-mono text-xs text-neutral-500">
-                No active threats mapped from current findings.
+              <div className="py-8 px-4 text-center font-mono text-xs space-y-2">
+                <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+                <p className="font-bold text-neutral-800 dark:text-neutral-200 uppercase">
+                  No Active Threat Mappings for Current Capture
+                </p>
+                <p className="text-neutral-500 max-w-xl mx-auto text-[11px] font-sans">
+                  No policy violations were triggered on the evaluated packet evidence. MITRE ATT&CK adversary tactics are mapped strictly from verified security findings. Zero findings indicates that no prohibited transforms or protocol anomalies were observed in this capture — it is not an assertion of overall infrastructure invulnerability.
+                </p>
               </div>
             )}
           </Card>
@@ -278,8 +284,18 @@ export default function ThreatMatrixPage({
 
       {/* Offline Threat Intelligence Context (CISA KEV & FIRST EPSS) */}
       {threatIntel && (
-        <Card title="Offline Threat Intelligence Context (CISA KEV & FIRST EPSS)">
+        <Card title="Global Threat Intelligence Snapshot (Unmatched Reference Feed)">
           <div className="space-y-4">
+            <div className="p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-[11px] font-sans text-neutral-600 dark:text-neutral-400 space-y-1">
+              <div className="flex items-center space-x-1.5 font-mono text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase">
+                <Info className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                <span>Reference Context · Not Matched to Observed Capture</span>
+              </div>
+              <p>
+                The CVE records below represent a dated reference snapshot of known IPsec vulnerabilities from CISA KEV and FIRST EPSS for analyst situational awareness. <strong>None of these CVEs have been matched to an observed product, vendor, or version in this packet capture.</strong>
+              </p>
+            </div>
+
             <div className="flex items-center justify-between text-xs font-mono text-neutral-500 border-b border-neutral-200 dark:border-neutral-800 pb-2">
               <div className="flex items-center space-x-2">
                 <Database className="w-4 h-4 text-[#FF3D00]" />

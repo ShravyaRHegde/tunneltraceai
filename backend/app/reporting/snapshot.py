@@ -167,25 +167,37 @@ class AnalysisSnapshotBuilder:
             res_ml = await self.db.execute(stmt_ml)
             ml_records = res_ml.scalars().all()
 
-        classified_records = [m for m in ml_records if m.input_status in ("VALID", "COMPLETE")]
+        truly_classified = [
+            m for m in ml_records
+            if m.input_status in ("VALID", "COMPLETE")
+            and getattr(m, "ood_status", "") == "KNOWN_ACCEPTED"
+            and m.final_class not in ("UNKNOWN", "UNAVAILABLE", "OUT_OF_DISTRIBUTION", "UNKNOWN_UNSEEN")
+        ]
+        ood_records = [
+            m for m in ml_records
+            if getattr(m, "ood_status", "") in ("OOD_REJECTED", "UNKNOWN_UNSEEN")
+            or m.final_class in ("OUT_OF_DISTRIBUTION", "UNKNOWN_UNSEEN")
+        ]
+        valid_records = [m for m in ml_records if m.input_status in ("VALID", "COMPLETE")]
+
         traffic_summary = {
             "ml_run_status": current_run.status if current_run else ("COMPLETED" if ml_records else "NOT_CONFIGURED"),
             "model_version": current_run.bundle_version if current_run else (getattr(ml_records[0].artifact, "version", None) if (ml_records and ml_records[0].artifact) else None),
             "model_bundle_id": current_run.bundle_id if current_run else (getattr(ml_records[0].artifact, "bundle_id", None) if (ml_records and ml_records[0].artifact) else None),
             "total_flows": len(flows),
-            "classified_flows": len(classified_records),
+            "classified_flows": len(truly_classified),
             "skipped_flows": current_run.skipped_count if current_run else sum(1 for m in ml_records if m.input_status not in ("VALID", "COMPLETE")),
-            "classes_detected": sorted({m.final_class for m in classified_records if m.final_class not in ["UNKNOWN", "UNAVAILABLE"]}),
+            "classes_detected": sorted({m.final_class for m in truly_classified}),
             "avg_calibrated_confidence": (
-                round(sum(m.calibrated_confidence for m in classified_records) / len(classified_records), 4)
-                if classified_records
+                round(sum(m.calibrated_confidence for m in truly_classified) / len(truly_classified), 4)
+                if truly_classified
                 else None
             ),
-            "ood_count": sum(1 for m in classified_records if m.ood_status in ["OOD_REJECTED", "UNKNOWN_UNSEEN"]),
-            "anomaly_count": sum(1 for m in classified_records if m.behavioral_anomaly_status in ["ANOMALOUS_BEHAVIOR", "STATISTICAL_BEHAVIORAL_ANOMALY"]),
+            "ood_count": len(ood_records),
+            "anomaly_count": sum(1 for m in valid_records if getattr(m, "behavioral_anomaly_status", "") in ["ANOMALOUS_BEHAVIOR", "STATISTICAL_BEHAVIORAL_ANOMALY"]),
             "class_distribution": {},
         }
-        for m in classified_records:
+        for m in truly_classified:
             traffic_summary["class_distribution"][m.final_class] = (
                 traffic_summary["class_distribution"].get(m.final_class, 0) + 1
             )
@@ -205,27 +217,51 @@ class AnalysisSnapshotBuilder:
                 seen_eval_rules.add(e.rule_id)
                 evals.append(e)
 
+        from app.security.policy.registry import PolicyRegistry
+        from app.api.v1.security.router import resolve_compliance_severity
+        policy_registry = PolicyRegistry()
+
+        eval_items = []
+        for e in evals:
+            rule_def = policy_registry.get_rule(e.rule_id)
+            title = rule_def.title if rule_def else e.rule_id
+            cat = rule_def.category.value if rule_def else getattr(e, "subject_type", "SECURITY")
+            if rule_def and rule_def.authoritative_reference:
+                ref = rule_def.authoritative_reference
+                std = f"{ref.source} {ref.section}"
+            else:
+                std = "NIST SP 800-77 Rev. 1"
+            default_sev = rule_def.severity.value if rule_def else "MEDIUM"
+            sev = resolve_compliance_severity(e.rule_id, cat, e.compliance_state, default_sev)
+
+            exp_val = rule_def.assertion.expected_value if (rule_def and rule_def.assertion) else "N/A"
+            if e.compliance_state == "PASS":
+                obs_val = "Compliant parameters verified from capture"
+            elif e.compliance_state == "UNKNOWN":
+                obs_val = "Unobserved (capture evidence gap)"
+            else:
+                obs_val = "Not applicable to observed protocol mode"
+
+            eval_items.append({
+                "rule_id": e.rule_id,
+                "rule_title": title,
+                "category": cat,
+                "severity": sev,
+                "standard": std,
+                "compliance_state": e.compliance_state,
+                "evidence_state": e.evidence_state,
+                "observed_value": obs_val,
+                "expected_value": exp_val,
+                "rationale": e.rationale,
+            })
+
         compliance_summary = {
             "total_evaluations": len(evals),
             "pass_count": sum(1 for e in evals if e.compliance_state == "PASS"),
             "fail_count": sum(1 for e in evals if e.compliance_state == "FAIL"),
             "unknown_count": sum(1 for e in evals if e.compliance_state == "UNKNOWN"),
             "not_applicable_count": sum(1 for e in evals if e.compliance_state == "NOT_APPLICABLE"),
-            "evaluations": [
-                {
-                    "rule_id": e.rule_id,
-                    "rule_title": getattr(e, "rule_title", e.rule_id),
-                    "category": getattr(e, "category", getattr(e, "subject_type", "SECURITY")),
-                    "severity": getattr(e, "severity", "MEDIUM"),
-                    "standard": getattr(e, "standard", getattr(e, "bundle_id", "NIST")),
-                    "compliance_state": e.compliance_state,
-                    "evidence_state": e.evidence_state,
-                    "observed_value": getattr(e, "observed_value", "N/A"),
-                    "expected_value": getattr(e, "expected_value", "N/A"),
-                    "rationale": e.rationale,
-                }
-                for e in evals
-            ],
+            "evaluations": eval_items,
         }
 
         # 6. Fetch Findings
@@ -479,6 +515,7 @@ class AnalysisSnapshotBuilder:
                 "packet_count": capture.packet_count if capture else 0,
             },
             "analysis": {
+                "id": str(run.id),
                 "status": run.status,
                 "current_stage": run.current_stage,
                 "parser_engine": run.parser_engine,
@@ -487,6 +524,10 @@ class AnalysisSnapshotBuilder:
                 "created_at": run.created_at.isoformat() if run.created_at else None,
                 "completed_at": run.completed_at.isoformat() if run.completed_at else None,
                 "is_synthetic_demo": is_synthetic,
+                "pipeline_version": getattr(run, "pipeline_version", "1.0.0"),
+                "policy_version": getattr(run, "policy_version", "1.0.0"),
+                "is_outdated_version": (getattr(run, "pipeline_version", "1.0.0") != "2.0.0"),
+                "is_archived": bool(getattr(run, "is_archived", False)),
             },
             "protocol": protocol_facts,
             "security_associations": sa_summary,

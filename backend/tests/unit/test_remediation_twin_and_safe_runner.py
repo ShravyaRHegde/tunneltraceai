@@ -295,6 +295,7 @@ def test_production_environment_gate_blocks_apply():
     prod_settings = Settings(
         APP_ENV="production",
         APP_SECRET_KEY=SecretStr("a" * 32),
+        APP_DEBUG=False,
         DATABASE_URL="sqlite+aiosqlite:///:memory:",
         MONITORING_ALLOW_UNAUTHENTICATED_LOCAL=False,
         DISCOVERY_ALLOW_UNAUTHENTICATED_LOCAL=False,

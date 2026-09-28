@@ -11,10 +11,12 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.websocket.router import ws_manager
 from app.db.models.capture import AnalysisRun, Capture
+from app.db.models.reconstruction import ChildSecurityAssociation, ESPFlow, IKESession
 from app.db.models.remediation import (
     ConfigurationSnapshotModel,
     ConfigurationTwinModel,
@@ -37,6 +39,7 @@ from app.remediation.renderer import ConfigurationDiffEngine, SwanctlRenderer
 from app.remediation.runner import ClosedLoopRemediationRunner
 from app.remediation.twin import ConfigurationSecurityTwin
 from app.security.facts.models import EvidenceState, SecurityFact, SubjectType
+from app.security.facts.normalizer import SecurityFactNormalizer
 from app.security.findings.models import SecurityFinding
 from app.security.policy.schema import FindingCategory, Severity
 
@@ -192,14 +195,58 @@ async def _get_or_create_twin(
         )
 
 
+    # Fetch reconstructed entities to build real security facts
+    res_sess = await db.execute(
+        select(IKESession)
+        .where(IKESession.analysis_id == analysis_id)
+        .options(selectinload(IKESession.ike_sas))
+    )
+    sessions = res_sess.scalars().all()
+
+    res_child = await db.execute(
+        select(ChildSecurityAssociation).where(ChildSecurityAssociation.analysis_id == analysis_id)
+    )
+    child_sas = res_child.scalars().all()
+
+    res_flow = await db.execute(
+        select(ESPFlow).where(ESPFlow.analysis_id == analysis_id)
+    )
+    flows = res_flow.scalars().all()
+
+    normalizer = SecurityFactNormalizer()
+    facts = normalizer.normalize_reconstruction(
+        analysis_id=str(analysis_id),
+        capture_sha256=cap_hash,
+        sessions=sessions,
+        child_sas=child_sas,
+        flows=flows,
+    )
+
     # Build Current Snapshot
     current_snapshot = ForensicFactsSnapshotBuilder.build_snapshot(
         analysis_id=str(analysis_id),
         capture_sha256=cap_hash,
-        facts=[],
+        facts=facts,
     )
 
     twin_engine = ConfigurationSecurityTwin()
+
+    # Check if analysis has an associated gateway with a non-empty configuration baseline
+    has_linked_baseline = False
+    gw_identity = analysis.provenance_metadata.get("gateway_identity") if (analysis and analysis.provenance_metadata) else None
+    if gw_identity:
+        res_gw_snap = await db.execute(
+            select(GatewayConfigurationSnapshot).where(
+                GatewayConfigurationSnapshot.gateway_identity == gw_identity
+            )
+        )
+        gw_snap = res_gw_snap.scalars().first()
+        if gw_snap and gw_snap.canonical_digest and not gw_snap.canonical_digest.startswith("e3b0c442"):
+            has_linked_baseline = True
+
+    # If 0 IKE sessions were observed and no linked baseline exists (e.g. ESP-only capture),
+    # configuration posture cannot be assessed from payload frames alone.
+    has_assessable_config = len(sessions) > 0 or has_linked_baseline
 
     res_score = await db.execute(
         select(ScoreAssessmentModel)
@@ -207,7 +254,11 @@ async def _get_or_create_twin(
         .order_by(ScoreAssessmentModel.created_at.desc())
     )
     score_model = res_score.scalars().first()
-    real_baseline_score = float(score_model.overall_score) if score_model and score_model.overall_score is not None else 100.0
+
+    if has_assessable_config:
+        real_baseline_score = float(score_model.overall_score) if score_model and score_model.overall_score is not None else 100.0
+    else:
+        real_baseline_score = None
 
     res_risk = await db.execute(
         select(RiskAssessmentModel)
@@ -216,7 +267,7 @@ async def _get_or_create_twin(
     )
     risk_model = res_risk.scalars().first()
     tier_scores = {"CRITICAL": 95.0, "HIGH": 75.0, "MEDIUM": 45.0, "LOW": 15.0}
-    real_risk_score = tier_scores.get(getattr(risk_model, "overall_risk_tier", "LOW"), 20.0)
+    real_risk_score = tier_scores.get(getattr(risk_model, "overall_risk_tier", "LOW"), 20.0) if has_assessable_config else None
 
     if custom_proposal_text:
         proposed_ir = SwanctlParser.parse_text(custom_proposal_text)
@@ -230,8 +281,12 @@ async def _get_or_create_twin(
         existing_twin = res_existing.scalars().first()
         if existing_twin:
             existing_audit = existing_twin.projected_regression_audit or {}
-            # Reconcile if baseline_score in audit was the hardcoded legacy 45.0 while real score differs
-            if existing_audit.get("baseline_score") is not None and existing_audit.get("baseline_score") != real_baseline_score:
+            audit_baseline = existing_audit.get("baseline_score")
+            needs_reconcile = (
+                (audit_baseline != real_baseline_score)
+                or (not has_assessable_config and (existing_twin.projected_score is not None or existing_twin.projected_score_delta is not None))
+            )
+            if needs_reconcile:
                 proposed_ir = twin_engine.generate_remediation_proposal(current_snapshot, baseline_findings)
                 sim_result = twin_engine.run_projection(
                     analysis_id=str(analysis_id),
@@ -241,11 +296,16 @@ async def _get_or_create_twin(
                     baseline_score=real_baseline_score,
                     baseline_risk_score=real_risk_score,
                 )
-                existing_twin.projected_score = sim_result.projected_score
-                existing_twin.projected_score_delta = sim_result.projected_score_delta
+                existing_twin.projected_score = sim_result.projected_score if has_assessable_config else None
+                existing_twin.projected_score_delta = sim_result.projected_score_delta if has_assessable_config else None
                 existing_twin.diff_text = sim_result.text_diff
                 existing_twin.semantic_diff = sim_result.semantic_diff
-                existing_twin.projected_regression_audit = sim_result.regression_audit.to_dict()
+                audit_dict = sim_result.regression_audit.to_dict()
+                if not has_assessable_config:
+                    audit_dict["baseline_score"] = None
+                    audit_dict["projected_score"] = None
+                    audit_dict["projected_score_delta"] = None
+                existing_twin.projected_regression_audit = audit_dict
                 await db.commit()
                 await db.refresh(existing_twin)
             return existing_twin
@@ -293,11 +353,15 @@ async def _get_or_create_twin(
         observed_snapshot_id=current_snap_model.id,
         hardened_snapshot_id=hardened_snap_model.id,
         proposal_hash=sim_result.proposal_hash,
-        projected_score=sim_result.projected_score,
-        projected_score_delta=sim_result.projected_score_delta,
+        projected_score=sim_result.projected_score if has_assessable_config else None,
+        projected_score_delta=sim_result.projected_score_delta if has_assessable_config else None,
         diff_text=sim_result.text_diff,
         semantic_diff=sim_result.semantic_diff,
-        projected_regression_audit=sim_result.regression_audit.to_dict(),
+        projected_regression_audit=(
+            sim_result.regression_audit.to_dict()
+            if has_assessable_config
+            else {**sim_result.regression_audit.to_dict(), "baseline_score": None, "projected_score": None, "projected_score_delta": None}
+        ),
         status="PROJECTED",
     )
     db.add(twin_model)

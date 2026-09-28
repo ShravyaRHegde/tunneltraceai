@@ -123,10 +123,27 @@ class CaptureIngestionService:
             final_path = self.storage.resolve_safe_path(rel_path)
             final_path.parent.mkdir(parents=True, exist_ok=True)
 
+            sha256_digest = sha256.hexdigest().lower()
+
+            # Check for existing capture with identical SHA-256
+            from sqlalchemy import select
+            stmt_exist = select(Capture).where(Capture.sha256_hash == sha256_digest).order_by(Capture.created_at.asc())
+            res_exist = await self.db.execute(stmt_exist)
+            existing_cap = res_exist.scalars().first()
+
+            if existing_cap is not None:
+                if temp_path.exists():
+                    try:
+                        os.unlink(temp_path)
+                    except OSError:
+                        pass
+                logger.info(
+                    f"Capture with SHA-256 '{sha256_digest[:16]}...' already registered as '{existing_cap.id}'"
+                )
+                return existing_cap
+
             # Atomic promotion from temp to immutable storage
             os.replace(temp_path, final_path)
-
-            sha256_digest = sha256.hexdigest().lower()
 
             # Create and persist database record
             capture_record = Capture(

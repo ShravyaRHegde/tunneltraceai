@@ -16,10 +16,14 @@ import {
   TableRow,
   CopyableValue,
 } from "@/components/ui/table";
-import { Plus, Search, Layers, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Search, Layers, ChevronRight, AlertCircle, RefreshCw, Archive, Trash2, RotateCcw } from "lucide-react";
+import { formatCoverage } from "@/lib/format";
+import { ScoreDisplay } from "@/components/ui/score-display";
 
 function AnalysesListContent() {
   const [search, setSearch] = useState("");
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const action = searchParams.get("action");
 
@@ -30,9 +34,38 @@ function AnalysesListContent() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["analyses-list"],
-    queryFn: () => api.analyses.list(),
+    queryKey: ["analyses-list", includeArchived],
+    queryFn: () => api.analyses.list(includeArchived),
   });
+
+  const handleArchive = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActionInProgress(id);
+    try {
+      await api.analyses.archive(id);
+      refetch();
+    } catch (err: any) {
+      alert(`Failed to archive run: ${err.message}`);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Permanently delete analysis run ${id.slice(0, 8)}? This cannot be undone.`)) {
+      return;
+    }
+    setActionInProgress(id);
+    try {
+      await api.analyses.delete(id);
+      refetch();
+    } catch (err: any) {
+      alert(`Failed to delete run: ${err.message}`);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
 
   const filteredAnalyses = (analyses || []).filter((item) => {
     const q = search.toLowerCase();
@@ -93,8 +126,8 @@ function AnalysesListContent() {
       )}
 
       {/* Search & Filter Bar */}
-      <div className="flex items-center space-x-2 max-w-md">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
           <input
             type="text"
@@ -104,6 +137,16 @@ function AnalysesListContent() {
             className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-[#141416] border border-neutral-300 dark:border-neutral-800 font-mono text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-[#FF3D00]"
           />
         </div>
+
+        <label className="flex items-center space-x-2 text-xs font-mono cursor-pointer text-neutral-600 dark:text-neutral-400 select-none">
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => setIncludeArchived(e.target.checked)}
+            className="rounded border-neutral-300 text-[#FF3D00] focus:ring-[#FF3D00]"
+          />
+          <span>Show Archived Runs</span>
+        </label>
       </div>
 
       {/* Main Table View */}
@@ -150,14 +193,16 @@ function AnalysesListContent() {
                 <TableHead>Capture Source</TableHead>
                 <TableHead>Status / Stage</TableHead>
                 <TableHead>Security Score</TableHead>
-                <TableHead>Findings (Crit / High)</TableHead>
+                <TableHead>Coverage</TableHead>
+                <TableHead>Risk Tier</TableHead>
+                <TableHead>Version</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </tr>
             </TableHeader>
             <TableBody>
               {filteredAnalyses.map((run) => (
-                <TableRow key={run.analysis_id}>
+                <TableRow key={run.analysis_id} className={run.is_archived ? "opacity-60 bg-neutral-50/50 dark:bg-neutral-900/20" : ""}>
                   <TableCell mono>
                     <CopyableValue value={run.analysis_id} truncate label="Analysis ID" />
                   </TableCell>
@@ -172,7 +217,7 @@ function AnalysesListContent() {
                         </Link>
                         {run.is_synthetic_demo && (
                           <span className="px-1.5 py-0.2 bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-400 text-[9px] font-mono font-bold tracking-wider uppercase">
-                            DEMO FIXTURE
+                            DEMO
                           </span>
                         )}
                       </div>
@@ -190,35 +235,77 @@ function AnalysesListContent() {
                     </div>
                   </TableCell>
                   <TableCell mono>
-                    {run.security_score !== null && run.security_score !== undefined ? (
-                      <span className="font-bold text-neutral-900 dark:text-white">
-                        {run.security_score}
-                        <span className="text-neutral-400 font-normal">/100</span>
-                      </span>
-                    ) : (
-                      <span className="text-neutral-400 text-xs">UNKNOWN</span>
-                    )}
+                    <ScoreDisplay
+                      score={run.security_score}
+                      coverage={run.coverage_percentage}
+                      riskTier={run.risk_tier}
+                      status={run.status}
+                      size="sm"
+                    />
+                  </TableCell>
+                  <TableCell mono className="text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                    {formatCoverage(run.coverage_percentage)}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-1.5 py-0.5 text-[10px] font-mono font-bold border ${
+                        run.risk_tier === "LOW"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-300"
+                          : run.risk_tier === "MEDIUM"
+                          ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300"
+                          : run.risk_tier === "INSUFFICIENT_EVIDENCE"
+                          ? "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/50 dark:text-amber-300"
+                          : "bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300"
+                      }`}
+                    >
+                      {run.risk_tier || "UNKNOWN"}
+                    </span>
                   </TableCell>
                   <TableCell mono>
-                    <span className="font-bold text-red-600 dark:text-red-400">
-                      {run.critical_findings || 0}
-                    </span>
-                    <span className="text-neutral-400"> / </span>
-                    <span className="font-bold text-rose-600 dark:text-rose-400">
-                      {run.high_findings || 0}
-                    </span>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-neutral-500 font-mono">v{run.pipeline_version || "1.0.0"}</span>
+                      {run.is_outdated_version && (
+                        <span
+                          className="px-1 py-0.2 bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 text-[9px] font-mono font-bold"
+                          title="Older pipeline version. Open and recompute for v2.0.0."
+                        >
+                          OUTDATED
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell mono className="text-neutral-500 text-[11px]">
-                    {run.created_at ? new Date(run.created_at).toLocaleString() : "N/A"}
+                    {run.created_at ? new Date(run.created_at).toLocaleDateString() : "N/A"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link
-                      href={`/analyses/${run.analysis_id}/overview`}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-mono font-bold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700 transition-colors"
-                    >
-                      <span>OPEN</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Link>
+                    <div className="flex items-center justify-end space-x-1.5">
+                      <Link
+                        href={`/analyses/${run.analysis_id}/overview`}
+                        className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-mono font-bold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700 transition-colors"
+                        title="Open analysis workspace"
+                      >
+                        <span>OPEN</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                      <button
+                        onClick={(e) => handleArchive(run.analysis_id, e)}
+                        disabled={actionInProgress === run.analysis_id}
+                        className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 border border-transparent hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+                        title={run.is_archived ? "Unarchive run" : "Archive run from catalog"}
+                        aria-label={run.is_archived ? "Unarchive" : "Archive"}
+                      >
+                        {run.is_archived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(run.analysis_id, e)}
+                        disabled={actionInProgress === run.analysis_id}
+                        className="p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 border border-transparent hover:border-rose-300 dark:hover:border-rose-800 transition-colors"
+                        title="Delete run"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

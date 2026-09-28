@@ -218,7 +218,7 @@ def build_report_pdf(report_type: str, snapshot: dict[str, Any]) -> bytes:
     story.append(Spacer(1, 10))
 
     # Evidence Notice / Warning if Insufficient Evidence
-    if not is_assessable or cov_pct < 50.0:
+    if not is_assessable or cov_pct < 60.0:
         notice_text = (
             f"<b>EVIDENCE HONESTY NOTICE:</b> This capture has limited observable IPsec evidence "
             f"({cov_pct:.1f}% coverage, {compliance.get('unknown_count', 0)} unknown rules). "
@@ -375,10 +375,10 @@ def build_report_pdf(report_type: str, snapshot: dict[str, Any]) -> bytes:
         )
         story.append(find_table)
     else:
-        if not is_assessable or cov_pct < 50.0:
+        if not is_assessable or cov_pct < 60.0:
             msg = (
                 "<b>INCOMPLETE EVIDENCE NOTICE:</b> Zero deterministic policy violations were triggered on the "
-                "available wire packets. However, because key exchange packets were unobserved (coverage < 50%), "
+                "available wire packets. However, because key exchange packets were unobserved (coverage < 60%), "
                 "cryptographic parameters cannot be certified. Remediation: Acquire a complete IKE handshake trace."
             )
         else:

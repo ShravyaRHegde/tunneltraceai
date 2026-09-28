@@ -323,11 +323,12 @@ class ProtocolForensicsService:
         observed_dh = sorted({c.transform_name for c in crypto_obs if c.transform_type == "DH"})
         observed_exchanges = sorted(exchange_types_set)
 
+        has_ike = counters.get("ike", 0) > 0
         evidence_states = {
             "cipher_suites": "VERIFIED" if observed_ciphers else "UNKNOWN",
             "dh_groups": "VERIFIED" if observed_dh else "UNKNOWN",
             "exchanges": "VERIFIED" if observed_exchanges else "UNKNOWN",
-            "nat_t": "VERIFIED" if counters.get("natt", 0) > 0 else "INFERRED",
+            "nat_t": "VERIFIED" if counters.get("natt", 0) > 0 else ("NOT_DETECTED" if has_ike else "NOT_OBSERVED"),
         }
 
         return ProtocolSummaryDTO(

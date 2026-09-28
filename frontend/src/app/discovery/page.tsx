@@ -402,7 +402,7 @@ export default function DiscoveryPage() {
                     ? "SUBMITTING SCAN..."
                     : statusData?.nmap_available
                     ? "REVIEW & LAUNCH DISCOVERY SCAN"
-                    : "⚡ REVIEW & LAUNCH DEMO SCAN"}
+                    : "REVIEW & LAUNCH DEMO SCAN"}
                 </span>
               </button>
             </form>

@@ -115,14 +115,14 @@ export default function SecurityAssessmentPage({
     );
   }
 
-  const filteredFindings = findings.filter((f) => {
+  const filteredFindings = (findings || []).filter((f) => {
     const matchesSeverity =
       severityFilter === "ALL" || f.severity.toUpperCase() === severityFilter;
     const matchesSearch =
       search === "" ||
-      f.title.toLowerCase().includes(search.toLowerCase()) ||
-      f.rule_id.toLowerCase().includes(search.toLowerCase()) ||
-      f.affected_entity.toLowerCase().includes(search.toLowerCase());
+      (f.title || "").toLowerCase().includes(search.toLowerCase()) ||
+      (f.rule_id || "").toLowerCase().includes(search.toLowerCase()) ||
+      (f.affected_entity || "").toLowerCase().includes(search.toLowerCase());
     return matchesSeverity && matchesSearch;
   });
 
@@ -142,7 +142,7 @@ export default function SecurityAssessmentPage({
           </h1>
         </div>
         <p className="text-xs text-neutral-500 mt-1">
-          Stage-8 rule evaluation, cryptographic standard violations, itemized posture score deductions, and deterministic remediation directives.
+          <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> Concrete cryptographic violations, score deductions, and remediation directives evaluated deterministically against NIST SP 800-77 Rev 1 and RFC 8221 rules.
         </p>
       </div>
 

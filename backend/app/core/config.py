@@ -33,6 +33,8 @@ class Settings(BaseSettings):
         description="Internal encryption and session signing key",
     )
     API_V1_PREFIX: str = Field(default="/api/v1", description="API version namespace prefix")
+    CURRENT_PIPELINE_VERSION: str = Field(default="2.0.0", description="Current analysis pipeline version")
+    CURRENT_POLICY_VERSION: str = Field(default="1.0.0", description="Current security policy baseline version")
 
     # --------------------------------------------------------------------------
     # Database Settings (PostgreSQL 15+ with pgvector)

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
@@ -106,6 +106,15 @@ class AnalysisRun(Base):
     )
     schema_version: Mapped[str] = mapped_column(
         String(16), nullable=False, default="1.0.0"
+    )
+    pipeline_version: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="2.0.0"
+    )
+    policy_version: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="1.0.0"
+    )
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
     )
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

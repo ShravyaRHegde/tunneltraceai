@@ -26,12 +26,20 @@
     <div class="grid-4">
         <div class="metric-card">
             <div class="metric-label">Observed Security Posture</div>
+            {% if snapshot.score.score is not none and snapshot.score.get('is_assessable', true) %}
             <div class="metric-value score">{{ snapshot.score.score | round(1) }}<span style="font-size: 10pt; color: #777;"> / 100</span></div>
-            <div class="metric-sub">Methodology v{{ snapshot.score.methodology_version }}</div>
+            {% else %}
+            <div class="metric-value score" style="color: #D97706; font-size: 13pt;">NOT ASSESSABLE</div>
+            {% endif %}
+            <div class="metric-sub">{{ snapshot.score.get('status') or ('Methodology v' ~ snapshot.score.methodology_version) }}</div>
         </div>
         <div class="metric-card">
             <div class="metric-label">Evidence Coverage</div>
-            <div class="metric-value">{{ (snapshot.score.evidence_coverage * 100) | round(1) }}%</div>
+            {% if snapshot.score.evidence_coverage is not none %}
+            <div class="metric-value">{{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}%</div>
+            {% else %}
+            <div class="metric-value">0%</div>
+            {% endif %}
             <div class="metric-sub">Observed vs Required Facts</div>
         </div>
         <div class="metric-card">
@@ -106,13 +114,22 @@
             </tbody>
         </table>
         {% else %}
-            {% if snapshot.compliance.unknown_count > 0 %}
+            {% if snapshot.score.score is none or snapshot.score.get('is_assessable') is sameas false %}
+            <div style="padding: 10px; border: 1px solid #F59E0B; background: #FEF3C7; font-size: 8.5pt;">
+                <p style="color: #92400E; font-weight: 700; margin-bottom: 4px;">
+                    Zero deterministic findings violated on available wire packets (Score: NOT ASSESSABLE · Insufficient Evidence).
+                </p>
+                <p style="color: #78350F; margin: 0; font-size: 8pt; line-height: 1.4;">
+                    <strong>Evidence Honesty Notice:</strong> Observed evidence coverage is {{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}% with {{ snapshot.compliance.unknown_count }} check(s) UNKNOWN due to unobserved handshake frames. In accordance with strict forensic integrity, headline posture scoring is unassessable to avoid false assurance. Remediation: Acquire a complete IKE handshake and ESP packet trace.
+                </p>
+            </div>
+            {% elif snapshot.compliance.unknown_count > 0 %}
             <div style="padding: 10px; border: 1px solid #D1D1CB; background: #FAFBF9; font-size: 8.5pt;">
                 <p style="color: #00875A; font-weight: 700; margin-bottom: 4px;">
                     Zero policy deduction findings detected across observed wire evidence (Score: {{ snapshot.score.score | round(1) }}/100).
                 </p>
                 <p style="color: #555; margin: 0; font-size: 8pt; line-height: 1.4;">
-                    <strong>Evidence Notice:</strong> Observed evidence coverage is {{ (snapshot.score.evidence_coverage * 100) | round(1) }}% with {{ snapshot.compliance.unknown_count }} check(s) UNKNOWN due to unobserved handshake frames. Score reflects deductions from evaluated evidence and does not constitute formal certification or vulnerability-free guarantee.
+                    <strong>Evidence Notice:</strong> Observed evidence coverage is {{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}% with {{ snapshot.compliance.unknown_count }} check(s) UNKNOWN due to unobserved handshake frames. Score reflects deductions from evaluated evidence and does not constitute formal certification or vulnerability-free guarantee.
                 </p>
             </div>
             {% else %}
@@ -253,7 +270,7 @@
                     </tr>
                     {% endfor %}
                 {% else %}
-                    {% if snapshot.compliance.unknown_count > 0 or not snapshot.score.is_assessable %}
+                    {% if snapshot.compliance.unknown_count > 0 or snapshot.score.score is none or snapshot.score.get('is_assessable') is sameas false %}
                     <tr>
                         <td><span class="badge badge-warning">EVIDENCE GAP</span></td>
                         <td>Incomplete Protocol Capture (<span class="mono">{{ snapshot.compliance.unknown_count }} Unknown Checks</span>)</td>

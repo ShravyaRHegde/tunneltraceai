@@ -55,7 +55,7 @@ export default function ProtocolIntelligencePage({
           </h1>
         </div>
         <p className="text-xs text-neutral-500 mt-1">
-          Deterministic dissection of IKEv1/IKEv2 session establishment, Security Associations, transform negotiation, and encapsulation.
+          <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> Which IPsec protocol version, mode, and cryptographic suites we could actually verify from the packets — anything not observed is marked UNKNOWN, never guessed.
         </p>
       </div>
 
@@ -101,12 +101,26 @@ export default function ProtocolIntelligencePage({
         <Card title="NAT-T Traversal Status">
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
-              <span className={`text-2xl font-mono font-bold ${protocol.nat_t_detected ? "text-sky-600" : "text-neutral-500"}`}>
-                {protocol.nat_t_detected ? "UDP 4500" : "DIRECT / 500"}
+              <span className={`text-2xl font-mono font-bold ${
+                protocol.nat_t_detected
+                  ? "text-sky-600"
+                  : (protocol.ikev1_packet_count + protocol.ikev2_packet_count > 0)
+                    ? "text-neutral-700 dark:text-neutral-300"
+                    : "text-amber-600 dark:text-amber-400"
+              }`}>
+                {protocol.nat_t_detected
+                  ? "UDP 4500 (NAT-T)"
+                  : (protocol.ikev1_packet_count + protocol.ikev2_packet_count > 0)
+                    ? "DIRECT / UDP 500"
+                    : "NOT OBSERVED (NO IKE)"}
               </span>
             </div>
             <p className="text-[11px] font-mono text-neutral-500">
-              Non-ESP marker encapsulation check.
+              {protocol.nat_t_detected
+                ? "UDP encapsulation with non-ESP marker detected."
+                : (protocol.ikev1_packet_count + protocol.ikev2_packet_count > 0)
+                  ? "Standard direct UDP 500 handshake without NAT encapsulation."
+                  : "No IKE handshake observed in capture. Direct ESP over raw IP (protocol 50)."}
             </p>
           </div>
         </Card>

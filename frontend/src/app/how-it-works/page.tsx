@@ -218,7 +218,7 @@ export default function HowItWorksPage() {
           <div className="p-3 bg-white dark:bg-neutral-900 border border-blue-200 dark:border-blue-900/60 rounded">
             <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5 mb-1">
               <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-              <span>2. 9 Standard Scenarios</span>
+              <span>2. 9 Scenarios (8 Verified Benchmark, 1 Spec)</span>
             </div>
             <p className="text-neutral-600 dark:text-neutral-400 text-[11px] leading-relaxed">
               Pre-configured profiles: Modern AES-GCM (RFC 8221), Legacy 3DES-CBC, IPv6 Site-to-Site, NAT-T 4500, and Netem WAN loss.
@@ -239,7 +239,7 @@ export default function HowItWorksPage() {
             href="/lab"
             className="inline-flex items-center gap-1 text-xs font-mono font-bold text-blue-700 dark:text-blue-300 hover:underline"
           >
-            Explore the 9 Lab Scenarios in Lab Orchestrator →
+            Explore the 9 Lab Scenarios (8 Verified, 1 Spec) in Lab Catalog →
           </Link>
         </div>
       </div>
@@ -343,7 +343,7 @@ export default function HowItWorksPage() {
               <ul className="space-y-1.5 text-neutral-700 dark:text-neutral-300 text-[11px]">
                 {currentStep.outputs.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-1.5">
-                    <span className="text-emerald-500 font-bold">✔</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
                     <span>{item}</span>
                   </li>
                 ))}

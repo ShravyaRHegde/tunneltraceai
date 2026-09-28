@@ -1,0 +1,36 @@
+# ==============================================================================
+# TunnelTrace AI — Execution Class B strongSwan Lab Testbed Compose Runtime
+# Smart India Hackathon 2026 | NTRO Problem Statement 26160
+# ==============================================================================
+# Execution Class B runs isolated strongSwan IPsec tunnels inside Linux namespaces.
+# Requires: Linux host with kernel 5.15+ or Docker Desktop with privileged container support.
+#
+# Usage:
+#   1. Preflight environment check:
+#      docker compose -f docker-compose.lab.yml run --rm lab-runner python3 -m lab.agent.doctor
+#
+#   2. Execute verified baseline scenario:
+#      docker compose -f docker-compose.lab.yml run --rm lab-runner python3 -m lab.agent.operations.runner --scenario scn-01-tunnel-v4-gcm-pfs
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  lab-runner:
+    build:
+      context: .
+      dockerfile: lab/Dockerfile
+    container_name: tunneltrace_lab_runner
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+    volumes:
+      - .:/workspace
+      - /lib/modules:/lib/modules:ro
+    working_dir: /workspace
+    environment:
+      - APP_ENV=development
+      - STORAGE_BASE_DIR=storage/lab/runs
+    command: ["python3", "-m", "lab.agent.doctor"]

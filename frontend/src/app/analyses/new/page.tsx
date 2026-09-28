@@ -20,6 +20,9 @@ import {
   Layers,
   Sparkles,
   ExternalLink,
+  Terminal,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export default function NewAnalysisPage() {
@@ -33,6 +36,15 @@ export default function NewAnalysisPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+
+  const handleCopy = (text: string, key: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedCommand(key);
+      setTimeout(() => setCopiedCommand(null), 2500);
+    }
+  };
 
   // Live Capture State
   const [selectedInterface, setSelectedInterface] = useState<string>("");
@@ -53,17 +65,39 @@ export default function NewAnalysisPage() {
     enabled: activeTab === "live",
   });
 
+  // Deduplication state
+  const [duplicateNotice, setDuplicateNotice] = useState<{
+    captureId: string;
+    existingAnalysisId: string;
+    pipelineVersion: string;
+    source: "upload" | "sample";
+  } | null>(null);
+
   // Ingest Sample Mutation
   const [ingestingSampleId, setIngestingSampleId] = useState<string | null>(null);
   const ingestSampleMutation = useMutation({
-    mutationFn: async (sampleId: string) => {
+    mutationFn: async ({ sampleId, forceRerun }: { sampleId: string; forceRerun?: boolean }) => {
       setIngestingSampleId(sampleId);
+      setUploadError(null);
+      setDuplicateNotice(null);
       const capture = await api.captures.ingestSample(sampleId);
-      const analysis = await api.analyses.create(capture.capture_id);
-      return analysis;
+      if (capture.already_analyzed && capture.existing_analysis_id && !forceRerun) {
+        setIngestingSampleId(null);
+        setDuplicateNotice({
+          captureId: sampleId,
+          existingAnalysisId: capture.existing_analysis_id,
+          pipelineVersion: capture.existing_pipeline_version || "2.0.0",
+          source: "sample",
+        });
+        return { analysis: null };
+      }
+      const analysis = await api.analyses.create(capture.capture_id, forceRerun);
+      return { analysis };
     },
-    onSuccess: (analysis) => {
-      router.push(`/analyses/${analysis.analysis_id}/overview`);
+    onSuccess: (data) => {
+      if (data.analysis) {
+        router.push(`/analyses/${data.analysis.analysis_id}/overview`);
+      }
     },
     onError: (err: any) => {
       setIngestingSampleId(null);
@@ -73,17 +107,32 @@ export default function NewAnalysisPage() {
 
   // Upload Mutation
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, forceRerun }: { file: File; forceRerun?: boolean }) => {
       setUploadError(null);
+      setDuplicateNotice(null);
       setUploadProgress(20);
-      const capture = await api.captures.upload(file);
-      setUploadProgress(70);
-      const analysis = await api.analyses.create(capture.capture_id);
+      const capture = await api.captures.upload(file, forceRerun);
+      setUploadProgress(60);
+
+      if (capture.already_analyzed && capture.existing_analysis_id && !forceRerun) {
+        setUploadProgress(null);
+        setDuplicateNotice({
+          captureId: capture.capture_id,
+          existingAnalysisId: capture.existing_analysis_id,
+          pipelineVersion: capture.existing_pipeline_version || "2.0.0",
+          source: "upload",
+        });
+        return { capture, analysis: null };
+      }
+
+      const analysis = await api.analyses.create(capture.capture_id, forceRerun);
       setUploadProgress(100);
       return { capture, analysis };
     },
     onSuccess: (data) => {
-      router.push(`/analyses/${data.analysis.analysis_id}/overview`);
+      if (data.analysis) {
+        router.push(`/analyses/${data.analysis.analysis_id}/overview`);
+      }
     },
     onError: (err: any) => {
       setUploadProgress(null);
@@ -110,6 +159,7 @@ export default function NewAnalysisPage() {
     }
     setSelectedFile(file);
     setUploadError(null);
+    setDuplicateNotice(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -125,7 +175,7 @@ export default function NewAnalysisPage() {
 
   const handleStartUpload = () => {
     if (!selectedFile) return;
-    uploadMutation.mutate(selectedFile);
+    uploadMutation.mutate({ file: selectedFile, forceRerun: false });
   };
 
   const handleStartLiveCapture = async () => {
@@ -266,6 +316,41 @@ export default function NewAnalysisPage() {
               </div>
             )}
 
+            {/* Duplicate Notice Banner */}
+            {duplicateNotice && duplicateNotice.source === "upload" && (
+              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-xs font-mono space-y-3">
+                <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-200 font-bold">
+                  <Info className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>IDENTICAL CAPTURE ALREADY ANALYZED</span>
+                </div>
+                <p className="text-neutral-700 dark:text-neutral-300">
+                  This exact packet capture was already analyzed under pipeline v{duplicateNotice.pipelineVersion}. 
+                  You can inspect the existing analysis run immediately or force a fresh re-run.
+                </p>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/analyses/${duplicateNotice.existingAnalysisId}/overview`)}
+                    className="flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white font-bold uppercase transition-colors"
+                  >
+                    <span>View Existing Analysis</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedFile) {
+                        uploadMutation.mutate({ file: selectedFile, forceRerun: true });
+                      }
+                    }}
+                    className="px-4 py-2 border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold uppercase transition-colors"
+                  >
+                    Force Re-run Anyway
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Upload Progress Bar */}
             {uploadProgress !== null && (
               <div className="mt-4 space-y-1.5">
@@ -308,6 +393,111 @@ export default function NewAnalysisPage() {
             </div>
           </Card>
 
+          {/* Guided Capture Bridge Card */}
+          <Card title="Guided Capture Bridge (Capture from Real Network)">
+            <div className="space-y-4 font-mono text-xs">
+              <div className="flex items-start space-x-2 text-neutral-600 dark:text-neutral-300">
+                <Terminal className="w-4 h-4 text-[#FF3D00] shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  To analyze real-world IPsec tunnels from your local network, remote gateways, or testbeds, capture packets using the authoritative BPF filter, then drag the resulting PCAP file directly into the upload area above.
+                </p>
+              </div>
+
+              {/* Step 1: Capture commands */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-neutral-500">
+                    Step 1: Run Wireshark / TShark Packet Sniffer
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                    BPF: udp port 500 or udp port 4500 or esp
+                  </span>
+                </div>
+
+                {/* Linux / macOS command */}
+                <div className="p-3 bg-neutral-900 text-neutral-100 rounded border border-neutral-800 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                    <span>Linux / macOS Terminal (Admin):</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("sudo tshark -i eth0 -f \"udp port 500 or udp port 4500 or esp\" -w ipsec_capture.pcapng", "linux")}
+                      className="flex items-center space-x-1 text-xs hover:text-white"
+                    >
+                      {copiedCommand === "linux" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">COPIED</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>COPY</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <code className="text-emerald-400 text-[11px] select-all block break-all">
+                    sudo tshark -i eth0 -f &quot;udp port 500 or udp port 4500 or esp&quot; -w ipsec_capture.pcapng
+                  </code>
+                </div>
+
+                {/* Windows PowerShell command */}
+                <div className="p-3 bg-neutral-900 text-neutral-100 rounded border border-neutral-800 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                    <span>Windows PowerShell (Admin with Wireshark installed):</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("& \"C:\\Program Files\\Wireshark\\tshark.exe\" -i 1 -f \"udp port 500 or udp port 4500 or esp\" -w ipsec_capture.pcapng", "win")}
+                      className="flex items-center space-x-1 text-xs hover:text-white"
+                    >
+                      {copiedCommand === "win" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">COPIED</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>COPY</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <code className="text-emerald-400 text-[11px] select-all block break-all">
+                    &amp; &quot;C:\Program Files\Wireshark\tshark.exe&quot; -i 1 -f &quot;udp port 500 or udp port 4500 or esp&quot; -w ipsec_capture.pcapng
+                  </code>
+                </div>
+              </div>
+
+              {/* Step 2: Gateway Collector script */}
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-neutral-900 dark:text-white">
+                    Step 2: Automated Gateway Telemetry Collector
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold">
+                    scripts/gateway_collector.py
+                  </span>
+                </div>
+                <p className="text-neutral-500 text-[11px] leading-relaxed">
+                  For automated continuous telemetry directly from strongSwan, Libreswan, or VyOS routers, run our standalone Python agent. It queries SA status via <code>swanctl</code> and writes rolling PCAPs:
+                </p>
+                <div className="p-2.5 bg-neutral-900 text-neutral-200 rounded text-[11px] flex items-center justify-between overflow-x-auto">
+                  <code className="text-emerald-400 select-all block">
+                    python scripts/gateway_collector.py --gateway &quot;corp-vpn-gw&quot; --interface eth0
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("python scripts/gateway_collector.py --gateway \"corp-vpn-gw\" --interface eth0", "collector")}
+                    className="ml-2 text-xs text-neutral-400 hover:text-white shrink-0"
+                  >
+                    {copiedCommand === "collector" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Privacy & Provenance Notice */}
           <div className="p-4 border border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 text-xs text-neutral-600 dark:text-neutral-400 space-y-2">
             <div className="flex items-center space-x-2 text-neutral-900 dark:text-white font-bold font-mono">
@@ -329,6 +519,39 @@ export default function NewAnalysisPage() {
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
                 These authentic network captures are sourced directly from TunnelTrace AI&apos;s dual-strongSwan Linux namespace benchmark testbed. Ingesting a sample registers a persistent capture and executes full analysis pipeline reconstruction, protocol facts extraction, and deterministic policy scoring.
               </p>
+
+              {/* Duplicate Notice Banner for Samples */}
+              {duplicateNotice && duplicateNotice.source === "sample" && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-xs font-mono space-y-3">
+                  <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-200 font-bold">
+                    <Info className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>SAMPLE ALREADY ANALYZED</span>
+                  </div>
+                  <p className="text-neutral-700 dark:text-neutral-300">
+                    This benchmark sample was already analyzed under pipeline v{duplicateNotice.pipelineVersion}. 
+                    You can inspect the existing analysis run immediately or force a fresh re-run.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/analyses/${duplicateNotice.existingAnalysisId}/overview`)}
+                      className="flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white font-bold uppercase transition-colors"
+                    >
+                      <span>View Existing Analysis</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        ingestSampleMutation.mutate({ sampleId: duplicateNotice.captureId, forceRerun: true });
+                      }}
+                      className="px-4 py-2 border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold uppercase transition-colors"
+                    >
+                      Force Re-run Anyway
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {isSamplesLoading ? (
                 <div className="p-8 text-center text-xs font-mono text-neutral-400">
@@ -362,7 +585,7 @@ export default function NewAnalysisPage() {
 
                         <button
                           disabled={ingestingSampleId === sample.sample_id}
-                          onClick={() => ingestSampleMutation.mutate(sample.sample_id)}
+                          onClick={() => ingestSampleMutation.mutate({ sampleId: sample.sample_id, forceRerun: false })}
                           className="shrink-0 flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
                         >
                           <Play className="w-3.5 h-3.5" />
@@ -526,7 +749,7 @@ export default function NewAnalysisPage() {
                         </div>
                         <div className="mt-1 flex items-center justify-between text-[11px] text-neutral-500 font-mono">
                           <span>State: {iface.operstate}</span>
-                          <span>{iface.lab_owned ? "LAB TESTBED" : "HOST"}</span>
+                          <span>{iface.lab_owned ? "LAB INTERFACE" : "HOST"}</span>
                         </div>
                       </div>
                     ))}

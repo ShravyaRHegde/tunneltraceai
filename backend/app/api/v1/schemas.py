@@ -20,6 +20,10 @@ class CaptureResponseDTO(BaseModel):
     last_packet_at: datetime | None = None
     link_layer_type: str | None = None
     validation_state: str
+    already_analyzed: bool = False
+    existing_analysis_id: uuid.UUID | None = None
+    existing_run_status: str | None = None
+    existing_pipeline_version: str | None = None
     created_at: datetime
 
 
@@ -27,6 +31,7 @@ class CreateAnalysisRequestDTO(BaseModel):
     """Request payload to initiate protocol analysis."""
 
     capture_id: uuid.UUID = Field(..., description="Target capture UUID to analyze")
+    force_rerun: bool = Field(default=False, description="Force new analysis run even if capture was already analyzed")
 
 
 class AnalysisRunResponseDTO(BaseModel):
@@ -48,6 +53,10 @@ class AnalysisRunResponseDTO(BaseModel):
     parent_analysis_id: uuid.UUID | None = None
     replay_mode: str | None = None
     provenance_metadata: dict | None = None
+    pipeline_version: str = "2.0.0"
+    policy_version: str = "1.0.0"
+    is_outdated_version: bool = False
+    is_archived: bool = False
     created_at: datetime
 
 
@@ -149,11 +158,17 @@ class AnalysisListItemDTO(BaseModel):
     created_at: datetime
     completed_at: datetime | None = None
     security_score: float | None = None
+    coverage_percentage: float | None = None
+    risk_tier: str | None = None
     critical_findings: int = 0
     high_findings: int = 0
     parent_analysis_id: uuid.UUID | None = None
     replay_mode: str | None = None
     provenance_metadata: dict | None = None
+    pipeline_version: str = "2.0.0"
+    policy_version: str = "1.0.0"
+    is_outdated_version: bool = False
+    is_archived: bool = False
     is_synthetic_demo: bool = False
 
 
@@ -212,4 +227,19 @@ class AnalysisOverviewDTO(BaseModel):
     traffic_summary: dict
     fingerprintability: dict
     protocol_summary: dict
+
+
+class MLModelCardDTO(BaseModel):
+    """Authoritative ML Model Card detailing architecture, training corpus, metrics, and calibration."""
+
+    model_name: str
+    version: str
+    status: str
+    architecture: dict
+    training_corpus: dict
+    evaluation_metrics: dict
+    calibration_and_ood: dict
+    four_prediction_states: dict
+    limitations: list[str]
+
 

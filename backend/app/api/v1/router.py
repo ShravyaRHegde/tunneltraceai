@@ -63,6 +63,6 @@ api_v1_router.include_router(monitoring_router)
 from app.api.v1.inventory.router import router as inventory_router
 api_v1_router.include_router(inventory_router, prefix="/inventory")
 
-
-
-
+# Mount Lab Testbed Scenarios and Verification endpoints
+from app.api.v1.lab.router import router as lab_router
+api_v1_router.include_router(lab_router)

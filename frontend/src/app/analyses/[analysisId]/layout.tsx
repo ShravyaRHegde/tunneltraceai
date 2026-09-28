@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useEffect, use } from "react";
+import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAnalysis } from "@/lib/analysis-context";
 import { StatusBadge } from "@/components/ui/badge";
 import { CopyableValue } from "@/components/ui/table";
 import { formatCoverage } from "@/lib/format";
+import { ScoreDisplay } from "@/components/ui/score-display";
+import { api } from "@/lib/api/client";
 import {
   CheckCircle,
   Clock,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 const PIPELINE_STAGES = [
@@ -32,8 +36,11 @@ export default function AnalysisLayout({
 }) {
   const unwrappedParams = use(params);
   const { analysisId } = unwrappedParams;
-  const { activeAnalysisId, setActiveAnalysisId, analysis, overview } = useAnalysis();
+  const { activeAnalysisId, setActiveAnalysisId, analysis, overview, refetch } = useAnalysis();
   const pathname = usePathname();
+
+  const [isRecomputing, setIsRecomputing] = useState(false);
+  const [recomputeError, setRecomputeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (analysisId && activeAnalysisId !== analysisId) {
@@ -46,10 +53,50 @@ export default function AnalysisLayout({
   const captureSha256 = overview?.capture?.sha256 || analysis?.capture_sha256;
   const packetCount = overview?.capture?.packet_count;
 
+  const isOutdated = Boolean(analysis?.is_outdated_version || (overview?.analysis as any)?.is_outdated_version);
+  const pipelineVer = analysis?.pipeline_version || (overview?.analysis as any)?.pipeline_version || "1.0.0";
 
+  const handleRecompute = async () => {
+    setIsRecomputing(true);
+    setRecomputeError(null);
+    try {
+      await api.analyses.recompute(analysisId);
+      refetch();
+    } catch (err: any) {
+      setRecomputeError(err.message || "Failed to recompute analysis run");
+    } finally {
+      setIsRecomputing(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
+      {/* Outdated Pipeline Version Warning Banner */}
+      {isOutdated && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <div>
+              <span className="font-bold">OUTDATED PIPELINE VERSION (v{pipelineVer}): </span>
+              <span>This analysis was generated under legacy pipeline rules. Recompute using current pipeline v2.0.0 for accurate evidence coverage and compliance scoring.</span>
+            </div>
+          </div>
+          <button
+            onClick={handleRecompute}
+            disabled={isRecomputing}
+            className="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 bg-[#FF3D00] hover:bg-[#e03600] disabled:bg-neutral-400 text-white font-bold uppercase tracking-wider shrink-0 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRecomputing ? "animate-spin" : ""}`} />
+            <span>{isRecomputing ? "RECOMPUTING..." : "RECOMPUTE NOW"}</span>
+          </button>
+        </div>
+      )}
+      {recomputeError && (
+        <div className="p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs font-mono text-rose-600">
+          {recomputeError}
+        </div>
+      )}
+
       {/* Persistent Analysis Identity Banner */}
       <div className="p-4 bg-white dark:bg-[#141416] border border-neutral-300 dark:border-neutral-800 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
@@ -86,9 +133,13 @@ export default function AnalysisLayout({
             <div className="flex items-center space-x-4 text-xs font-mono">
               <div className="text-right">
                 <div className="text-[10px] text-neutral-400 uppercase">Score Posture</div>
-                <div className="font-bold text-neutral-900 dark:text-white">
-                  {overview.security_posture.score}/100
-                </div>
+                <ScoreDisplay
+                  score={overview.security_posture.score}
+                  coverage={overview.security_posture.evidence_coverage}
+                  riskTier={overview.security_posture.aggregate_risk_tier}
+                  status={overview.security_posture.status}
+                  size="sm"
+                />
               </div>
               <div className="text-right">
                 <div className="text-[10px] text-neutral-400 uppercase">Coverage</div>

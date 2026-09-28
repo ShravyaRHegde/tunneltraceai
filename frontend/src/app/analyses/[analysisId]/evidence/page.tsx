@@ -93,32 +93,52 @@ function EvidenceExplorerContent({
       if (rawNodes.length > 0) {
         const typeColors: Record<string, string> = {
           finding: "#E11D48",
+          security_finding: "#E11D48",
           rule: "#D97706",
+          policy_rule: "#D97706",
           fact: "#2563EB",
+          security_fact: "#2563EB",
           observation: "#059669",
+          protocol_observation: "#059669",
+          compliance_evaluation: "#0D9488",
+          evidence_gap: "#D97706",
           packet: "#7C3AED",
+          frame: "#7C3AED",
           capture: "#4B5563",
+          threat: "#DC2626",
+          risk_result: "#E11D48",
+          fingerprintability_component: "#6366F1",
+          esp_flow: "#0284C7",
+          scenario: "#059669",
+          replay_run: "#4B5563",
         };
 
         const getEvidenceTier = (nodeType: string): number => {
           const t = (nodeType || "").toLowerCase();
-          if (t.includes("capture")) return 0;
-          if (t.includes("packet")) return 1;
-          if (t.includes("observation")) return 2;
+          if (t.includes("capture") || t.includes("scenario")) return 0;
+          if (t.includes("packet") || t.includes("frame")) return 1;
+          if (t.includes("observation") || t.includes("esp_flow")) return 2;
           if (t.includes("fact")) return 3;
           if (t.includes("rule")) return 4;
-          if (t.includes("finding")) return 5;
-          return 2;
+          if (t.includes("eval") || t.includes("gap")) return 5;
+          if (t.includes("finding")) return 6;
+          if (t.includes("threat") || t.includes("risk")) return 7;
+          if (t.includes("score") || t.includes("fingerprint") || t.includes("remediation")) return 8;
+          return 3;
         };
 
         const presentTiers: number[] = Array.from(
-          new Set<number>(rawNodes.map((n: any) => getEvidenceTier(n.node_type)))
+          new Set<number>(
+            rawNodes.map((n: any) =>
+              getEvidenceTier(n.node_type || n.type || n.data?.nodeType || "")
+            )
+          )
         ).sort((a: number, b: number) => a - b);
         const tierToColIndex = new Map(presentTiers.map((tier, idx) => [tier, idx]));
 
-        const NODE_WIDTH = 220;
-        const HORIZ_GAP = 180;
-        const VERT_STEP = 150;
+        const NODE_WIDTH = 230;
+        const HORIZ_GAP = 240;
+        const VERT_STEP = 160;
 
         const tierCounts: Record<number, number> = {};
         presentTiers.forEach((t: number) => {
@@ -126,7 +146,10 @@ function EvidenceExplorerContent({
         });
 
         const formattedNodes: Node[] = rawNodes.map((n: any) => {
-          const tier = getEvidenceTier(n.node_type);
+          const nodeType = String(n.node_type || n.type || n.data?.nodeType || "NODE").toLowerCase();
+          const rawLabel = n.label || n.data?.label || n.id;
+          const entityId = n.entity_id || n.data?.finding_id || n.data?.rule_id || n.data?.fact_id || n.data?.subject_id || n.id;
+          const tier = getEvidenceTier(nodeType);
           const yIndex = tierCounts[tier] || 0;
           tierCounts[tier] = yIndex + 1;
 
@@ -135,19 +158,27 @@ function EvidenceExplorerContent({
           const yPos = 40 + yIndex * VERT_STEP;
 
           const isHighlight =
-            highlightedFindingId && n.entity_id === highlightedFindingId;
+            highlightedFindingId && (entityId === highlightedFindingId || n.id === highlightedFindingId);
+
+          const borderColor = typeColors[nodeType] || typeColors[nodeType.replace(/_/g, "")] || "#64748B";
 
           return {
             id: n.id,
             type: "default",
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            data: { label: `${(n.node_type || "NODE").toUpperCase()}\n${n.label || n.id}` },
+            data: {
+              label: `${(n.node_type || n.type || n.data?.nodeType || "NODE").toUpperCase()}\n${rawLabel}`,
+              nodeType: n.node_type || n.type || n.data?.nodeType || "NODE",
+              labelRaw: rawLabel,
+              entityId,
+              properties: n.properties || n.data || {},
+            },
             position: { x: xPos, y: yPos },
             style: {
               background: isHighlight ? "#FF3D00" : "#FFFFFF",
               color: isHighlight ? "#FFFFFF" : "#0F172A",
-              border: isHighlight ? "2px solid #FF3D00" : `1.5px solid ${typeColors[n.node_type] || "#555"}`,
+              border: isHighlight ? "2px solid #FF3D00" : `1.5px solid ${borderColor}`,
               borderRadius: "4px",
               boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
               fontFamily: "monospace",
@@ -158,30 +189,39 @@ function EvidenceExplorerContent({
           };
         });
 
-        const formattedEdges: Edge[] = rawEdges.map((e: any, idx: number) => ({
-          id: `e-${idx}`,
-          source: e.source_id,
-          target: e.target_id,
-          label: e.relation_type,
-          type: "smoothstep",
-          style: { stroke: "#64748B", strokeWidth: 2 },
-          labelStyle: {
-            fill: "#0F172A",
-            fontSize: 10,
-            fontFamily: "ui-monospace, monospace",
-            fontWeight: 700,
-            letterSpacing: "0.04em",
-          },
-          labelBgStyle: {
-            fill: "#FFFFFF",
-            fillOpacity: 0.98,
-            stroke: "#94A3B8",
-            strokeWidth: 1.5,
-            rx: 4,
-            ry: 4,
-          },
-          labelBgPadding: [8, 4] as [number, number],
-        }));
+        const validNodeIds = new Set(formattedNodes.map((n) => n.id));
+
+        const formattedEdges: Edge[] = rawEdges
+          .map((e: any, idx: number) => {
+            const src = e.source || e.source_id || e.source_node_id || "";
+            const tgt = e.target || e.target_id || e.target_node_id || "";
+            const lbl = e.label || e.relation_type || e.relation || "";
+            return {
+              id: e.id || `e-${idx}-${src}-${tgt}`,
+              source: src,
+              target: tgt,
+              label: lbl,
+              type: "smoothstep",
+              style: { stroke: "#64748B", strokeWidth: 1.5 },
+              labelStyle: {
+                fill: "#1E293B",
+                fontSize: 9,
+                fontFamily: "ui-monospace, monospace",
+                fontWeight: 600,
+                letterSpacing: "0.03em",
+              },
+              labelBgStyle: {
+                fill: "#F8FAFC",
+                fillOpacity: 0.95,
+                stroke: "#CBD5E1",
+                strokeWidth: 1,
+                rx: 3,
+                ry: 3,
+              },
+              labelBgPadding: [6, 2] as [number, number],
+            };
+          })
+          .filter((e: any) => e.source && e.target && validNodeIds.has(e.source) && validNodeIds.has(e.target));
 
         setNodes(formattedNodes);
         setEdges(formattedEdges);
@@ -192,15 +232,38 @@ function EvidenceExplorerContent({
   const onNodeClick = (_: any, node: Node) => {
     const rawNode =
       (evidence?.nodes || []).find((n) => n.id === node.id) ||
-      (evidence as any)?.react_flow?.nodes?.find((n: any) => n.id === node.id) || {
-        id: node.id,
-        node_type: (node.data as any)?.node_type || node.type || "NODE",
-        label: (node.data as any)?.label || node.id,
-        entity_id: node.id,
-        properties: (node.data as any) || {},
-      };
-    setSelectedNode(rawNode as any);
+      (evidence as any)?.react_flow?.nodes?.find((n: any) => n.id === node.id) ||
+      node;
+
+    const nodeType = (rawNode as any).node_type || (rawNode as any).type || (rawNode as any).data?.nodeType || "NODE";
+    const label = (rawNode as any).label || (rawNode as any).data?.labelRaw || (rawNode as any).data?.label || rawNode.id;
+    const entityId = (rawNode as any).entity_id || (rawNode as any).data?.entityId || (rawNode as any).data?.subject_id || (rawNode as any).data?.rule_id || rawNode.id;
+    const properties = (rawNode as any).properties || (rawNode as any).data?.properties || (rawNode as any).data || {};
+
+    setSelectedNode({
+      id: rawNode.id,
+      node_type: nodeType,
+      label,
+      entity_id: entityId,
+      properties,
+    });
   };
+
+  const computedGaps = React.useMemo(() => {
+    if (evidence?.evidence_gaps && evidence.evidence_gaps.length > 0) {
+      return evidence.evidence_gaps;
+    }
+    const rawNodes = evidence?.nodes?.length ? evidence.nodes : (evidence as any)?.react_flow?.nodes || [];
+    return (rawNodes || [])
+      .filter((n: any) => {
+        const t = String(n.type || n.node_type || n.data?.nodeType || "").toLowerCase();
+        return t.includes("gap");
+      })
+      .map((n: any) => ({
+        fact_name: n.data?.rule_id || (Array.isArray(n.data?.missing_fields) ? n.data.missing_fields.join(", ") : null) || n.label || "Missing Protocol Evidence",
+        rationale: n.data?.reason || n.data?.recommended_action || "Required protocol evidence missing or unobserved in passive capture.",
+      }));
+  }, [evidence]);
 
   if (isLoading) {
     return (
@@ -237,7 +300,7 @@ function EvidenceExplorerContent({
             </h1>
           </div>
           <p className="text-xs text-neutral-500 mt-1">
-            Trace deterministic lineage: Finding → Policy Rule → Security Fact → SA/Flow → Frame → Capture SHA-256.
+            <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> The immutable evidence chain linking findings to policy rules, protocol facts, packet frame numbers, and capture SHA-256 digests. Also shows evidence gaps where data was absent.
           </p>
         </div>
 
@@ -547,29 +610,36 @@ function EvidenceExplorerContent({
                         </td>
                       </tr>
                     ) : (
-                      (evidence?.nodes || []).map((n) => (
-                        <tr
-                          key={n.id}
-                          onClick={() => setSelectedNode(n)}
-                          className={`cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors ${
-                            selectedNode?.id === n.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""
-                          }`}
-                        >
-                          <td className="p-2.5">
-                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 uppercase rounded-xs">
-                              {n.node_type || (n as any).type || "NODE"}
-                            </span>
-                          </td>
-                          <td className="p-2.5 font-bold text-neutral-900 dark:text-white">{n.label || n.id}</td>
-                          <td className="p-2.5 text-neutral-500">{n.entity_id}</td>
-                          <td className="p-2.5 text-[11px] text-neutral-400 truncate max-w-xs">
-                            {n.properties ? Object.keys(n.properties).join(", ") : "None"}
-                          </td>
-                          <td className="p-2.5 text-right">
-                            <span className="text-[10px] text-[#FF3D00] font-bold">INSPECT →</span>
-                          </td>
-                        </tr>
-                      ))
+                      (evidence?.nodes || []).map((n) => {
+                        const nodeType = n.node_type || (n as any).type || (n as any).data?.nodeType || "NODE";
+                        const label = n.label || (n as any).data?.labelRaw || (n as any).data?.label || n.id;
+                        const entityId = n.entity_id || (n as any).data?.entityId || (n as any).data?.subject_id || (n as any).data?.rule_id || n.id;
+                        const props = n.properties || (n as any).data?.properties || (n as any).data || {};
+
+                        return (
+                          <tr
+                            key={n.id}
+                            onClick={() => setSelectedNode({ id: n.id, node_type: nodeType, label, entity_id: entityId, properties: props })}
+                            className={`cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors ${
+                              selectedNode?.id === n.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""
+                            }`}
+                          >
+                            <td className="p-2.5">
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-neutral-200 dark:bg-neutral-800 uppercase rounded-xs">
+                                {nodeType}
+                              </span>
+                            </td>
+                            <td className="p-2.5 font-bold text-neutral-900 dark:text-white">{label}</td>
+                            <td className="p-2.5 text-neutral-500">{entityId}</td>
+                            <td className="p-2.5 text-[11px] text-neutral-400 truncate max-w-xs">
+                              {props && Object.keys(props).length > 0 ? Object.keys(props).join(", ") : "None"}
+                            </td>
+                            <td className="p-2.5 text-right">
+                              <span className="text-[10px] text-[#FF3D00] font-bold">INSPECT →</span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -606,43 +676,50 @@ function EvidenceExplorerContent({
           ) : (
             <Card title={`Textual Evidence Lineage Nodes (${(evidence?.nodes || []).length})`}>
               <div className="divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
-                {(evidence?.nodes || []).map((node) => (
-                  <div
-                    key={node.id}
-                    onClick={() => setSelectedNode(node)}
-                    className={`py-3 px-2 flex items-center justify-between cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/60 ${
-                      selectedNode?.id === node.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="px-1.5 py-0.5 font-mono text-[10px] bg-neutral-200 dark:bg-neutral-800 uppercase">
-                          {node.node_type || (node as any).type || "NODE"}
-                        </span>
-                        <span className="font-mono text-neutral-900 dark:text-white">
-                          {node.label || node.id}
-                        </span>
+                {(evidence?.nodes || []).map((node) => {
+                  const nodeType = node.node_type || (node as any).type || (node as any).data?.nodeType || "NODE";
+                  const label = node.label || (node as any).data?.labelRaw || (node as any).data?.label || node.id;
+                  const entityId = node.entity_id || (node as any).data?.entityId || (node as any).data?.subject_id || (node as any).data?.rule_id || node.id;
+                  const props = node.properties || (node as any).data?.properties || (node as any).data || {};
+
+                  return (
+                    <div
+                      key={node.id}
+                      onClick={() => setSelectedNode({ id: node.id, node_type: nodeType, label, entity_id: entityId, properties: props })}
+                      className={`py-3 px-2 flex items-center justify-between cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/60 ${
+                        selectedNode?.id === node.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-1.5 py-0.5 font-mono text-[10px] bg-neutral-200 dark:bg-neutral-800 uppercase">
+                            {nodeType}
+                          </span>
+                          <span className="font-mono text-neutral-900 dark:text-white">
+                            {label}
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-neutral-500">
+                          Entity ID: {entityId}
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-neutral-500">
-                        Entity ID: {node.entity_id}
-                      </div>
+                      <ArrowRight className="w-4 h-4 text-neutral-400" />
                     </div>
-                    <ArrowRight className="w-4 h-4 text-neutral-400" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           )}
 
           {/* Evidence Gaps Section */}
-          {evidence.evidence_gaps && evidence.evidence_gaps.length > 0 && (
+          {computedGaps.length > 0 && (
             <div className="mt-6">
               <Card
-                title={`Identified Evidence Gaps & Missing Handshake Context (${evidence.evidence_gaps.length})`}
+                title={`Identified Evidence Gaps & Missing Handshake Context (${computedGaps.length})`}
                 variant="subtle"
               >
                 <div className="space-y-2">
-                  {evidence.evidence_gaps.map((gap, idx) => (
+                  {computedGaps.map((gap: any, idx: number) => (
                     <div
                       key={idx}
                       className="p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-start space-x-3 text-xs"

@@ -276,13 +276,57 @@ async def list_policy_profiles(
     return profiles
 
 
+def resolve_compliance_severity(
+    rule_id: str,
+    category: str,
+    compliance_state: str,
+    default_severity: str = "MEDIUM",
+) -> str:
+    """Explicit severity matrix defined for Phase 1:
+    - Cipher/key length (3DES, <128-bit): FAIL = CRITICAL, UNKNOWN = MEDIUM.
+    - Key exchange / DH group strength: FAIL = HIGH, UNKNOWN = MEDIUM.
+    - Perfect Forward Secrecy: FAIL = MEDIUM, UNKNOWN = LOW.
+    - Replay protection / anti-replay window: FAIL = HIGH, UNKNOWN = MEDIUM.
+    - SA lifetime: FAIL = MEDIUM, UNKNOWN = LOW.
+    """
+    st = compliance_state.upper()
+    cat = (category or "").upper()
+    rid = (rule_id or "").upper()
+
+    if st == "FAIL":
+        if "3DES" in rid or "POL-NIST-001" in rid or "POL-RFC-8221-01" in rid or cat in ("CIPHER_SUITE",):
+            return "CRITICAL"
+        if "POL-NIST-002" in rid or "POL-NIST-004" in rid or "POL-REPLAY" in rid or "POL-RFC-7296" in rid or cat in ("KEY_EXCHANGE", "REPLAY_EVIDENCE", "PROTOCOL_VERSION"):
+            return "HIGH"
+        if "POL-PFS" in rid or cat in ("PFS", "SA_MANAGEMENT"):
+            return "MEDIUM"
+        return default_severity if default_severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW") else "HIGH"
+
+    elif st == "UNKNOWN":
+        if "POL-NIST-001" in rid or "POL-NIST-002" in rid or "POL-RFC-8221-01" in rid or cat in ("CRYPTOGRAPHY", "CIPHER_SUITE"):
+            return "MEDIUM"
+        if "POL-NIST-004" in rid or cat in ("KEY_EXCHANGE",):
+            return "MEDIUM"
+        if "POL-REPLAY" in rid or cat in ("REPLAY_EVIDENCE",):
+            return "MEDIUM"
+        if "POL-PFS" in rid or cat in ("PFS", "SA_MANAGEMENT"):
+            return "LOW"
+        return "MEDIUM"
+
+    elif st == "PASS":
+        return default_severity if default_severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL") else "INFORMATIONAL"
+
+    else:  # NOT_APPLICABLE
+        return "INFORMATIONAL"
+
+
 @router.get("/analyses/{analysis_id}/compliance", response_model=ComplianceSummaryDTO)
 async def get_compliance_summary(
     analysis_id: uuid.UUID,
     db: AsyncSession = Depends(get_db_session),
     service: SecurityAssessmentService = Depends(get_security_service),
 ) -> ComplianceSummaryDTO:
-    """Retrieve itemized rule compliance evaluations (PASS/FAIL/UNKNOWN/NOT_APPLICABLE)."""
+    """Retrieve itemized rule compliance evaluations with authoritative metadata and explicit severity."""
     await _ensure_assessment_executed(analysis_id, db, service)
 
     stmt = (
@@ -303,25 +347,81 @@ async def get_compliance_summary(
     unknown_count = sum(1 for r in records if r.compliance_state == "UNKNOWN")
     na_count = sum(1 for r in records if r.compliance_state == "NOT_APPLICABLE")
 
-    eval_dtos = [
-        ComplianceEvaluationDTO(
-            rule_id=r.rule_id,
-            rule_version=r.rule_version,
-            subject_type=r.subject_type,
-            subject_id=r.subject_id,
-            compliance_state=r.compliance_state,
-            evidence_state=r.evidence_state,
-            rationale=r.rationale,
+    # Fetch findings for value comparison forensics
+    stmt_find = select(SecurityFindingModel).where(SecurityFindingModel.analysis_id == analysis_id)
+    findings = (await db.execute(stmt_find)).scalars().all()
+    findings_by_rule = {f.rule_id: f for f in findings}
+
+    policy_registry = service.policy_registry
+
+    eval_dtos = []
+    for r in records:
+        rule_def = policy_registry.get_rule(r.rule_id)
+        f_match = findings_by_rule.get(r.rule_id)
+
+        title = rule_def.title if rule_def else r.rule_id
+        category = rule_def.category.value if rule_def else r.subject_type
+
+        if rule_def and rule_def.authoritative_reference:
+            ref = rule_def.authoritative_reference
+            standard = f"{ref.source} {ref.section}"
+            normative = ref.normative_requirement
+        else:
+            standard = "NIST SP 800-77 Rev. 1"
+            normative = ""
+
+        default_sev = rule_def.severity.value if rule_def else "MEDIUM"
+        severity = resolve_compliance_severity(r.rule_id, category, r.compliance_state, default_sev)
+
+        if f_match:
+            obs_val = f_match.observed_value
+            exp_val = f_match.expected_requirement
+        elif rule_def and rule_def.assertion:
+            exp_val = rule_def.assertion.expected_value
+            if r.compliance_state == "PASS":
+                obs_val = "Compliant parameters verified from capture"
+            elif r.compliance_state == "UNKNOWN":
+                obs_val = "Unobserved (capture evidence gap)"
+            else:
+                obs_val = "Not applicable to observed protocol mode"
+        else:
+            obs_val = None
+            exp_val = None
+
+        eval_dtos.append(
+            ComplianceEvaluationDTO(
+                rule_id=r.rule_id,
+                rule_version=r.rule_version,
+                rule_title=title,
+                category=category,
+                severity=severity,
+                standard=standard,
+                normative_reference=normative,
+                subject_type=r.subject_type,
+                subject_id=r.subject_id,
+                compliance_state=r.compliance_state,
+                evidence_state=r.evidence_state,
+                observed_value=obs_val,
+                expected_value=exp_val,
+                rationale=r.rationale,
+            )
         )
-        for r in records
-    ]
+
+    profile_name = "NIST SP 800-77 Rev. 1 Federal Security Profile"
+    bundle_hash = ""
+    active_bundle = policy_registry.get_active_bundle("profile_nist_sp800_77")
+    if active_bundle:
+        bundle_hash = active_bundle.bundle_hash
 
     return ComplianceSummaryDTO(
         analysis_id=analysis_id,
         profile_id="profile_nist_sp800_77",
+        profile_name=profile_name,
         bundle_id="bundle-nist-sp800-77",
-        bundle_hash="",
+        bundle_hash=bundle_hash,
+        policy_bundle_hash=bundle_hash,
         total_rules_evaluated=len(records),
+        total_evaluations=len(records),
         pass_count=pass_count,
         fail_count=fail_count,
         unknown_count=unknown_count,
@@ -688,6 +788,18 @@ async def get_evidence_graph(
 
     m_data = eg.manifest_data or {}
     g_data = eg.graph_data or {"nodes": [], "edges": []}
+
+    # Extract evidence gaps from reconstructed graph nodes
+    extracted_gaps = []
+    for n in g_data.get("nodes", []):
+        node_type = str(n.get("type", "")).lower()
+        node_data = n.get("data", {})
+        if "gap" in node_type or str(node_data.get("nodeType", "")).upper() == "EVIDENCE_GAP":
+            extracted_gaps.append({
+                "fact_name": node_data.get("rule_id") or ", ".join(node_data.get("missing_fields", [])) or node_data.get("label", "Missing Protocol Evidence"),
+                "rationale": node_data.get("reason") or node_data.get("recommended_action") or "Required protocol evidence missing or unobserved.",
+            })
+
     return EvidenceGraphDTO(
         analysis_id=eg.analysis_id,
         capture_sha256=eg.capture_sha256,
@@ -697,6 +809,7 @@ async def get_evidence_graph(
         edges=g_data.get("edges", []),
         react_flow=g_data,
         manifest_sha256=m_data.get("manifest_sha256", ""),
+        evidence_gaps=extracted_gaps,
     )
 
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Plus, Radio, Sun, Moon, ChevronRight, ChevronDown, Check, X, Layers } from "lucide-react";
+import { Menu, Plus, Radio, Sun, Moon, ChevronRight, ChevronDown, Check, X, Layers, HelpCircle } from "lucide-react";
 import { useAnalysis } from "@/lib/analysis-context";
 import { api } from "@/lib/api/client";
 import { StatusBadge } from "../ui/badge";
@@ -221,14 +221,14 @@ export function Header({ onToggleSidebar }: HeaderProps) {
       </div>
 
       {/* Right: Truthful Connection Status & Quick CTA */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         {/* Realtime Connection Indicator */}
         <div className="flex items-center space-x-1.5 text-[11px] font-mono">
           {wsConnected ? (
             <>
               <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
               <span className="hidden sm:inline text-emerald-600 dark:text-emerald-400 font-semibold" title="Browser WebSocket connection to backend event stream is active">
-                APP CONNECTION ACTIVE
+                APP ACTIVE
               </span>
             </>
           ) : !isReadinessError && readiness?.dependencies?.database?.status === "UP" ? (
@@ -251,16 +251,27 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         {/* New Ingest CTA */}
         <Link
           href="/analyses/new"
-          className="flex items-center space-x-1 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold px-3 py-1.5 border border-[#FF3D00] transition-colors"
+          className="flex items-center space-x-1 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold px-2.5 sm:px-3 py-1.5 border border-[#FF3D00] transition-colors shrink-0"
+          title="Ingest new packet capture"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span className="hidden md:inline uppercase">New Ingest</span>
+          <span className="hidden sm:inline uppercase">New Ingest</span>
+        </Link>
+
+        {/* Help & How It Works Control */}
+        <Link
+          href="/how-it-works"
+          className="p-1.5 border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#FF3D00] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-center shrink-0"
+          title="Help and how it works"
+          aria-label="Help and how it works"
+        >
+          <HelpCircle className="w-4 h-4 text-[#FF3D00]" />
         </Link>
 
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className="p-1.5 border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="p-1.5 border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
           title={`Switch to ${theme === "light" ? "Dark" : "Light"} theme`}
           aria-label={`Switch to ${theme === "light" ? "Dark" : "Light"} theme`}
         >

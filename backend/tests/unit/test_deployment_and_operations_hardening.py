@@ -169,6 +169,7 @@ class TestProductionSecurityConfigurationValidation:
             Settings(
                 APP_ENV="production",
                 APP_SECRET_KEY="a-very-long-and-secure-secret-key-for-prod-32chars!",
+                APP_DEBUG=False,
                 CORS_ALLOWED_ORIGINS=["*"],
             )
 
@@ -177,6 +178,7 @@ class TestProductionSecurityConfigurationValidation:
             Settings(
                 APP_ENV="production",
                 APP_SECRET_KEY="a-very-long-and-secure-secret-key-for-prod-32chars!",
+                APP_DEBUG=False,
                 MONITORING_ALLOW_UNAUTHENTICATED_LOCAL=True,
             )
 

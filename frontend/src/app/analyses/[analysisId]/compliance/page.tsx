@@ -64,15 +64,15 @@ export default function ComplianceScorecardPage({
     );
   }
 
-  const filteredEvaluations = compliance.evaluations.filter((ev) => {
+  const filteredEvaluations = (compliance.evaluations || []).filter((ev) => {
     const matchesResult =
       resultFilter === "ALL" || ev.compliance_state.toUpperCase() === resultFilter;
     const matchesSearch =
       search === "" ||
       ev.rule_id.toLowerCase().includes(search.toLowerCase()) ||
-      ev.rule_title.toLowerCase().includes(search.toLowerCase()) ||
-      ev.category.toLowerCase().includes(search.toLowerCase()) ||
-      ev.standard.toLowerCase().includes(search.toLowerCase());
+      (ev.rule_title || "").toLowerCase().includes(search.toLowerCase()) ||
+      (ev.category || "").toLowerCase().includes(search.toLowerCase()) ||
+      (ev.standard || "").toLowerCase().includes(search.toLowerCase());
     return matchesResult && matchesSearch;
   });
 
@@ -87,7 +87,7 @@ export default function ComplianceScorecardPage({
           </h1>
         </div>
         <p className="text-xs text-neutral-500 mt-1">
-          Automated rule checks against RFC 7296, RFC 8221, NIST SP 800-77 Rev 1, and ANSSI IPsec guidelines.
+          <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> Automated pass/fail/unknown checks against NIST SP 800-77 Rev 1 and RFC 8221 standards. Rules with uncaptured packet evidence are truthfully labeled UNKNOWN.
         </p>
       </div>
 

@@ -1,8 +1,8 @@
 {
   "anomaly_schema_hash": "987017a7668787ab13943bd55913120837daca77ec057c8b38862d9df351b9e1",
-  "artifact_state": "ACTIVE",
+  "artifact_state": "EXPERIMENTAL",
   "bundle_id": "stage7_active_bundle",
-  "bundle_version": "v1.0.0-production",
+  "bundle_version": "v1.0.0-experimental",
   "calibration_config_hash": "1f50f2d3b2c4646db89f69c5abc6611f250dd24b78ae2bb0a83c93bfcd508bf4",
   "created_at": "2026-09-27T15:12:06.053922+00:00",
   "dataset_manifest_hash": "STAGE7_DATASET_HASH",
@@ -26,7 +26,7 @@
     "xgboost": "3.2.0"
   },
   "fusion_config_hash": "a4395d84a3dcafa7cd12e26f3a10f8f1c0efa81b290b0b150697d6ee1b96a4ca",
-  "is_active": false,
+  "is_active": true,
   "ood_config_hash": "af2dec3cb1c8e7303061e9f1d33dd6be03fd8d741508c79147cef93f4aa1c8a0",
   "sequence_schema_hash": "58cc807fd4ffdd999c380b9606c6183575aaddf6fa4a588a8c132dc554c2cda2",
   "split_manifest_hash": "STAGE7_SPLIT_HASH",

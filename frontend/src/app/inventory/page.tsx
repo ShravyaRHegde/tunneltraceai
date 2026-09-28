@@ -443,7 +443,7 @@ function InventoryContent() {
                           {s.canonical_digest?.startsWith("e3b0c442") ? (
                             <span className="inline-flex items-center gap-1 bg-amber-950/80 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold" title="SHA-256 digest of empty content (e3b0c442). Not an approved configuration baseline.">
                               <AlertTriangle className="w-3 h-3 text-amber-500" />
-                              EMPTY SEED (UNVERIFIED)
+                              UNVERIFIED / EMPTY BASELINE
                             </span>
                           ) : s.is_baseline ? (
                             <span className="inline-flex items-center gap-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
@@ -540,9 +540,9 @@ function InventoryContent() {
                     return (
                       <option key={s.id} value={s.id} disabled={isEmptyDigest}>
                         {isEmptyDigest
-                          ? "⚠️ [UNVERIFIED - EMPTY DIGEST] "
+                          ? "[UNVERIFIED / EMPTY BASELINE] "
                           : s.is_baseline
-                          ? "★ [BASELINE] "
+                          ? "[BASELINE] "
                           : ""}
                         {s.gateway_identity} ({new Date(s.created_at).toLocaleDateString()}) - {s.canonical_digest.substring(0, 8)}
                       </option>
@@ -785,10 +785,24 @@ function InventoryContent() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  certificates.map((cert) => (
+                  certificates.map((cert) => {
+                    const isDemoSeedCert =
+                      cert.id?.replace(/-/g, "").toLowerCase() === "7a2dc9ca442f4ce49b358a0acb4758e0" ||
+                      cert.subject_dn?.includes("CN=vpn-gw-alpha.corp.internal");
+                    return (
                     <TableRow key={cert.id} className="border-b border-[#222] hover:bg-[#1A1A1A]">
                       <TableCell className="font-mono text-xs font-semibold text-neutral-200 max-w-xs">
-                        <div className="truncate" title={cert.subject_dn}>{cert.subject_dn}</div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate" title={cert.subject_dn}>{cert.subject_dn}</span>
+                          {isDemoSeedCert && (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800"
+                              title="Seeded test fixture for demonstration purposes"
+                            >
+                              [DEMO / SEED DATA]
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-neutral-500 font-normal">
                           SHA-256: {cert.sha256_fingerprint.substring(0, 16)}...
                         </div>
@@ -862,7 +876,8 @@ function InventoryContent() {
                         </button>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1169,6 +1184,14 @@ secrets {
         >
           <div className="space-y-4 font-mono text-xs">
             <div className="bg-[#181818] p-3 rounded border border-[#2A2A2A] space-y-1">
+              {(selectedCert.id?.replace(/-/g, "").toLowerCase() === "7a2dc9ca442f4ce49b358a0acb4758e0" ||
+                selectedCert.subject_dn?.includes("CN=vpn-gw-alpha.corp.internal")) && (
+                <div className="mb-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/80 text-amber-400 border border-amber-800">
+                    [DEMO / SEED DATA]
+                  </span>
+                </div>
+              )}
               <div><strong className="text-neutral-400">Fingerprint (SHA-256):</strong> {selectedCert.sha256_fingerprint}</div>
               <div><strong className="text-neutral-400">Serial Number:</strong> {selectedCert.serial_number}</div>
               <div><strong className="text-neutral-400">Validity:</strong> {selectedCert.validity_status} ({selectedCert.days_until_expiry} days remaining)</div>

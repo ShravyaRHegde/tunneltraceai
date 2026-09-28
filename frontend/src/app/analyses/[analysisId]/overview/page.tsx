@@ -6,6 +6,7 @@ import { useAnalysis } from "@/lib/analysis-context";
 import { Card } from "@/components/ui/card";
 import { formatCoverage } from "@/lib/format";
 import { SeverityBadge, StatusBadge } from "@/components/ui/badge";
+import { ScoreDisplay } from "@/components/ui/score-display";
 import { EChartWrapper } from "@/components/charts/echart-wrapper";
 import * as echarts from "echarts";
 import {
@@ -107,6 +108,16 @@ export default function OverviewPage({
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
+      <div className="border-b border-neutral-300 dark:border-neutral-800 pb-3">
+        <h1 className="text-xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white uppercase">
+          Investigation Overview & Security Posture
+        </h1>
+        <p className="text-xs text-neutral-500 mt-1">
+          <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> High-level executive synthesis of this capture run — overall security posture score paired with evidence coverage %, NIST SP 800-77 compliance tally, and itemized cryptographic deductions.
+        </p>
+      </div>
+
       {/* Demo Fixture / Reference Data Provenance Banner */}
       {isDemoOrSeeded && (
         <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
@@ -151,27 +162,13 @@ export default function OverviewPage({
           }
         >
           <div className="space-y-2">
-            {security_posture.score !== null && security_posture.score !== undefined && (security_posture as any).status !== "INSUFFICIENT_EVIDENCE" && (security_posture as any).status !== "NOT_ASSESSABLE" ? (
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-mono font-bold text-neutral-900 dark:text-white">
-                  {security_posture.score}
-                </span>
-                <span className="text-sm font-mono text-neutral-400">/ 100</span>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="flex items-baseline space-x-2">
-                  <span className="text-2xl font-mono font-bold text-amber-500">
-                    NOT ASSESSABLE
-                  </span>
-                </div>
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">
-                  {security_posture.evidence_coverage === 0
-                    ? "Zero observable IPsec packet evidence found in capture. Score cannot be calculated."
-                    : `Insufficient evidence (${formatCoverage(security_posture.evidence_coverage)} coverage, ${compliance_counts.unknown} unknown checks). Score withheld.`}
-                </p>
-              </div>
-            )}
+            <ScoreDisplay
+              score={security_posture.score}
+              coverage={security_posture.evidence_coverage}
+              riskTier={security_posture.aggregate_risk_tier}
+              status={(security_posture as any).status}
+              size="lg"
+            />
             <p className="text-[11px] text-neutral-500 font-mono">
               Evaluated on observable packet evidence ({formatCoverage(security_posture.evidence_coverage)} coverage, {compliance_counts.unknown} unknown rules). Not a formal security certification.
             </p>

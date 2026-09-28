@@ -25,6 +25,7 @@ import {
   ThreatInstanceDTO,
   ThreatIntelResponseDTO,
   TrafficSummaryResponseDTO,
+  MLModelCardDTO,
   TwinResponseDTO,
   VerificationResponseDTO,
   AIChatQueryResponseDTO,
@@ -96,10 +97,11 @@ async function request<T>(
 
 export const api = {
   captures: {
-    upload: async (file: File): Promise<CaptureResponseDTO> => {
+    upload: async (file: File, forceRerun: boolean = false): Promise<CaptureResponseDTO> => {
       const formData = new FormData();
       formData.append("file", file);
-      return request<CaptureResponseDTO>("/captures", {
+      const url = forceRerun ? "/captures?force_rerun=true" : "/captures";
+      return request<CaptureResponseDTO>(url, {
         method: "POST",
         body: formData,
       });
@@ -137,14 +139,16 @@ export const api = {
   },
 
   analyses: {
-    list: async (): Promise<AnalysisListItemDTO[]> => {
-      return request<AnalysisListItemDTO[]>("/analyses");
+    list: async (includeArchived: boolean = false): Promise<AnalysisListItemDTO[]> => {
+      const query = includeArchived ? "?include_archived=true" : "";
+      return request<AnalysisListItemDTO[]>(`/analyses${query}`);
     },
     get: async (id: string): Promise<AnalysisRunResponseDTO> => {
       return request<AnalysisRunResponseDTO>(`/analyses/${id}`);
     },
-    create: async (captureId: string): Promise<AnalysisRunResponseDTO> => {
-      return request<AnalysisRunResponseDTO>("/analyses", {
+    create: async (captureId: string, forceRerun: boolean = false): Promise<AnalysisRunResponseDTO> => {
+      const query = forceRerun ? "?force_rerun=true" : "";
+      return request<AnalysisRunResponseDTO>(`/analyses${query}`, {
         method: "POST",
         body: JSON.stringify({ capture_id: captureId }),
       });
@@ -167,6 +171,9 @@ export const api = {
     },
     getTraffic: async (id: string): Promise<TrafficSummaryResponseDTO> => {
       return request<TrafficSummaryResponseDTO>(`/analyses/${id}/traffic`);
+    },
+    getTrafficModelCard: async (id?: string): Promise<MLModelCardDTO> => {
+      return request<MLModelCardDTO>(`/analyses/${id || "default"}/traffic/model-card`);
     },
     getFindings: async (id: string): Promise<SecurityFindingDTO[]> => {
       return request<SecurityFindingDTO[]>(`/analyses/${id}/findings`);
@@ -216,6 +223,21 @@ export const api = {
     },
     getExportFindingsCsvUrl: (id: string): string => {
       return `${API_BASE_URL}/analyses/${id}/export/findings.csv`;
+    },
+    recompute: async (id: string): Promise<AnalysisRunResponseDTO> => {
+      return request<AnalysisRunResponseDTO>(`/analyses/${id}/recompute`, {
+        method: "POST",
+      });
+    },
+    archive: async (id: string): Promise<{ success: boolean; analysis_id: string; is_archived: boolean }> => {
+      return request<{ success: boolean; analysis_id: string; is_archived: boolean }>(`/analyses/${id}/archive`, {
+        method: "POST",
+      });
+    },
+    delete: async (id: string): Promise<{ success: boolean; analysis_id: string }> => {
+      return request<{ success: boolean; analysis_id: string }>(`/analyses/${id}`, {
+        method: "DELETE",
+      });
     },
   },
 

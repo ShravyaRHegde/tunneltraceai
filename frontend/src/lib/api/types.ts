@@ -17,6 +17,9 @@ export interface CaptureResponseDTO {
   link_layer_type: string | null;
   validation_state: string;
   created_at: string;
+  already_analyzed?: boolean;
+  existing_analysis_id?: string | null;
+  existing_pipeline_version?: string | null;
 }
 
 export interface SampleCaptureDTO {
@@ -47,6 +50,10 @@ export interface AnalysisRunResponseDTO {
   parent_analysis_id?: string | null;
   replay_mode?: string | null;
   provenance_metadata?: Record<string, any> | null;
+  pipeline_version?: string;
+  policy_version?: string;
+  is_outdated_version?: boolean;
+  is_archived?: boolean;
   is_synthetic_demo?: boolean;
   created_at: string;
 }
@@ -61,11 +68,17 @@ export interface AnalysisListItemDTO {
   created_at: string;
   completed_at: string | null;
   security_score: number | null;
+  coverage_percentage?: number | null;
+  risk_tier?: string | null;
   critical_findings: number;
   high_findings: number;
   parent_analysis_id?: string | null;
   replay_mode?: string | null;
   provenance_metadata?: Record<string, any> | null;
+  pipeline_version?: string;
+  policy_version?: string;
+  is_outdated_version?: boolean;
+  is_archived?: boolean;
   is_synthetic_demo?: boolean;
 }
 
@@ -213,6 +226,56 @@ export interface TrafficSummaryResponseDTO {
   model_version?: string | null;
   model_bundle_id?: string | null;
   flows: TrafficFlowItemDTO[];
+}
+
+export interface MLModelCardDTO {
+  model_name: string;
+  version: string;
+  status: string;
+  architecture: {
+    backbone: string;
+    fusion_strategy: string;
+    sequence_window_packets: number;
+    sequence_features: string[];
+    tabular_feature_count: number;
+    tabular_features: string[];
+    tree_method: string;
+    max_depth: number;
+    learning_rate: number;
+  };
+  training_corpus: {
+    total_experimental_sessions: number;
+    collection_testbed: string;
+    ipsec_gateways_evaluated: string[];
+    negative_controls: string[];
+    dataset_splits: Record<string, number>;
+    leakage_audit_status: string;
+    privacy_compliance: string;
+  };
+  evaluation_metrics: {
+    macro_f1: number;
+    weighted_f1: number;
+    accuracy: number;
+    balanced_accuracy: number;
+    precision_macro: number;
+    recall_macro: number;
+    classes: string[];
+    per_class: Record<string, { precision: number; recall: number; f1_score: number; support: number }>;
+    confusion_matrix: {
+      classes: string[];
+      matrix: number[][];
+    };
+  };
+  calibration_and_ood: {
+    calibration_method: string;
+    expected_calibration_error: number;
+    brier_score: number;
+    ood_rejection_policy: string;
+    ood_rejection_accuracy: number;
+    entropy_threshold: number;
+  };
+  four_prediction_states: Record<string, string>;
+  limitations: string[];
 }
 
 export interface ComplianceEvaluationDTO {
@@ -424,13 +487,18 @@ export interface AnalysisOverviewDTO {
     parser_engine: string;
     parser_version: string;
     created_at: string | null;
-    completed_at: string | null;
     is_synthetic_demo?: boolean;
     evidence_note?: string;
     status_note?: string;
+    pipeline_version?: string;
+    policy_version?: string;
+    is_outdated_version?: boolean;
+    is_archived?: boolean;
   };
   security_posture: {
-    score: number;
+    score: number | null;
+    status?: string;
+    is_assessable?: boolean;
     evidence_coverage: number;
     aggregate_risk_tier: string;
     itemized_deductions: Record<string, number>;

@@ -203,10 +203,10 @@ export default function AIAnalystPage({
           () =>
             reject(
               new Error(
-                "Local model query timed out (15s bounded limit). Local Ollama runtime is busy or model weights are loading."
+                "The AI assistant request timed out (20-second bounded limit). This may be due to complex evidence aggregation or local model latency. You can still inspect raw forensic findings directly in the Protocol, SA Explorer, or Evidence tabs."
               )
             ),
-          15000
+          20000
         )
       );
 
@@ -249,10 +249,10 @@ export default function AIAnalystPage({
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: `AI Analyst Execution Notice: ${err.message || "Model timeout or offline."}\n\nNote: The local LLM provides supplementary natural language explanations only. All deterministic cryptographic facts, policy compliance decisions, and threat matrices remain authoritative and fully accessible in the Evidence DAG and Security tabs.`,
+          content: `${err.message || "Model query timed out or runtime offline."}\n\nDeterministic cryptographic facts, compliance decisions, and threat findings remain 100% authoritative and accessible across the Protocol Forensics, SA Explorer, and Evidence tabs.`,
           status: "MODEL_TIMEOUT",
           limitations: [
-            "Bounded 15s timeout reached before local LLM completed token generation.",
+            "20-second bounded timeout reached before local model completed token generation.",
             "Deterministic facts in database remain 100% accessible and unimpacted.",
           ],
         },
@@ -290,14 +290,14 @@ export default function AIAnalystPage({
           <div className="flex items-center space-x-2">
             <Bot className="w-5 h-5 text-[#FF3D00]" />
             <h1 className="text-xl font-bold font-mono tracking-tight text-neutral-900 dark:text-white uppercase">
-              Grounded AI Security Analyst
+              AI Security Assistant
             </h1>
             <span className="px-2 py-0.5 text-xs font-mono font-bold bg-neutral-900 text-white dark:bg-white dark:text-black">
-              STAGE 11 · GROUNDED RAG
+              EVIDENCE-GROUNDED ADVISOR
             </span>
           </div>
-          <p className="text-xs text-neutral-500 font-mono mt-1">
-            Analysis Scope: <span className="font-bold text-neutral-800 dark:text-neutral-200">{analysisId.slice(0, 13)}...</span> · Strict Fact-Locked Evidence · Grounded Fact Verification
+          <p className="text-xs text-neutral-500 mt-1">
+            <strong className="text-neutral-700 dark:text-neutral-300">What this shows:</strong> Natural-language explanation of findings strictly grounded in verified packet evidence and cited standards. Cannot hallucinate unobserved facts or override deterministic security scores.
           </p>
         </div>
 
