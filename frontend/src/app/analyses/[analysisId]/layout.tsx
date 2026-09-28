@@ -69,8 +69,32 @@ export default function AnalysisLayout({
     }
   };
 
+  const isDemoOrSeeded = Boolean(
+    analysis?.is_synthetic_demo ||
+    overview?.analysis?.is_synthetic_demo ||
+    overview?.capture?.filename === "ikev2_perimeter_audit.pcap" ||
+    analysis?.capture_filename === "ikev2_perimeter_audit.pcap" ||
+    (overview?.analysis as any)?.replay_mode === "DEMO_SEED" ||
+    (analysis as any)?.replay_mode === "DEMO_SEED" ||
+    analysisId === "9a79a13b-e0a7-46e4-ad40-d1c67debf4fe"
+  );
+
   return (
     <div className="space-y-4">
+      {/* Demonstration / Seeded Reference Provenance Banner */}
+      {isDemoOrSeeded && (
+        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
+          <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>DEMONSTRATION / SEEDED REFERENCE FIXTURE</span>
+          </div>
+          <p className="text-[11px] leading-relaxed">
+            This analysis run contains seeded reference demonstration findings and posture scores. Wire packet observations were not parsed from a raw PCAP stream for this fixture. 
+            For empirical wire analysis with live-reconstructed IKE/ESP sessions, please select verified captures like <span className="font-bold underline">real_tunnel_gcm.pcapng</span>.
+          </p>
+        </div>
+      )}
+
       {/* Outdated Pipeline Version Warning Banner */}
       {isOutdated && (
         <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">

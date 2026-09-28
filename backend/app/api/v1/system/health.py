@@ -135,7 +135,7 @@ async def get_readiness(response: Response) -> ReadinessResponse:
             "mode": queue_mode,
             "redis_status": redis_result.get("status"),
             "is_fallback": not redis_up,
-            "details": "In-process synchronous task execution active" if not redis_up else "Distributed Redis broker active",
+            "details": "Local synchronous mode (in-process eager execution; background queue unavailable)" if not redis_up else "Distributed Redis broker active",
         },
         "tshark": {
             "status": tshark_status,

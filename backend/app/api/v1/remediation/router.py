@@ -282,9 +282,22 @@ async def _get_or_create_twin(
         if existing_twin:
             existing_audit = existing_twin.projected_regression_audit or {}
             audit_baseline = existing_audit.get("baseline_score")
+
+            # Detect if existing twin cached UNKNOWN for fields that current_snapshot now proves are KNOWN
+            has_stale_unknowns = False
+            if existing_twin.semantic_diff:
+                for diff in existing_twin.semantic_diff:
+                    field = diff.get("field")
+                    if diff.get("current_value") == "UNKNOWN" and hasattr(current_snapshot, field or ""):
+                        snap_val = getattr(current_snapshot, field or "")
+                        if hasattr(snap_val, "state") and snap_val.state.value == "KNOWN":
+                            has_stale_unknowns = True
+                            break
+
             needs_reconcile = (
                 (audit_baseline != real_baseline_score)
                 or (not has_assessable_config and (existing_twin.projected_score is not None or existing_twin.projected_score_delta is not None))
+                or has_stale_unknowns
             )
             if needs_reconcile:
                 proposed_ir = twin_engine.generate_remediation_proposal(current_snapshot, baseline_findings)

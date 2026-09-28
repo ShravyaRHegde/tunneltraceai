@@ -147,15 +147,36 @@ export default function TrafficIntelligencePage({
         </div>
       </div>
 
-      {/* Persistent Non-Decryption Disclaimer */}
-      <div className="p-3 bg-neutral-100 dark:bg-neutral-900/80 border border-neutral-300 dark:border-neutral-800 flex items-start space-x-2.5 text-xs text-neutral-600 dark:text-neutral-400">
-        <Info className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
-        <p>
-          <strong className="font-semibold text-neutral-800 dark:text-neutral-200 uppercase font-mono">
-            Encrypted Metadata Inference Notice:
-          </strong>{" "}
-          Application class inferred from encrypted packet timing, size, and direction metadata. Payload is not decrypted.
-        </p>
+      {/* Active Model Artifact & Provenance Notice (Truth In Engineering) */}
+      <div className="p-3.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 text-xs font-mono space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2">
+          <div className="flex items-center space-x-2 text-neutral-900 dark:text-white font-bold">
+            <Cpu className="w-4 h-4 text-[#FF3D00]" />
+            <span>ACTIVE MODEL BUNDLE: EXPERIMENTAL BASELINE (v1.0.0-experimental)</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 text-[10px] font-bold uppercase">
+              Artifact State: {modelCard?.status || "EXPERIMENTAL"}
+            </span>
+            <span className="px-2 py-0.5 bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-[10px] uppercase">
+              Zero Payload Decryption
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+          <div>
+            <span className="font-bold text-neutral-900 dark:text-white block mb-0.5">Flow Metadata Basis:</span>
+            Inference operates exclusively on 24 unencrypted flow-level statistical features (packet sizes, inter-arrival times, burst ratios). Payload remains encrypted (RFC 4303 compliant).
+          </div>
+          <div>
+            <span className="font-bold text-neutral-900 dark:text-white block mb-0.5">Scientific Abstention (OOD):</span>
+            Flows with atypical packet distributions or insufficient packet counts (&lt; 10 packets) are rejected as <code className="text-amber-600 dark:text-amber-400 font-bold">OUT_OF_DISTRIBUTION</code> rather than returning speculative predictions.
+          </div>
+          <div>
+            <span className="font-bold text-neutral-900 dark:text-white block mb-0.5">Laboratory Baseline Metrics:</span>
+            Evaluation metrics reflect controlled 5-namespace testbed conditions. They demonstrate architectural feasibility, not certified production calibration.
+          </div>
+        </div>
       </div>
 
       {/* Model Deployment & Runtime Status Banner */}

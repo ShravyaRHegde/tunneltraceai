@@ -390,10 +390,10 @@ async def trigger_telemetry_pulse(db: AsyncSession = Depends(get_db_session)) ->
                 gateway_id=active_sensor.gateway_id,
                 authorized_scope=active_sensor.authorized_scope,
                 event_kind=EventKind.GATEWAY_HEARTBEAT,
-                evidence_grade=EvidenceGrade.OBSERVED,
+                evidence_grade=EvidenceGrade.SYNTHETIC,
                 sequence_number=int(now.timestamp()),
                 source_timestamp=now,
-                payload={"status": "HEALTHY", "active_tunnels": 1, "cpu_usage_pct": 12.4, "memory_usage_pct": 28.5},
+                payload={"status": "HEALTHY", "active_tunnels": 1, "cpu_usage_pct": 12.4, "memory_usage_pct": 28.5, "is_synthetic_test": True},
             ),
             MonitoringEventDTO(
                 event_id=uuid.uuid4(),
@@ -401,7 +401,7 @@ async def trigger_telemetry_pulse(db: AsyncSession = Depends(get_db_session)) ->
                 gateway_id=active_sensor.gateway_id,
                 authorized_scope=active_sensor.authorized_scope,
                 event_kind=EventKind.GATEWAY_IKE_SA_ESTABLISHED,
-                evidence_grade=EvidenceGrade.OBSERVED,
+                evidence_grade=EvidenceGrade.SYNTHETIC,
                 sequence_number=int(now.timestamp()) + 1,
                 source_timestamp=now,
                 ike_version="IKEv2",
@@ -410,17 +410,20 @@ async def trigger_telemetry_pulse(db: AsyncSession = Depends(get_db_session)) ->
                 local_endpoint="198.51.100.1",
                 remote_endpoint="203.0.113.50",
                 cipher_suite="AES-256-GCM-16",
-                payload={"proposal": "aes256gcm16-prfsha256-ecp256", "rekey_time": 28800},
+                payload={"proposal": "aes256gcm16-prfsha256-ecp256", "rekey_time": 28800, "is_synthetic_test": True},
             ),
         ]
     )
     res = await MonitoringService.ingest_event_batch(db, active_sensor, batch)
     return {
-        "status": "PULSE_SENT",
+        "status": "ISOLATED_SYNTHETIC_DEMO_COMPLETED",
         "sensor_id": str(active_sensor.id),
         "gateway_id": str(active_sensor.gateway_id),
         "accepted_count": res.accepted_count,
         "timestamp": now.isoformat(),
+        "is_synthetic": True,
+        "operational_impact": "QUARANTINED — zero modification to operational sensor freshness or active SA projections",
+        "disclaimer": "Demonstration synthetic test pulse. Not an observed gateway event or live packet capture.",
     }
 
 

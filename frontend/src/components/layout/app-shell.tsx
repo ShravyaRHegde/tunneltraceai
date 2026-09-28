@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { OfflineBanner } from "./offline-banner";
 import { useAnalysis } from "@/lib/analysis-context";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const { activeAnalysisId } = useAnalysis();
@@ -35,8 +37,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // On the public landing / showcase page, render full bleed without workbench shell
+  if (pathname === "/landing" || pathname === "/showcase") {
+    return <>{children}</>;
+  }
+
   return (
-    <div className="h-screen bg-[#F7F7F4] dark:bg-[#0E0E10] text-neutral-900 dark:text-neutral-100 flex flex-col font-sans overflow-hidden">
+    <div className="app-shell h-screen bg-[#F7F7F4] dark:bg-[#0E0E10] text-neutral-900 dark:text-neutral-100 flex flex-col font-sans overflow-hidden">
       <OfflineBanner />
 
       <div className="flex flex-1 overflow-hidden">

@@ -60,6 +60,7 @@ class EvidenceGrade(str, Enum):
 
     OBSERVED = "OBSERVED"
     INFERRED = "INFERRED"
+    SYNTHETIC = "SYNTHETIC"
     UNKNOWN = "UNKNOWN"
     UNAVAILABLE = "UNAVAILABLE"
 

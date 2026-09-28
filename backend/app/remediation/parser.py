@@ -274,38 +274,43 @@ class ForensicFactsSnapshotBuilder:
         """Constructs an epistemic snapshot from Stage 8 verified and inferred facts."""
         facts_map: dict[str, SecurityFact] = {f.key: f for f in facts}
 
-        def _get_val(key: str) -> EpistemicValue[Any]:
-            fact = facts_map.get(key)
-            if not fact:
-                return EpistemicValue.unknown(source="NO_FACT_OBSERVED")
+        def _get_val(*keys: str) -> EpistemicValue[Any]:
+            for k in keys:
+                fact = facts_map.get(k)
+                if not fact:
+                    continue
 
-            state_map = {
-                EvidenceState.VERIFIED: EpistemicState.KNOWN,
-                EvidenceState.INFERRED: EpistemicState.KNOWN,
-                EvidenceState.MISCONFIGURATION_OBSERVED: EpistemicState.KNOWN,
-                EvidenceState.UNKNOWN: EpistemicState.UNKNOWN,
-            }
-            ep_state = state_map.get(fact.evidence_state, EpistemicState.UNKNOWN)
-            if ep_state == EpistemicState.KNOWN:
-                return EpistemicValue.known(fact.value, source=f"fact:{fact.key}:{fact.evidence_state.value}")
-            return EpistemicValue.unknown(source=f"fact:{fact.key}:UNKNOWN")
+                state_map = {
+                    EvidenceState.VERIFIED: EpistemicState.KNOWN,
+                    EvidenceState.INFERRED: EpistemicState.KNOWN,
+                    EvidenceState.MISCONFIGURATION_OBSERVED: EpistemicState.KNOWN,
+                    EvidenceState.UNKNOWN: EpistemicState.UNKNOWN,
+                }
+                ep_state = state_map.get(fact.evidence_state, EpistemicState.UNKNOWN)
+                if ep_state == EpistemicState.KNOWN and fact.value is not None:
+                    # Also normalize string "UNKNOWN" values
+                    if str(fact.value).upper() == "UNKNOWN":
+                        return EpistemicValue.unknown(source=f"fact:{fact.key}:UNKNOWN_VALUE")
+                    return EpistemicValue.known(fact.value, source=f"fact:{fact.key}:{fact.evidence_state.value}")
+                return EpistemicValue.unknown(source=f"fact:{fact.key}:UNKNOWN")
+            return EpistemicValue.unknown(source=f"NO_FACT_OBSERVED:{','.join(keys)}")
 
         return CurrentConfigurationSnapshot(
             analysis_id=analysis_id,
             capture_sha256=capture_sha256,
-            ike_version=_get_val("ike_session.ike_version"),
-            ike_encryption=_get_val("ike_sa.encryption_algorithm"),
-            ike_key_length=_get_val("ike_sa.key_length_bits"),
-            ike_integrity=_get_val("ike_sa.integrity_algorithm"),
-            ike_prf=_get_val("ike_sa.prf_algorithm"),
-            ike_dh_group=_get_val("ike_sa.diffie_hellman_group"),
-            child_mode=_get_val("child_mode"),
-            child_encryption=_get_val("child_sa.encryption_algorithm"),
-            child_integrity=_get_val("child_sa.integrity_algorithm"),
-            child_pfs_status=_get_val("child_sa.pfs_status"),
-            child_pfs_dh_group=_get_val("child_sa.pfs_dh_group"),
-            child_replay_window=_get_val("child_sa.replay_window_size"),
-            is_nat_detected=_get_val("ike_session.is_nat_detected"),
+            ike_version=_get_val("ike_session.ike_version", "ike_version"),
+            ike_encryption=_get_val("ike_sa.encryption_algorithm", "ike_encryption"),
+            ike_key_length=_get_val("ike_sa.key_length_bits", "ike_key_length"),
+            ike_integrity=_get_val("ike_sa.integrity_algorithm", "ike_integrity"),
+            ike_prf=_get_val("ike_sa.prf_algorithm", "ike_prf"),
+            ike_dh_group=_get_val("ike_sa.diffie_hellman_group", "ike_dh_group"),
+            child_mode=_get_val("child_sa.mode", "child_mode"),
+            child_encryption=_get_val("child_sa.encryption_algorithm", "child_encryption"),
+            child_integrity=_get_val("child_sa.integrity_algorithm", "child_integrity"),
+            child_pfs_status=_get_val("child_sa.pfs_status", "child_pfs_status"),
+            child_pfs_dh_group=_get_val("child_sa.pfs_dh_group", "child_pfs_dh_group"),
+            child_replay_window=_get_val("child_sa.replay_window_size", "child_replay_window"),
+            is_nat_detected=_get_val("ike_session.is_nat_detected", "is_nat_detected"),
             policy_profile=policy_profile,
             raw_observed_facts={f.key: {"value": f.value, "evidence_state": f.evidence_state.value} for f in facts},
         )

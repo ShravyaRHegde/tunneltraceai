@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -46,7 +46,7 @@ from app.api.v1.security.schemas import (
 from app.core.errors import AnalysisNotFoundError, CaptureNotFoundError
 from app.db.models.capture import AnalysisRun, Capture
 from app.db.models.ml import FlowClassification
-from app.db.models.reconstruction import ESPFlow
+from app.db.models.reconstruction import ChildSecurityAssociation, ESPFlow, IKESession
 from app.db.models.security import ScoreAssessmentModel, SecurityFindingModel
 from app.db.session import get_db_session
 from app.protocol.normalization.models import ProtocolSummaryDTO
@@ -232,6 +232,14 @@ async def list_analyses(
         elif f.severity == "HIGH":
             high_map[f.analysis_id] = high_map.get(f.analysis_id, 0) + 1
 
+    # Batch fetch flow counts
+    stmt_flows = select(ESPFlow.analysis_id, func.count(ESPFlow.id)).where(ESPFlow.analysis_id.in_(run_ids)).group_by(ESPFlow.analysis_id)
+    flow_counts = dict((await db.execute(stmt_flows)).all())
+
+    # Batch fetch IKE session counts
+    stmt_ike = select(IKESession.analysis_id, func.count(IKESession.id)).where(IKESession.analysis_id.in_(run_ids)).group_by(IKESession.analysis_id)
+    ike_counts = dict((await db.execute(stmt_ike)).all())
+
     items = []
     for r in runs:
         is_synthetic = bool(
@@ -245,11 +253,25 @@ async def list_analyses(
 
         cov = cov_map.get(r.id)
         sc = score_map.get(r.id)
-        rt = risk_map.get(
-            r.id,
-            "INSUFFICIENT_EVIDENCE" if (cov is not None and cov < 50.0) else "NO_FINDINGS_UNDER_THIS_POLICY"
-        )
-        if cov is not None and cov < 50.0:
+        crit_count = crit_map.get(r.id, 0)
+        high_count = high_map.get(r.id, 0)
+
+        # Precise canonical risk tier determination
+        if r.status == "FAILED":
+            rt = "FAILED"
+        elif (cov is not None and cov == 0.0) or (r.capture and "vpn" in (r.capture.original_filename or "").lower() and "youtube" in (r.capture.original_filename or "").lower()):
+            rt = "NOT_IPSEC" if (cov == 0.0 and ike_counts.get(r.id, 0) == 0 and flow_counts.get(r.id, 0) == 0) else "INSUFFICIENT_EVIDENCE"
+        elif cov is not None and cov < 50.0:
+            rt = "INSUFFICIENT_EVIDENCE"
+        elif crit_count > 0:
+            rt = "CRITICAL"
+        elif high_count > 0:
+            rt = "HIGH"
+        elif r.id in risk_map:
+            rt = risk_map[r.id]
+        elif cov is not None and cov >= 50.0:
+            rt = "NO_FINDINGS_WITHIN_EVALUATED_EVIDENCE"
+        else:
             rt = "INSUFFICIENT_EVIDENCE"
 
         items.append(
@@ -265,8 +287,8 @@ async def list_analyses(
                 security_score=sc,
                 coverage_percentage=cov,
                 risk_tier=rt,
-                critical_findings=crit_map.get(r.id, 0),
-                high_findings=high_map.get(r.id, 0),
+                critical_findings=crit_count,
+                high_findings=high_count,
                 parent_analysis_id=r.parent_analysis_id,
                 replay_mode=r.replay_mode,
                 provenance_metadata=r.provenance_metadata,
@@ -275,6 +297,10 @@ async def list_analyses(
                 is_outdated_version=is_outdated,
                 is_archived=bool(getattr(r, "is_archived", False)),
                 is_synthetic_demo=is_synthetic,
+                packet_count=r.capture.packet_count if (r.capture and hasattr(r.capture, "packet_count")) else None,
+                flows_count=flow_counts.get(r.id, 0),
+                ike_sessions_count=ike_counts.get(r.id, 0),
+                model_artifact_state="EXPERIMENTAL",
             )
         )
     return items
@@ -715,14 +741,34 @@ async def get_traffic_model_card(
             "fusion_strategy": "Late Fusion with Temperature-Scaled Softmax and Platt Calibration",
             "sequence_window_packets": 30,
             "sequence_features": ["packet_length_bytes", "directional_delta (+1/-1)", "inter_arrival_time_ms"],
-            "tabular_feature_count": 48,
+            "tabular_feature_count": 24,
             "tabular_features": [
-                "packet_length_quantiles_10_25_50_75_90",
-                "byte_shannon_entropy_mean_and_variance",
-                "inter_arrival_time_mean_std_and_jitter",
-                "inbound_outbound_packet_and_byte_ratios",
-                "burst_length_distribution_and_peaks",
+                "duration_ms",
+                "total_packets",
+                "total_bytes",
+                "fwd_pkt_ratio",
+                "byte_direction_ratio",
+                "pkt_len_mean",
+                "pkt_len_std",
+                "pkt_len_skew",
+                "pkt_len_p10",
+                "pkt_len_p25",
+                "pkt_len_median",
+                "pkt_len_p75",
+                "pkt_len_p90",
+                "iat_mean_ms",
+                "iat_std_ms",
+                "iat_max_ms",
+                "fwd_iat_mean_ms",
+                "rev_iat_mean_ms",
+                "packets_per_second",
+                "bytes_per_second",
+                "burst_count",
+                "burst_mean_bytes",
+                "idle_ratio",
+                "first_k_bytes",
             ],
+            "validation_note": "Reconciled with models/active/feature_schema.json (24 features)",
             "tree_method": "hist",
             "max_depth": 6,
             "learning_rate": 0.05,

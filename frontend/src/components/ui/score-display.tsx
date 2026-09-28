@@ -102,12 +102,20 @@ export function ScoreDisplay({
       : "text-rose-600 dark:text-rose-400";
 
   if (size === "sm") {
+    const isPartialCoverage = covPct !== null && covPct < 95.0;
     return (
-      <span className={`font-mono text-xs ${className}`}>
+      <span className={`font-mono text-xs inline-flex items-center gap-1 ${className}`}>
         <span className={`font-bold ${colorClass}`}>{numericScore}</span>
         <span className="text-neutral-400 font-normal">/100</span>
-        {showCoverage && covPct !== null && (
-          <span className="text-[10px] text-neutral-400 ml-1">({formatCoverage(coverage)})</span>
+        {covPct !== null && (
+          <span
+            className={`text-[10px] font-mono ${
+              isPartialCoverage ? "text-amber-600 dark:text-amber-400" : "text-neutral-400"
+            }`}
+            title={`Assessed under ${formatCoverage(coverage)} evidence coverage`}
+          >
+            ({formatCoverage(coverage)})
+          </span>
         )}
       </span>
     );
@@ -122,15 +130,15 @@ export function ScoreDisplay({
           </span>
           <span className="text-sm font-mono text-neutral-400">/ 100</span>
         </div>
-        {showCoverage && covPct !== null && (
+        {covPct !== null && (
           <p className="text-[11px] text-neutral-500 font-mono">
             Evaluated on {formatCoverage(coverage)} evidence coverage.
           </p>
         )}
-        {covPct !== null && covPct < 100.0 && (
+        {covPct !== null && covPct < 95.0 && (
           <div className="mt-1.5 flex items-center space-x-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[10px] font-mono font-bold uppercase">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span>KNOWN EVIDENCE ONLY · INCOMPLETE ({formatCoverage(coverage)})</span>
+            <span>ASSESSED EVIDENCE ONLY · PARTIAL COVERAGE ({formatCoverage(coverage)})</span>
           </div>
         )}
       </div>
@@ -138,12 +146,20 @@ export function ScoreDisplay({
   }
 
   // Default 'md'
+  const isPartialCoverage = covPct !== null && covPct < 95.0;
   return (
     <div className={`inline-flex items-center space-x-1 font-mono ${className}`}>
       <span className={`text-base font-bold ${colorClass}`}>{numericScore}</span>
       <span className="text-neutral-400 text-xs">/100</span>
-      {showCoverage && covPct !== null && (
-        <span className="text-xs text-neutral-400">({formatCoverage(coverage)})</span>
+      {covPct !== null && (
+        <span
+          className={`text-xs ${
+            isPartialCoverage ? "text-amber-600 dark:text-amber-400 font-medium" : "text-neutral-400"
+          }`}
+          title={`Assessed under ${formatCoverage(coverage)} evidence coverage`}
+        >
+          ({formatCoverage(coverage)})
+        </span>
       )}
     </div>
   );

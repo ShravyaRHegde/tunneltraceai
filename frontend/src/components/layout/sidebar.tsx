@@ -59,10 +59,9 @@ function SidebarInner({
     refetchInterval: 30000,
   });
 
-  // Group accordion state: by default, only open the active group
+  // Group accordion state: analyze open by default, supporting groups auto-expand on route match
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    home: pathname === "/",
-    analyze: pathname.startsWith("/analyses"),
+    analyze: true,
     testbed: pathname.startsWith("/monitoring") || pathname.startsWith("/lab"),
     advanced:
       pathname.startsWith("/discovery") ||
@@ -72,9 +71,7 @@ function SidebarInner({
 
   // Keep group containing active route open on navigation
   useEffect(() => {
-    if (pathname === "/") {
-      setOpenGroups((prev) => ({ ...prev, home: true }));
-    } else if (pathname.startsWith("/analyses")) {
+    if (pathname.startsWith("/analyses")) {
       setOpenGroups((prev) => ({ ...prev, analyze: true }));
     } else if (pathname.startsWith("/monitoring") || pathname.startsWith("/lab")) {
       setOpenGroups((prev) => ({ ...prev, testbed: true }));
@@ -160,49 +157,35 @@ function SidebarInner({
         )}
       </div>
 
-      {/* Navigation Groups (4 Collapsible Groups) */}
-      <div className={`flex-1 overflow-y-auto ${isCollapsed ? "p-1.5 space-y-3" : "p-3 space-y-3"}`}>
-        {/* GROUP 1: HOME */}
-        <div className="space-y-1">
+      {/* Persistent First-Class Dashboard */}
+      <div className={`pt-2.5 pb-1 ${isCollapsed ? "px-1.5" : "px-3"}`}>
+        <Link
+          href="/dashboard"
+          onClick={onClose}
+          title="Operational Dashboard"
+          className={`w-full flex items-center ${
+            isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-2"
+          } text-xs rounded font-mono transition-all border ${
+            pathname === "/dashboard"
+              ? "bg-[#FF3D00]/10 text-[#FF3D00] dark:text-[#FF3D00] font-bold border-[#FF3D00]/40 shadow-xs"
+              : "text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/80 border-neutral-200/60 dark:border-neutral-800/60"
+          }`}
+        >
+          <div className="flex items-center space-x-2.5">
+            <LayoutDashboard className={`w-4 h-4 shrink-0 ${pathname === "/dashboard" ? "text-[#FF3D00]" : "text-neutral-500"}`} />
+            {!isCollapsed && <span className="font-bold uppercase tracking-wider text-[11px]">Dashboard</span>}
+          </div>
           {!isCollapsed && (
-            <button
-              type="button"
-              onClick={() => toggleGroup("home")}
-              className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors"
-            >
-              <span>Home</span>
-              {openGroups.home ? (
-                <ChevronDown className="w-3 h-3 text-neutral-400" />
-              ) : (
-                <ChevronRight className="w-3 h-3 text-neutral-400" />
-              )}
-            </button>
+            <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 uppercase font-bold">
+              OPERATIONAL
+            </span>
           )}
+        </Link>
+      </div>
 
-          {(isCollapsed || openGroups.home) && (
-            <div className="space-y-0.5">
-              <Link
-                href="/"
-                onClick={onClose}
-                title="Home Dashboard"
-                className={`flex items-center ${
-                  isCollapsed ? "justify-center px-1 py-2" : "justify-between px-2.5 py-1.5"
-                } text-xs transition-colors border ${
-                  pathname === "/"
-                    ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold border-l-2 border-l-[#FF3D00] border-t-transparent border-r-transparent border-b-transparent"
-                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900/60 border-transparent"
-                }`}
-              >
-                <div className="flex items-center space-x-2.5">
-                  <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
-                  {!isCollapsed && <span>Dashboard</span>}
-                </div>
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* GROUP 2: ANALYZE */}
+      {/* Navigation Groups */}
+      <div className={`flex-1 overflow-y-auto ${isCollapsed ? "p-1.5 space-y-3" : "p-3 space-y-3"}`}>
+        {/* GROUP: INVESTIGATIONS & FORENSICS */}
         <div className="space-y-1">
           {!isCollapsed && (
             <button
@@ -210,7 +193,7 @@ function SidebarInner({
               onClick={() => toggleGroup("analyze")}
               className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors"
             >
-              <span>Analyze</span>
+              <span>Investigations & Forensics</span>
               {openGroups.analyze ? (
                 <ChevronDown className="w-3 h-3 text-neutral-400" />
               ) : (

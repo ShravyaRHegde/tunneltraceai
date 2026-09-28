@@ -261,7 +261,7 @@ function MonitoringContent() {
       refetchHealth();
       refetchSAs();
       refetchTimeline();
-      setPulseMessage("Live telemetry pulse sent! WebSocket broadcast received.");
+      setPulseMessage("Synthetic test telemetry pulse emitted (Grade: SYNTHETIC). WebSocket broadcast dispatched.");
       setTimeout(() => setPulseMessage(null), 4000);
     },
     onError: (err: any) => {
@@ -336,20 +336,20 @@ function MonitoringContent() {
               {wsConnected
                 ? healthyCount > 0
                   ? `LIVE STREAMING (${liveEventCount})`
-                  : `WS CONNECTED · SENSORS STALE (${liveEventCount})`
+                  : `WS CONNECTED · EDGE TELEMETRY INACTIVE (${liveEventCount})`
                 : "POLLING LOOP (10s)"}
             </span>
           </div>
 
-          {/* Actions: Send Live Pulse & Manual Refresh */}
+          {/* Actions: Send Synthetic Test Pulse & Manual Refresh */}
           <button
             onClick={() => pulseMutation.mutate()}
             disabled={pulseMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold bg-[#FF3D00] hover:bg-[#E03600] text-white rounded transition-colors shadow-xs disabled:opacity-50"
-            title="Send genuine heartbeat and IKE SA telemetry events to verify live WebSocket streaming"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold bg-amber-600/90 hover:bg-amber-600 text-white rounded transition-colors shadow-xs disabled:opacity-50"
+            title="Run isolated synthetic demo events (Quarantined: does not update operational health or SA state)"
           >
             <Zap className={`w-3.5 h-3.5 ${pulseMutation.isPending ? "animate-spin" : ""}`} />
-            <span>{pulseMutation.isPending ? "SENDING..." : "TEST LIVE PULSE"}</span>
+            <span>{pulseMutation.isPending ? "EMITTING..." : "RUN ISOLATED SYNTHETIC DEMO (QUARANTINED)"}</span>
           </button>
 
           <button
@@ -415,11 +415,19 @@ function MonitoringContent() {
               : "No telemetry sensors are currently reporting to the TunnelTrace API. The browser WebSocket is connected, waiting for gateway heartbeats."}
             Projected SA records shown below represent retained historical states under the non-deletion invariant; they do not indicate currently established live tunnels.
           </p>
-          <div className="p-2.5 bg-neutral-900 text-neutral-200 rounded border border-neutral-800 space-y-1">
-            <div className="text-[10px] text-neutral-400">Launch standalone collector on your strongSwan / Linux router:</div>
-            <code className="text-emerald-400 text-[11px] block select-all">
-              python scripts/gateway_collector.py --gateway &quot;edge-router&quot; --interface eth0
-            </code>
+          <div className="p-3 bg-neutral-950 text-neutral-200 rounded border border-neutral-800 space-y-2">
+            <div className="text-[10px] text-neutral-400 uppercase font-semibold">Deploy Authorized Gateway Collector (Linux / strongSwan):</div>
+            <pre className="text-emerald-400 text-[11px] font-mono block select-all overflow-x-auto whitespace-pre p-2 bg-black/60 rounded">
+export SENSOR_TOKEN=&quot;&lt;YOUR_ISSUED_SENSOR_TOKEN&gt;&quot;
+python scripts/gateway_collector.py \
+  --api-url &quot;http://&lt;TUNNELTRACE_HOST&gt;:8002/api/v1&quot; \
+  --gateway &quot;Perimeter-Gateway&quot; \
+  --gateway-id &quot;&lt;GATEWAY_UUID&gt;&quot; \
+  --sensor-id &quot;&lt;SENSOR_UUID&gt;&quot; \
+  --token &quot;$SENSOR_TOKEN&quot; \
+  --scope &quot;10.0.0.0/8&quot; \
+  --interface eth0
+            </pre>
           </div>
           <div className="pt-0.5 flex flex-wrap items-center gap-3 text-[11px]">
             <span className="font-bold text-amber-950 dark:text-amber-100">Alternative:</span>
@@ -557,11 +565,21 @@ function MonitoringContent() {
               </div>
               <div className="max-w-xl mx-auto p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-left text-xs space-y-2">
                 <div className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 uppercase">
-                  Deploy Collector on strongSwan Gateway (5-Minute Setup):
+                  Deploy Collector on Authorized Linux Gateway:
                 </div>
-                <div className="flex items-center justify-between bg-black/80 text-emerald-400 p-2 rounded text-[11px] font-mono select-all">
-                  <code>python scripts/gateway_collector.py --gateway-url http://localhost:8002</code>
-                  <CopyableValue value="python scripts/gateway_collector.py --gateway-url http://localhost:8002" label="" />
+                <div className="p-2.5 bg-black/90 text-emerald-400 rounded text-[11px] font-mono select-all overflow-x-auto whitespace-pre">
+{`export SENSOR_TOKEN="<YOUR_ISSUED_SENSOR_TOKEN>"
+python scripts/gateway_collector.py \\
+  --api-url "http://<TUNNELTRACE_HOST>:8002/api/v1" \\
+  --gateway "Perimeter-Gateway" \\
+  --gateway-id "<GATEWAY_UUID>" \\
+  --sensor-id "<SENSOR_UUID>" \\
+  --token "$SENSOR_TOKEN" \\
+  --scope "10.0.0.0/8" \\
+  --interface eth0`}
+                </div>
+                <div className="text-[10px] text-neutral-500 font-mono">
+                  Prerequisites: Linux kernel, root / CAP_NET_ADMIN, strongSwan (swanctl or ip xfrm), and reachable backend API.
                 </div>
               </div>
               {healthList.length > 0 && (

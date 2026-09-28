@@ -1,0 +1,193 @@
+{
+  "manifest_version": "1.0.0",
+  "target_suite": "TunnelTrace AI Verification Captures",
+  "fixtures": [
+    {
+      "fixture_id": "FIX-VERIF-01-IKEV2-GCM",
+      "filename": "01_strongswan_ikev2_esp_aes_gcm.pcapng",
+      "category": "GENUINE_IPSEC_TUNNEL",
+      "format": "PCAPNG (pcapng_shb)",
+      "sha256": "949531329196d1fbc836ee0685efe8a204c68d6d8da5a5b75ecaa0128c59e04d",
+      "size_bytes": 3048,
+      "packet_count": 12,
+      "duration_sec": 3.43688,
+      "source": "strongSwan Lab (scn-01-tunnel-v4-gcm-pfs)",
+      "description": "Full strongSwan IKEv2 negotiation and ESP AES-GCM data transfer.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": true,
+        "ike_version": "IKEv2",
+        "esp_detected": true,
+        "encryption": "AES-GCM-16-256",
+        "dh_group": "ECP-256 (DH19)",
+        "expected_score": 100,
+        "evidence_coverage": "85.7% (6/7 assessed, 1 unknown)",
+        "traffic_ml_disposition": "OUT_OF_DISTRIBUTION (OOD Abstention) or low confidence"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-02-ESP-ONLY",
+      "filename": "02_strongswan_esp_only_partial.pcapng",
+      "category": "PARTIAL_EVIDENCE",
+      "format": "PCAPNG (pcapng_shb)",
+      "sha256": "76b74be5fc6e60d931c1bcf959360c84b59d7f70bada30b46af8938bff339bdd",
+      "size_bytes": 1588,
+      "packet_count": 8,
+      "duration_sec": 3.080658,
+      "source": "strongSwan Lab (frames 5-12 isolated)",
+      "description": "ESP ciphertext frames only without preceding IKE negotiation handshake.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": true,
+        "ike_version": null,
+        "esp_detected": true,
+        "expected_score": 100,
+        "evidence_coverage": "14.3% (1/7 assessed, 6 unknown)",
+        "traffic_ml_disposition": "PARTIAL_METADATA_EXTRACTED"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-03-NATT-UDP4500",
+      "filename": "03_strongswan_natt_udp4500.pcap",
+      "category": "GENUINE_IPSEC_TUNNEL",
+      "format": "PCAP (pcap_usec_le)",
+      "sha256": "7b63a0fd455202ac286de8d5c1dd8e499fc988680b9bdcb6c8afe6567f7f21fa",
+      "size_bytes": 2838,
+      "packet_count": 12,
+      "duration_sec": 3.500924,
+      "source": "strongSwan Lab (scn-06-tunnel-v4-natt)",
+      "description": "IKEv2 negotiation migrating from UDP 500 to UDP 4500 with UDP-encapsulated ESP.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": true,
+        "natt_detected": true,
+        "esp_encapsulation": "UDP_ENCAPSULATED_ESP",
+        "udp_port": 4500,
+        "expected_score": 100,
+        "evidence_coverage": "85.7%"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-04-PLAINTEXT-ICMP",
+      "filename": "04_plaintext_icmp_non_ipsec.pcap",
+      "category": "NON_IPSEC_BASELINE",
+      "format": "PCAP (pcap_usec_le)",
+      "sha256": "b37aa527dd51c80a1b003cc305f56bc77f53ba44da0ec3d4144fc29efb1ad61c",
+      "size_bytes": 1108,
+      "packet_count": 10,
+      "duration_sec": 5.024454,
+      "source": "strongSwan Lab (client plaintext probe)",
+      "description": "Plaintext ICMP echo requests and replies before IPsec tunnel establishment.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": false,
+        "disposition": "NO_IPSEC_FOUND",
+        "expected_score": null,
+        "evidence_coverage": "0.0%"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-05-WIREGUARD",
+      "filename": "05_wireguard_tunnel_non_ipsec.pcapng",
+      "category": "NON_IPSEC_BASELINE",
+      "format": "PCAPNG (pcapng_shb)",
+      "sha256": "39785eb5e094d2ad57163d3b7f8ab009a3934c978c76c8ff0e012b01817e1e41",
+      "size_bytes": 5912,
+      "packet_count": 22,
+      "duration_sec": 140.277095,
+      "source": "Controlled Capture (WireGuard ping tcp)",
+      "description": "Non-IPsec VPN traffic consisting of WireGuard handshake and encrypted transport.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": false,
+        "disposition": "NOT_IPSEC",
+        "protocol": "WIREGUARD"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-06-OPENVPN-CHAT",
+      "filename": "06_openvpn_chat_sample_non_ipsec.pcap",
+      "category": "NON_IPSEC_BASELINE",
+      "format": "PCAP (pcap_usec_le)",
+      "sha256": "2d50afea494353b793a8b03074ec7905c93e10f5028b73136e8b4a8796c50439",
+      "size_bytes": 14163,
+      "packet_count": 50,
+      "duration_sec": 1.694151,
+      "source": "Controlled Capture (OpenVPN application session sample)",
+      "description": "Non-IPsec VPN capture containing OpenVPN transport frames.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": false,
+        "disposition": "NOT_IPSEC / INSUFFICIENT_EVIDENCE",
+        "protocol": "OPENVPN"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-07-TRUNCATED-FRAME",
+      "filename": "07_edge_truncated_pcap_frame.pcap",
+      "category": "EDGE_CASE_PARSER_INTEGRITY",
+      "format": "PCAP (pcap_usec_le)",
+      "sha256": "bddfc3c80c0782c663360d86d20ee98fdc2c8838c15803d25219c650a0dacfe7",
+      "size_bytes": 56,
+      "packet_count": null,
+      "duration_sec": null,
+      "source": "Synthetic deterministic generation",
+      "description": "PCAP with truncated frame length to verify parser doesn't crash on incomplete frames.",
+      "expected_behavior": {
+        "validation": "PASS (Header valid) / Parser handled safely",
+        "error_handling": "GRACEFUL_TRUNCATION_HANDLING"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-08-CORRUPTED-MAGIC",
+      "filename": "08_edge_corrupted_magic_bytes.pcap",
+      "category": "EDGE_CASE_VALIDATION_REJECTION",
+      "format": "REJECTED (CAPTURE_INVALID_FORMAT)",
+      "sha256": "bb50b43e626c510d9c19c981f4141a61a7586de22febabb8e29b4a9a165730af",
+      "size_bytes": 46,
+      "packet_count": null,
+      "duration_sec": null,
+      "source": "Synthetic deterministic generation",
+      "description": "Non-PCAP binary header to verify upload endpoint rejects invalid magic bytes.",
+      "expected_behavior": {
+        "validation": "FAIL",
+        "error_code": "CAPTURE_INVALID_FORMAT",
+        "http_status": 400
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-09-CORRUPTED-SPI-ZERO",
+      "filename": "09_edge_corrupted_spi_zero.pcap",
+      "category": "EDGE_CASE_SECURITY_ANOMALY",
+      "format": "PCAP (pcap_usec_le)",
+      "sha256": "c41784ea9b5cffcbc110ea9ef7b8ec3a17fdada8e776049b201d011317d57c81",
+      "size_bytes": 2838,
+      "packet_count": 12,
+      "duration_sec": 3.500924,
+      "source": "Synthetic mutation from strongSwan NAT-T",
+      "description": "ESP packet with SPI = 0x00000000 violating RFC 4303 Section 2.1.",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": true,
+        "anomaly_flag": "RFC_4303_RESERVED_SPI_ZERO"
+      }
+    },
+    {
+      "fixture_id": "FIX-VERIF-10-ESP-SEQ-REPLAY",
+      "filename": "10_edge_esp_seq_jump_replay.pcap",
+      "category": "EDGE_CASE_SECURITY_ANOMALY",
+      "format": "PCAP (pcap_usec_le)",
+      "sha256": "f0cb561a3be595b59b21aac8f67b746251370faa105d91e0c5b31886ea879790",
+      "size_bytes": 2838,
+      "packet_count": 12,
+      "duration_sec": 3.500924,
+      "source": "Synthetic mutation from strongSwan NAT-T",
+      "description": "ESP frame sequence jump / replay (sequence number duplicate).",
+      "expected_behavior": {
+        "validation": "PASS",
+        "ipsec_detected": true,
+        "anomaly_flag": "ESP_SEQUENCE_REPLAY_DETECTED"
+      }
+    }
+  ]
+}

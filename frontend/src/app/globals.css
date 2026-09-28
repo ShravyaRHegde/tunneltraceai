@@ -68,8 +68,8 @@
   --status-neutral-border: #3E4452;
 }
 
-/* Sharp brutalist geometry reset: 0px border radius across all controls */
-*, *::before, *::after {
+/* Sharp brutalist geometry reset: 0px border radius across all app workbench controls */
+.app-shell *, .app-shell *::before, .app-shell *::after {
   border-radius: 0px !important;
 }
 

@@ -381,8 +381,15 @@ def build_report_pdf(report_type: str, snapshot: dict[str, Any]) -> bytes:
                 "available wire packets. However, because key exchange packets were unobserved (coverage < 60%), "
                 "cryptographic parameters cannot be certified. Remediation: Acquire a complete IKE handshake trace."
             )
+        elif cov_pct < 100.0:
+            unknown_rules = compliance.get("unknown_count", 1)
+            msg = (
+                f"<b>EVALUATED SUBSET VERIFIED ({cov_pct:.1f}% COVERAGE):</b> Zero policy violations were triggered among "
+                f"evaluated checks. However, {unknown_rules} check(s) remain UNKNOWN (Child SA encryption transform was unobserved "
+                "on the wire). Full end-to-end cryptographic posture remains provisional pending complete payload observation."
+            )
         else:
-            msg = "Zero policy violations detected. Current observed parameters conform to NIST SP 800-77 Rev. 1 and RFC 8221 baselines."
+            msg = "Zero policy violations detected. All required parameters fully observed and confirmed conforming to NIST SP 800-77 Rev. 1 and RFC 8221 baselines."
         story.append(Paragraph(msg, styles["Body"]))
     story.append(Spacer(1, 10))
 

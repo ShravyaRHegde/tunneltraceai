@@ -160,8 +160,8 @@ export default function DiscoveryPage() {
               Stage 2
             </span>
           </div>
-          <p className="text-xs text-neutral-500 mt-1">
-            Safe, bounded Nmap service discovery for explicitly approved VPN endpoints.
+          <p className="text-xs text-neutral-500 mt-1 max-w-2xl leading-relaxed">
+            <strong className="text-neutral-700 dark:text-neutral-300">Purpose & Governance:</strong> Bounded active UDP/TCP discovery for authorized VPN gateways. Requires written change authorization; queries local Nmap (or deterministic simulation fallback) and outputs raw port observation records without speculative vulnerability claims.
           </p>
         </div>
 
@@ -175,10 +175,10 @@ export default function DiscoveryPage() {
             />
             <span className="font-mono text-neutral-700 dark:text-neutral-300">
               {isStatusLoading
-                ? "PROBING TOOL..."
+                ? "CHECKING TOOL..."
                 : statusData?.nmap_available
                 ? `NMAP ${statusData.nmap_version || "READY"}`
-                : "NMAP NOT INSTALLED (TEST MODE)"}
+                : "NMAP NOT INSTALLED (SIMULATION ONLY)"}
             </span>
           </div>
           <Link
@@ -308,7 +308,7 @@ export default function DiscoveryPage() {
               </div>
 
               {/* Targets */}
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                     APPROVED TARGETS (IPs, CIDRs, or HOSTNAMES)
@@ -317,6 +317,48 @@ export default function DiscoveryPage() {
                     Max: {statusData?.max_targets || 8}
                   </span>
                 </div>
+
+                {/* Quick Presets for Demo & Video */}
+                <div className="flex items-center gap-1.5 flex-wrap pb-1">
+                  <span className="text-[10px] font-mono text-neutral-500 uppercase">Quick Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetsText("127.0.0.1");
+                      setProfile("IKE_SERVICE_DISCOVERY");
+                      setJobName("Local IKE Responder Discovery");
+                      setHasConfirmedAttestation(true);
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-mono rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 transition-colors"
+                  >
+                    Loopback (127.0.0.1)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetsText("198.51.100.1, 198.51.100.2");
+                      setProfile("VPN_MANAGEMENT_DISCOVERY");
+                      setJobName("Lab Gateway Management Audit");
+                      setHasConfirmedAttestation(true);
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-mono rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 transition-colors"
+                  >
+                    Lab Gateway (198.51.100.x)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetsText("10.0.1.1, 10.0.1.254");
+                      setProfile("IKE_SERVICE_DISCOVERY");
+                      setJobName("Enterprise Core IPsec Audit");
+                      setHasConfirmedAttestation(true);
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-mono rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 transition-colors"
+                  >
+                    Core Network (10.0.1.x)
+                  </button>
+                </div>
+
                 <textarea
                   rows={2}
                   value={targetsText}

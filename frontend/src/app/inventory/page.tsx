@@ -441,9 +441,9 @@ function InventoryContent() {
 
                         <TableCell>
                           {s.canonical_digest?.startsWith("e3b0c442") ? (
-                            <span className="inline-flex items-center gap-1 bg-amber-950/80 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold" title="SHA-256 digest of empty content (e3b0c442). Not an approved configuration baseline.">
+                            <span className="inline-flex items-center gap-1 bg-amber-950/80 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold" title="SHA-256 digest of empty 0-byte content (e3b0c442). Not an approved configuration baseline.">
                               <AlertTriangle className="w-3 h-3 text-amber-500" />
-                              UNVERIFIED / EMPTY BASELINE
+                              UNVERIFIED EMPTY BASELINE (NO APPROVED BASELINE)
                             </span>
                           ) : s.is_baseline ? (
                             <span className="inline-flex items-center gap-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
@@ -1017,9 +1017,37 @@ secrets {
             {importType === "cert" && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-neutral-400 mb-1">
-                    Public X.509 Certificate (PEM Format):
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-neutral-400">
+                      Public X.509 Certificate (PEM Format):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCertPemText(`-----BEGIN CERTIFICATE-----
+MIICxjCCAa6gAwIBAgICA+gwDQYJKoZIhvcNAQELBQAwJjEkMCIGA1UEAwwbZ3ct
+c3Ryb25nc3dhbi0wMS5hZ2VuY3kuZ292MB4XDTI2MDkyNzE4MjIzNVoXDTI3MDky
+ODE4MjIzNVowJjEkMCIGA1UEAwwbZ3ctc3Ryb25nc3dhbi0wMS5hZ2VuY3kuZ292
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyQxRh/aixYHTBDOMnYE4
+Ti9JYjBEOTt4k9y+pylUCC9Uq8xtPzNFOp+MS1SbLPP6uDJzArShTRHYiRl1Cnn+
+HmuahcDIPVFwxr739yFK8woQwRJRIeMASoPGn9SHHUOpfGrrcP1if9YJ8/8lhGvG
+A2lLxIcftOghVE/m7pA66+FCvZrgGHT8i8aokxCKtwQi4un3vxIPpISMYH/Qnm0l
+coMnO36JqbzFe9rMUOoeFTP+HyOyBy/XCvQr/58TVF1l3mvuKQutBNEUKBokYWBc
+6M7M+ZiyXaWNqOA6ThT/KUPBpQNcOs7zbR8+sbd349eUTyYS5dp073H/CnRScn8h
+CQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAYHkxz3b4jGY38Zw+yYIk5rs3ux4qL
+5to6vVmspo0BCSkmMXICIB2uaOm4iHJq/8CY+8HrLhJRhXdL9sFyVp2bvfa87nV9
+82YGpMJl7m04Ecrh8mN709CLO/6BCk2fSkF+HysAcWuerbefMrBP589mdX3GVvY0
+2HF3DAyxUXFP1KkOzsGQiKn6euWbXtnipC6ZpXakKtyOHv1QxdD8Lfc5mEWkT2r3
+T4KzipDthOg05yKVFGMZtge0zKejtWzWMmsFPyZzdEY+jvveMiSFvt0thm5IFX1y
+TwkhlhRfq9iDH9yt+Ro11AaliWe60GmeP37HMFv5EgJo5klLMq9oDpNs
+-----END CERTIFICATE-----`);
+                        setAttestationConfirmed(true);
+                      }}
+                      className="text-[10px] text-sky-400 hover:underline"
+                    >
+                      Load Sample Certificate
+                    </button>
+                  </div>
                   <textarea
                     rows={6}
                     value={certPemText}
@@ -1121,6 +1149,21 @@ secrets {
               <div><strong className="text-neutral-400">Source Type:</strong> {selectedSnapshot.source_type}</div>
               <div><strong className="text-neutral-400">Approved By:</strong> {selectedSnapshot.approved_by || "None"} ({selectedSnapshot.approval_reference || "N/A"})</div>
             </div>
+
+            {selectedSnapshot.canonical_digest?.startsWith("e3b0c442") && (
+              <div className="bg-amber-950/70 border border-amber-800 p-3 rounded text-amber-300 space-y-1.5 font-mono text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-200">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  UNVERIFIED EMPTY BASELINE (NO APPROVED BASELINE)
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-300/90">
+                  The SHA-256 digest <code>e3b0c442...</code> is the hash of an empty 0-byte string. This record serves as an unpopulated placeholder and must not be used as an approved security baseline for drift analysis.
+                </p>
+                <div className="text-[11px] font-semibold text-amber-200">
+                  Next Step: Open the "Import Ingestion" tab, supply a valid strongSwan <code>swanctl.conf</code> file with configured connections, and mark it as the approved baseline.
+                </div>
+              </div>
+            )}
 
             {selectedSnapshot.unsupported_directives?.length > 0 && (
               <div>

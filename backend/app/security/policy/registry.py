@@ -47,6 +47,10 @@ class PolicyRegistry:
         """Return all rules currently in ACTIVE status."""
         return [r for r in self._all_rules.values() if r.status == RuleStatus.ACTIVE]
 
+    def get_all_rules(self) -> list[PolicyRule]:
+        """Return all loaded policy rules regardless of status."""
+        return list(self._all_rules.values())
+
     def compile_bundle(
         self,
         bundle_id: str,

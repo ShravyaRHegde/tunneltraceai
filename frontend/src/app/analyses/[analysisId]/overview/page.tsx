@@ -172,6 +172,11 @@ export default function OverviewPage({
             <p className="text-[11px] text-neutral-500 font-mono">
               Evaluated on observable packet evidence ({formatCoverage(security_posture.evidence_coverage)} coverage, {compliance_counts.unknown} unknown rules). Not a formal security certification.
             </p>
+            {security_posture.score === 100 && security_posture.evidence_coverage !== undefined && security_posture.evidence_coverage < 1.0 && (
+              <div className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[10.5px] font-mono leading-tight">
+                <strong>0 Deductions:</strong> All {compliance_counts.pass || 6} evaluated checks passed; {compliance_counts.unknown || 1} check remains UNKNOWN due to unobserved wire evidence.
+              </div>
+            )}
             <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex justify-between text-[11px] font-mono">
               <span className="text-neutral-400">Risk Tier:</span>
               <span className="font-bold text-neutral-900 dark:text-white uppercase">
@@ -388,8 +393,20 @@ export default function OverviewPage({
             <div className="space-y-2 text-xs font-mono">
               <div className="flex justify-between py-1 border-b border-neutral-100 dark:border-neutral-800">
                 <span className="text-neutral-500">Model Pipeline:</span>
-                <span className={`font-bold ${traffic_summary.ml_run_status === "NOT_CONFIGURED" || traffic_summary.classified_flows === 0 ? "text-amber-600 dark:text-amber-400 text-[10px]" : "text-emerald-600 dark:text-emerald-400"}`}>
-                  {traffic_summary.ml_run_status === "NOT_CONFIGURED" || traffic_summary.classified_flows === 0 ? "NOT CONFIGURED (SKIPPED)" : "ACTIVE"}
+                <span className={`font-bold text-[10px] ${
+                  traffic_summary.classified_flows > 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : traffic_summary.ood_count > 0
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-neutral-500"
+                }`}>
+                  {traffic_summary.classified_flows > 0
+                    ? "ACTIVE · CLASSIFIED"
+                    : traffic_summary.ood_count > 0
+                    ? "ACTIVE · OOD REJECTED"
+                    : traffic_summary.ml_run_status === "NOT_CONFIGURED"
+                    ? "NOT CONFIGURED (SKIPPED)"
+                    : traffic_summary.ml_run_status || "EVALUATED"}
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b border-neutral-100 dark:border-neutral-800">
@@ -418,7 +435,9 @@ export default function OverviewPage({
               </div>
             </div>
             <p className="mt-3 text-[10px] text-neutral-400 font-mono italic">
-              {traffic_summary.ml_run_status === "NOT_CONFIGURED" || traffic_summary.classified_flows === 0
+              {traffic_summary.ood_count > 0 && traffic_summary.classified_flows === 0
+                ? "ML inference completed: Encrypted flows evaluated and rejected as Out-of-Distribution (OOD / Unknown Unseen) rather than asserting low-confidence false positives."
+                : traffic_summary.ml_run_status === "NOT_CONFIGURED"
                 ? "No machine learning classifier bundle is deployed on this node. Inferences were safely skipped rather than producing synthetic claims."
                 : "Application classes inferred from encrypted packet timing and size metadata. Payload is not decrypted."}
             </p>

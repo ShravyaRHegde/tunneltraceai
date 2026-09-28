@@ -256,9 +256,13 @@
             </tbody>
         </table>
         {% else %}
-            {% if snapshot.score.score is none or snapshot.compliance.unknown_count > 0 or snapshot.score.get('is_assessable') is sameas false %}
+            {% if snapshot.score.score is none or snapshot.score.get('is_assessable') is sameas false or (((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) < 60.0) %}
             <div style="background-color: #FFF7ED; border: 1px solid #FDBA74; padding: 10px; font-size: 8.5pt; color: #9A3412;">
-                <strong>INCOMPLETE EVIDENCE NOTICE:</strong> Zero deterministic policy violations were triggered on available wire packets. However, because key exchange packets were unobserved ({{ snapshot.compliance.unknown_count }} unknown checks, {{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}% coverage), cryptographic parameters cannot be certified. Remediation: Acquire a complete IKE handshake and ESP packet trace.
+                <strong>INCOMPLETE EVIDENCE NOTICE:</strong> Zero deterministic policy violations were triggered on available wire packets. However, because critical handshake frames were unobserved ({{ snapshot.compliance.unknown_count }} unknown checks, {{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}% coverage), cryptographic parameters cannot be certified. Remediation: Acquire a complete IKE handshake and ESP packet trace.
+            </div>
+            {% elif snapshot.compliance.unknown_count > 0 %}
+            <div style="background-color: #F8FAFC; border: 1px solid #CBD5E1; padding: 10px; font-size: 8.5pt; color: #334155;">
+                <strong>EVALUATED SUBSET VERIFIED ({{ ((snapshot.score.evidence_coverage if snapshot.score.evidence_coverage > 1 else snapshot.score.evidence_coverage * 100) or 0) | round(1) }}% COVERAGE):</strong> Zero policy violations were triggered among evaluated checks. However, {{ snapshot.compliance.unknown_count }} check(s) remain UNKNOWN (Child SA encryption transform was unobserved on the wire). Full end-to-end cryptographic posture remains provisional pending complete payload observation.
             </div>
             {% else %}
             <p style="color: #00875A; padding: 8px; border: 1px solid #D1D1CB;">Zero policy violations detected. Current observed parameters conform to NIST SP 800-77 Rev. 1 and RFC 8221 baselines.</p>

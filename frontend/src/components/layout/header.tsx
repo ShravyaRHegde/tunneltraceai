@@ -4,10 +4,11 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Plus, Radio, Sun, Moon, ChevronRight, ChevronDown, Check, X, Layers, HelpCircle } from "lucide-react";
+import { Menu, Plus, Radio, Sun, Moon, ChevronRight, ChevronDown, Check, X, HelpCircle } from "lucide-react";
 import { useAnalysis } from "@/lib/analysis-context";
 import { api } from "@/lib/api/client";
 import { StatusBadge } from "../ui/badge";
+import { ContextHelpPanel } from "@/components/soc/context-help-panel";
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -18,6 +19,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
   const { activeAnalysisId, setActiveAnalysisId, analysis, overview, recentRuns, wsConnected } = useAnalysis();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isRunPickerOpen, setIsRunPickerOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -258,15 +260,15 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           <span className="hidden sm:inline uppercase">New Ingest</span>
         </Link>
 
-        {/* Help & How It Works Control */}
-        <Link
-          href="/how-it-works"
+        {/* Help & Operator Guide Control */}
+        <button
+          onClick={() => setIsHelpOpen(true)}
           className="p-1.5 border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#FF3D00] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-center shrink-0"
-          title="Help and how it works"
-          aria-label="Help and how it works"
+          title="Operator Guide & How It Works"
+          aria-label="Open context help and operator guide"
         >
           <HelpCircle className="w-4 h-4 text-[#FF3D00]" />
-        </Link>
+        </button>
 
         {/* Theme Toggle */}
         <button
@@ -282,6 +284,9 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           )}
         </button>
       </div>
+
+      {/* Operator Help & Context Drawer */}
+      <ContextHelpPanel isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </header>
   );
 }

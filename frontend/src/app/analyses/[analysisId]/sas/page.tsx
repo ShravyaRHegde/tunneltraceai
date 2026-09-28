@@ -12,6 +12,8 @@ import {
   Node,
   Edge,
   Position,
+  Handle,
+  MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { api } from "@/lib/api/client";
@@ -34,7 +36,258 @@ import {
   AlertCircle,
   Shield,
   Layers,
+  KeyRound,
+  Lock,
+  Activity,
+  Maximize2,
 } from "lucide-react";
+
+interface SANodeData {
+  tier: number;
+  entityType: string;
+  typeLabel: string;
+  evidenceState: string;
+  isNotObserved: boolean;
+  isInferred: boolean;
+  label: string;
+  reason?: string;
+  rawNode: any;
+  [key: string]: any;
+}
+
+function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
+  const {
+    typeLabel,
+    isNotObserved,
+    isInferred,
+    label,
+    reason,
+    rawNode,
+  } = data;
+  const rawData = rawNode?.data || {};
+  const nodeId = rawNode?.id || "";
+
+  // Neutral icon per protocol entity type
+  const renderIcon = () => {
+    switch (data.tier) {
+      case 0:
+        return <Network className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />;
+      case 1:
+        return <KeyRound className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />;
+      case 2:
+        return <Shield className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />;
+      case 3:
+        return <Lock className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />;
+      case 4:
+        return <Activity className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />;
+      default:
+        return <Layers className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />;
+    }
+  };
+
+  return (
+    <div
+      className={`w-[236px] p-2.5 rounded text-left transition-all duration-150 border select-none font-mono ${
+        isNotObserved
+          ? "bg-neutral-50/85 dark:bg-[#121215] border-dashed border-neutral-400 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 opacity-85"
+          : isInferred
+          ? "bg-white dark:bg-[#161619] border-neutral-300 dark:border-neutral-700/80 shadow-xs"
+          : "bg-white dark:bg-[#161619] border-neutral-300 dark:border-neutral-700/80 shadow-xs"
+      } ${
+        selected
+          ? "!border-[#FF3D00] !ring-2 !ring-[#FF3D00]/25 shadow-md"
+          : "hover:border-neutral-400 dark:hover:border-neutral-500"
+      }`}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-2 !h-2 !border-2 !border-white dark:!border-[#161619] !bg-neutral-400 dark:!bg-neutral-500 !-left-1"
+      />
+
+      {/* Top Header: Neutral Entity Type + Dedicated Evidence Badge */}
+      <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-neutral-200/80 dark:border-neutral-800">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {renderIcon()}
+          <span className="text-[10px] font-bold tracking-wider text-neutral-600 dark:text-neutral-300 uppercase truncate">
+            {typeLabel}
+          </span>
+        </div>
+
+        {/* Evidence Status Chip */}
+        {isNotObserved ? (
+          <span
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-dashed border-neutral-300 dark:border-neutral-700 shrink-0"
+            title="Absent from capture (e.g. handshake occurred prior to capture)"
+          >
+            <span className="w-1.5 h-1.5 rounded-full border border-neutral-400 dark:border-neutral-500"></span>
+            NOT OBSERVED
+          </span>
+        ) : isInferred ? (
+          <span
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0"
+            title="Inferred from observed traffic or Child SAs"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            INFERRED
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0"
+            title="Directly observed in capture packet frames"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            OBSERVED
+          </span>
+        )}
+      </div>
+
+      {/* Node Body: Primary Headline */}
+      <div className="pt-2">
+        <div
+          className={`font-semibold text-xs leading-snug truncate ${
+            isNotObserved
+              ? "text-neutral-500 dark:text-neutral-400 italic"
+              : "text-neutral-900 dark:text-neutral-100"
+          }`}
+          title={label}
+        >
+          {label}
+        </div>
+
+        {/* Entity-Specific Facts */}
+        <div className="mt-1.5 space-y-1 text-[11px]">
+          {data.tier === 0 && (
+            <>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">ROLE:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 uppercase text-[10px]">
+                  {rawData.role || "ENDPOINT"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">IP ADDR:</span>
+                <span className="font-bold text-neutral-900 dark:text-neutral-100 text-[11px]">
+                  {rawData.ip || nodeId.replace("peer-", "")}
+                </span>
+              </div>
+            </>
+          )}
+
+          {data.tier === 1 && (
+            <>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">SPIs:</span>
+                <span className="font-mono text-[10px] text-neutral-700 dark:text-neutral-300">
+                  {isNotObserved
+                    ? "Unobserved"
+                    : rawData.initiator_spi || rawData.responder_spi
+                    ? `${rawData.initiator_spi ? `${rawData.initiator_spi.slice(0, 6)}...` : "—"} ⇄ ${
+                        rawData.responder_spi ? `${rawData.responder_spi.slice(0, 6)}...` : "—"
+                      }`
+                    : "Unobserved"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">TRANSPORT:</span>
+                <span className="text-neutral-800 dark:text-neutral-200 text-[10px] font-semibold">
+                  {isNotObserved ? "Unobserved" : rawData.nat_t ? "NAT-T (UDP 4500)" : "Standard (UDP 500)"}
+                </span>
+              </div>
+            </>
+          )}
+
+          {data.tier === 2 && (
+            <>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">CIPHER:</span>
+                <span className="font-bold text-neutral-800 dark:text-neutral-200 text-[10.5px]">
+                  {rawData.cipher || (isNotObserved ? "None / Unobserved" : "Not Negotiated")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">DH / PRF:</span>
+                <span className="text-neutral-700 dark:text-neutral-300 text-[10px] truncate max-w-[150px]">
+                  {rawData.dh_group || (isNotObserved ? "Unobserved" : "N/A")}
+                </span>
+              </div>
+            </>
+          )}
+
+          {data.tier === 3 && (
+            <>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">INBOUND SPI:</span>
+                <span className="font-mono text-[10px] text-neutral-800 dark:text-neutral-200 font-bold">
+                  {rawData.inbound_spi || (isNotObserved ? "Unobserved" : "N/A")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">OUTBOUND SPI:</span>
+                <span className="font-mono text-[10px] text-neutral-800 dark:text-neutral-200 font-bold">
+                  {rawData.outbound_spi || (isNotObserved ? "Unobserved" : "N/A")}
+                </span>
+              </div>
+            </>
+          )}
+
+          {data.tier === 4 && (
+            <>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">VOLUME:</span>
+                <span className="font-bold text-neutral-800 dark:text-neutral-200 text-[10.5px]">
+                  {isNotObserved
+                    ? "0 pkts (Unobserved)"
+                    : rawData.packet_count !== undefined
+                    ? `${rawData.packet_count} pkts · ${rawData.byte_count ?? 0} B`
+                    : "0 pkts"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">STREAM:</span>
+                <span className="font-semibold text-[10px] text-neutral-700 dark:text-neutral-300">
+                  {isNotObserved ? "Not Observed" : rawData.association || "Single Flow"}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Reason notice for unobserved/missing entities */}
+        {reason && (
+          <div className="mt-2 p-1.5 rounded bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] leading-tight">
+            {reason}
+          </div>
+        )}
+
+        {/* Quieter identifier footer */}
+        <div
+          className="mt-2 pt-1.5 border-t border-neutral-100 dark:border-neutral-800/80 text-[9.5px] text-neutral-400 dark:text-neutral-500 font-mono flex items-center justify-between"
+          title={nodeId}
+        >
+          <span className="truncate">
+            {nodeId.startsWith("0x")
+              ? `${nodeId.slice(0, 10)}...${nodeId.slice(-4)}`
+              : nodeId.length > 22
+              ? `${nodeId.slice(0, 18)}...`
+              : nodeId}
+          </span>
+          <span className="text-[9px] text-neutral-400 uppercase">TIER {data.tier + 1}</span>
+        </div>
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-2 !h-2 !border-2 !border-white dark:!border-[#161619] !bg-neutral-400 dark:!bg-neutral-500 !-right-1"
+      />
+    </div>
+  );
+}
+
+const nodeTypes = {
+  saNode: SANode,
+};
 
 export default function SecurityAssociationExplorerPage({
   params,
@@ -45,12 +298,26 @@ export default function SecurityAssociationExplorerPage({
   const [viewMode, setViewMode] = useState<"graph" | "table">("graph");
   const [selectedSa, setSelectedSa] = useState<ChildSecurityAssociationDTO | null>(null);
   const [selectedNode, setSelectedNode] = useState<{ id: string; type: string; label: string; data?: any } | null>(null);
+  const [isDark, setIsDark] = useState<boolean>(false);
+
+  // Dynamic theme observer to switch React Flow styles seamlessly
+  useEffect(() => {
+    const checkDark = () => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    };
+    checkDark();
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   // Fetch SA List (tabular data)
   const {
     data: saList,
     isLoading: isListLoading,
-    isError: isListError,
   } = useQuery({
     queryKey: ["sas-list", analysisId],
     queryFn: () => api.analyses.getSas(analysisId),
@@ -60,7 +327,6 @@ export default function SecurityAssociationExplorerPage({
   const {
     data: saGraph,
     isLoading: isGraphLoading,
-    isError: isGraphError,
   } = useQuery({
     queryKey: ["sas-graph", analysisId],
     queryFn: () => api.analyses.getSaGraph(analysisId),
@@ -69,6 +335,30 @@ export default function SecurityAssociationExplorerPage({
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [rfInstance, setRfInstance] = useState<any>(null);
+
+  // Count nodes by tier and evidence state
+  const tierCounts = React.useMemo(() => {
+    const counts = { peers: 0, sessions: 0, ikeSas: 0, childSas: 0, flows: 0, observed: 0, total: 0 };
+    if (!saGraph?.nodes) return counts;
+    counts.total = saGraph.nodes.length;
+    saGraph.nodes.forEach((n: any) => {
+      const t = (n.type || "").toLowerCase();
+      const nid = (n.id || "").toLowerCase();
+      const ev = n.data?.evidence_state || n.evidence_state;
+      if (ev === "OBSERVED") counts.observed++;
+
+      if (t.includes("peer") || nid.includes("peer")) counts.peers++;
+      else if (t.includes("session") || nid.includes("session")) counts.sessions++;
+      else if (t.includes("ike") && !t.includes("child")) counts.ikeSas++;
+      else if (t.includes("child") || nid.includes("child")) counts.childSas++;
+      else if (t.includes("flow") || nid.includes("flow") || t.includes("esp")) counts.flows++;
+    });
+    if (saList && saList.length > counts.childSas) {
+      counts.childSas = saList.length;
+    }
+    return counts;
+  }, [saGraph, saList]);
 
   useEffect(() => {
     if (saGraph && saGraph.nodes && saGraph.edges) {
@@ -84,19 +374,20 @@ export default function SecurityAssociationExplorerPage({
         return 2;
       };
 
-      const NODE_WIDTH = 220;
-      const HORIZ_GAP = 180; // 180px gap provides clearance for full edge labels
-      const VERT_STEP = 150;
+      const NODE_WIDTH = 236;
+      const HORIZ_GAP = 140;
+      const VERT_STEP = 145;
 
-      const tierCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+      // Group nodes into distinct tiers
+      const tiers: Record<number, any[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+      saGraph.nodes.forEach((n) => {
+        const tier = getTier(n.type, n.id);
+        tiers[tier].push(n);
+      });
 
-      const typeStyles: Record<number, { border: string; bg: string; badge: string; text: string }> = {
-        0: { border: "#3B82F6", bg: "#EFF6FF", badge: "PEER", text: "#1E40AF" },
-        1: { border: "#8B5CF6", bg: "#F5F3FF", badge: "IKE SESSION", text: "#5B21B6" },
-        2: { border: "#F59E0B", bg: "#FFFBEB", badge: "IKE SA", text: "#92400E" },
-        3: { border: "#10B981", bg: "#ECFDF5", badge: "CHILD SA", text: "#065F46" },
-        4: { border: "#FF3D00", bg: "#FFF7ED", badge: "ESP FLOW", text: "#C2410C" },
-      };
+      // Align baseline center with Tier 0 (Peers) group
+      const tier0Count = tiers[0].length || 1;
+      const calculatedCenter = 40 + ((tier0Count - 1) * VERT_STEP) / 2;
 
       // Unobserved node set for styling connected edges
       const unobservedNodeIds = new Set<string>();
@@ -107,134 +398,111 @@ export default function SecurityAssociationExplorerPage({
         }
       });
 
-      const formattedNodes: Node[] = saGraph.nodes.map((n) => {
-        const tier = getTier(n.type, n.id);
-        const yIndex = tierCounts[tier] || 0;
-        tierCounts[tier] = yIndex + 1;
+      const tierLabels: Record<number, string> = {
+        0: "Peer Gateway",
+        1: "IKE Session",
+        2: "IKE SA (Control)",
+        3: "Child SA (Data)",
+        4: "ESP Flow",
+      };
 
-        // Strictly fixed 5-column layout: Peer (col 0) -> IKE Session (col 1) -> IKE SA (col 2) -> Child SA (col 3) -> ESP Flow (col 4)
-        const xPos = 40 + tier * (NODE_WIDTH + HORIZ_GAP);
-        const yPos = 40 + yIndex * VERT_STEP;
+      const formattedNodes: Node[] = [];
 
-        const evState = n.data?.evidence_state || (n as any).evidence_state || "";
-        const isNotObserved = evState === "NOT_OBSERVED" || n.id.includes("unobserved");
-        const isInferred = evState.includes("INFERRED");
+      for (let tier = 0; tier <= 4; tier++) {
+        const nodesInTier = tiers[tier];
+        const count = nodesInTier.length;
+        if (count === 0) continue;
 
-        const baseStyle = typeStyles[tier] || typeStyles[2];
+        // Vertically center nodes in this tier around calculatedCenter
+        const startY = calculatedCenter - ((count - 1) * VERT_STEP) / 2;
 
-        // Determine border, bg, and badge based on evidence state
-        let border = baseStyle.border;
-        let borderStyle = "solid";
-        let bg = "#FFFFFF";
-        let badgeBg = baseStyle.bg;
-        let badgeText = baseStyle.text;
-        let badgeLabel = baseStyle.badge;
+        nodesInTier.forEach((n, idx) => {
+          const xPos = 40 + tier * (NODE_WIDTH + HORIZ_GAP);
+          const yPos = startY + idx * VERT_STEP;
 
-        if (isNotObserved) {
-          border = "#94A3B8";
-          borderStyle = "dashed";
-          bg = "#F8FAFC";
-          badgeBg = "#F1F5F9";
-          badgeText = "#64748B";
-          badgeLabel = `${baseStyle.badge} · NOT OBSERVED`;
-        } else if (isInferred) {
-          border = "#F59E0B";
-          badgeBg = "#FEF3C7";
-          badgeText = "#B45309";
-          badgeLabel = `${baseStyle.badge} · INFERRED`;
-        }
+          const evState = n.data?.evidence_state || (n as any).evidence_state || "";
+          const isNotObserved = evState === "NOT_OBSERVED" || n.id.includes("unobserved");
+          const isInferred = evState.includes("INFERRED");
 
-        return {
-          id: n.id,
-          type: "default",
-          sourcePosition: Position.Right,
-          targetPosition: Position.Left,
-          data: {
-            label: (
-              <div className="text-left font-mono">
-                <div className="flex items-center justify-between mb-1 pb-1 border-b border-neutral-200 dark:border-neutral-700">
-                  <span
-                    className="text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider uppercase"
-                    style={{ backgroundColor: badgeBg, color: badgeText, border: `1px solid ${border}` }}
-                  >
-                    {badgeLabel}
-                  </span>
-                  {isNotObserved && (
-                    <span className="text-[9px] text-neutral-400 italic">missing</span>
-                  )}
-                </div>
-                <div className={`font-semibold text-xs leading-tight ${isNotObserved ? "text-neutral-500 italic" : "text-neutral-900 dark:text-neutral-100"}`}>
-                  {n.label || n.type}
-                </div>
-                {n.data?.reason ? (
-                  <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 leading-snug">
-                    {n.data.reason}
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-neutral-500 font-mono mt-1 break-all" title={n.id}>
-                    {n.id.startsWith("0x")
-                      ? `${n.id.slice(0, 10)}...${n.id.slice(-4)}`
-                      : n.id.length > 20
-                      ? `${n.id.slice(0, 16)}...`
-                      : n.id}
-                  </div>
-                )}
-              </div>
-            ),
-            rawNode: n,
-          },
-          position: { x: xPos, y: yPos },
-          style: {
-            background: bg,
-            color: isNotObserved ? "#64748B" : "#0F172A",
-            border: `2px ${borderStyle} ${border}`,
-            borderRadius: "4px",
-            boxShadow: isNotObserved ? "none" : "0 2px 6px rgba(0,0,0,0.08)",
-            fontFamily: "monospace",
-            fontSize: "11px",
-            padding: "10px 12px",
-            width: NODE_WIDTH,
-            opacity: isNotObserved ? 0.85 : 1.0,
-          },
-        };
-      });
+          formattedNodes.push({
+            id: n.id,
+            type: "saNode",
+            position: { x: xPos, y: yPos },
+            data: {
+              tier,
+              entityType: n.type,
+              typeLabel: tierLabels[tier] || n.type,
+              evidenceState: evState,
+              isNotObserved,
+              isInferred,
+              label: n.label || n.type,
+              reason: n.data?.reason,
+              rawNode: n,
+            },
+          });
+        });
+      }
+
+      // Ensure no nodes are placed higher than padding margin
+      const minY = Math.min(...formattedNodes.map((n) => n.position.y));
+      if (minY < 40) {
+        const offset = 40 - minY;
+        formattedNodes.forEach((n) => {
+          n.position.y += offset;
+        });
+      }
 
       const formattedEdges: Edge[] = saGraph.edges.map((e) => {
         const isDashed = unobservedNodeIds.has(e.source) || unobservedNodeIds.has(e.target);
+        const strokeColor = isDark
+          ? isDashed ? "#52525B" : "#71717A"
+          : isDashed ? "#94A3B8" : "#64748B";
+
         return {
           id: e.id,
           source: e.source,
           target: e.target,
           label: e.label,
           type: "smoothstep",
+          pathOptions: { borderRadius: 12 },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 12,
+            height: 12,
+            color: strokeColor,
+          },
           style: {
-            stroke: isDashed ? "#94A3B8" : "#64748B",
+            stroke: strokeColor,
             strokeWidth: isDashed ? 1.5 : 2,
             strokeDasharray: isDashed ? "5,5" : undefined,
           },
           labelStyle: {
-            fill: isDashed ? "#64748B" : "#0F172A",
-            fontSize: 10,
+            fill: isDark
+              ? isDashed ? "#A1A1AA" : "#F4F4F5"
+              : isDashed ? "#64748B" : "#0F172A",
+            fontSize: 8.5,
             fontFamily: "ui-monospace, monospace",
             fontWeight: 700,
-            letterSpacing: "0.04em",
+            letterSpacing: "0.03em",
           },
           labelBgStyle: {
-            fill: "#FFFFFF",
+            fill: isDark ? "#141416" : "#FFFFFF",
             fillOpacity: 0.98,
-            stroke: isDashed ? "#CBD5E1" : "#94A3B8",
-            strokeWidth: 1.5,
+            stroke: isDark
+              ? isDashed ? "#3F3F46" : "#52525B"
+              : isDashed ? "#CBD5E1" : "#94A3B8",
+            strokeWidth: 1,
             rx: 4,
             ry: 4,
           },
-          labelBgPadding: [8, 4] as [number, number],
+          labelBgPadding: [6, 2.5] as [number, number],
         };
       });
 
       setNodes(formattedNodes);
       setEdges(formattedEdges);
     }
-  }, [saGraph, setNodes, setEdges]);
+  }, [saGraph, isDark, setNodes, setEdges]);
 
   const onNodeClick = (_: any, node: Node) => {
     const raw = (node.data as any)?.rawNode;
@@ -299,60 +567,136 @@ export default function SecurityAssociationExplorerPage({
               Traversing SA session graph and directional SPI associations...
             </div>
           ) : viewMode === "graph" ? (
-            <Card title="SA Topology DAG (Hierarchical Layout)">
-              {/* Legend Row */}
-              <div className="p-3 bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 space-y-2 text-[10px] font-mono">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-neutral-500 font-bold uppercase">5-Level Hierarchy:</span>
-                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">1. Peer</span>
-                    <span className="text-neutral-400">→</span>
-                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">2. IKE Session</span>
-                    <span className="text-neutral-400">→</span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">3. IKE SA</span>
-                    <span className="text-neutral-400">→</span>
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">4. Child SA</span>
-                    <span className="text-neutral-400">→</span>
-                    <span className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200">5. ESP Flow</span>
-                  </div>
-                  <span className="text-neutral-400">Click node for inspection details</span>
+            <Card
+              title="SA & ESP Flow Topology Pipeline"
+              actions={
+                <button
+                  onClick={() => rfInstance?.fitView({ padding: 0.15, duration: 400 })}
+                  className="flex items-center space-x-1 px-2.5 py-1 text-[11px] font-mono font-medium border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#18181B] hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors shadow-xs"
+                  title="Fit all topology nodes into viewport"
+                >
+                  <Maximize2 className="w-3 h-3 text-[#FF3D00]" />
+                  <span>Fit View</span>
+                </button>
+              }
+            >
+              {/* Summary Metric Strip */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 px-4 py-2 bg-neutral-100/60 dark:bg-[#101013] border-b border-neutral-200 dark:border-neutral-800 text-xs font-mono">
+                <div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-semibold">Peers</div>
+                  <div className="font-bold text-neutral-800 dark:text-neutral-200">{tierCounts.peers}</div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-neutral-200 dark:border-neutral-800 text-[10px]">
-                  <span className="text-neutral-500 font-bold uppercase">Evidence States:</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-emerald-50 border border-emerald-500 inline-block"></span>
-                    <span className="text-neutral-700 dark:text-neutral-300">Observed in PCAP</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-amber-50 border border-amber-500 inline-block"></span>
-                    <span className="text-neutral-700 dark:text-neutral-300">Inferred / Synthesized</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-slate-100 border border-dashed border-slate-400 inline-block"></span>
-                    <span className="text-neutral-700 dark:text-neutral-300">Not Observed (Missing from Capture)</span>
+                <div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-semibold">Sessions</div>
+                  <div className="font-bold text-neutral-800 dark:text-neutral-200">{tierCounts.sessions}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-semibold">IKE SAs</div>
+                  <div className="font-bold text-neutral-800 dark:text-neutral-200">{tierCounts.ikeSas}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-semibold">Child SAs</div>
+                  <div className="font-bold text-neutral-800 dark:text-neutral-200">{tierCounts.childSas}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-semibold">ESP Flows</div>
+                  <div className="font-bold text-neutral-800 dark:text-neutral-200">{tierCounts.flows}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-semibold">Observed</div>
+                  <div className="font-bold text-emerald-700 dark:text-emerald-400">
+                    {tierCounts.observed} / {tierCounts.total}
                   </div>
                 </div>
               </div>
 
-              <div className="h-[620px] w-full border border-neutral-200 dark:border-neutral-800 bg-[#F8FAFC] dark:bg-[#111113] rounded-b relative">
+              {/* Refined Dual-Section Legend Bar: Pipeline Stages & Evidence States */}
+              <div className="px-4 py-2.5 bg-neutral-50/90 dark:bg-[#141417] border-b border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                {/* Left: 5-Stage Hierarchy Pipeline */}
+                <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                  <span className="text-neutral-400 dark:text-neutral-500 uppercase font-bold text-[10px] mr-1">
+                    PIPELINE STAGES:
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 font-semibold">1. Peer</span>
+                  <span className="text-neutral-400 dark:text-neutral-600">→</span>
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 font-semibold">2. IKE Session</span>
+                  <span className="text-neutral-400 dark:text-neutral-600">→</span>
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 font-semibold">3. IKE SA</span>
+                  <span className="text-neutral-400 dark:text-neutral-600">→</span>
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 font-semibold">4. Child SA</span>
+                  <span className="text-neutral-400 dark:text-neutral-600">→</span>
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 font-semibold">5. ESP Flow</span>
+                </div>
+
+                {/* Right: Evidence Encoding (3 distinct states) */}
+                <div className="flex items-center gap-3 text-[11px] flex-wrap">
+                  <span className="text-neutral-400 dark:text-neutral-500 uppercase font-bold text-[10px]">
+                    EVIDENCE:
+                  </span>
+                  <div className="flex items-center gap-1.5" title="Directly observed in captured packet frames">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span className="text-neutral-700 dark:text-neutral-300 font-medium">Observed in PCAP</span>
+                  </div>
+                  <div className="flex items-center gap-1.5" title="Inferred or synthesized from correlated IPsec traffic">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span className="text-neutral-700 dark:text-neutral-300 font-medium">Inferred / Synthesized</span>
+                  </div>
+                  <div className="flex items-center gap-1.5" title="Absent from packet capture (e.g. handshake occurred before capture)">
+                    <span className="w-2 h-2 rounded-full border border-dashed border-neutral-400 dark:border-neutral-500 bg-neutral-200/50 dark:bg-neutral-800"></span>
+                    <span className="text-neutral-500 dark:text-neutral-400 italic">Not Observed (Missing)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* React Flow Canvas */}
+              <div className="h-[500px] w-full bg-[#F8FAFC] dark:bg-[#0D0D11] rounded-b relative overflow-hidden">
                 {nodes.length > 0 ? (
                   <ReactFlow
                     nodes={nodes}
                     edges={edges}
+                    nodeTypes={nodeTypes}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onNodeClick={onNodeClick}
+                    onInit={(instance) => setRfInstance(instance)}
+                    colorMode={isDark ? "dark" : "light"}
                     fitView
-                    fitViewOptions={{ padding: 0.15 }}
-                    minZoom={0.2}
+                    fitViewOptions={{ padding: 0.10, includeHiddenNodes: false }}
+                    minZoom={0.25}
                     maxZoom={2.0}
+                    defaultEdgeOptions={{ type: "smoothstep" }}
                   >
-                    <Background color="#CBD5E1" gap={20} size={1} />
-                    <Controls className="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 shadow-sm" />
+                    <Background
+                      color={isDark ? "#27272A" : "#CBD5E1"}
+                      gap={22}
+                      size={1}
+                    />
+                    <Controls
+                      position="bottom-left"
+                      showInteractive={false}
+                      className={`!border rounded shadow-md font-mono text-xs ${
+                        isDark
+                          ? "!bg-[#18181B] !border-neutral-700 !text-neutral-200 fill-neutral-200 [&_button]:!bg-[#18181B] [&_button]:!border-neutral-700 [&_button]:!fill-neutral-300 [&_button:hover]:!bg-neutral-800"
+                          : "!bg-white !border-neutral-300 !text-neutral-700 fill-neutral-700 [&_button]:!bg-white [&_button]:!border-neutral-200 [&_button]:!fill-neutral-600 [&_button:hover]:!bg-neutral-100"
+                      }`}
+                    />
                     <MiniMap
-                      nodeColor="#FF3D00"
-                      maskColor="rgba(240,244,248,0.7)"
-                      style={{ background: "#FFFFFF", border: "1px solid #CBD5E1" }}
+                      position="bottom-right"
+                      nodeColor={(n) => {
+                        const raw = (n.data as any)?.rawNode;
+                        const ev = raw?.data?.evidence_state || "";
+                        if (ev === "NOT_OBSERVED" || n.id.includes("unobserved")) return isDark ? "#3F3F46" : "#94A3B8";
+                        if (ev.includes("INFERRED")) return "#F59E0B";
+                        return "#10B981";
+                      }}
+                      maskColor={isDark ? "rgba(13, 13, 17, 0.75)" : "rgba(240, 244, 248, 0.65)"}
+                      style={{
+                        background: isDark ? "#141417" : "#FFFFFF",
+                        border: isDark ? "1px solid #333338" : "1px solid #CBD5E1",
+                        borderRadius: "4px",
+                        width: 140,
+                        height: 80,
+                      }}
                     />
                   </ReactFlow>
                 ) : (

@@ -132,8 +132,8 @@ export default function VulnerabilityReportsPage() {
               Supplemental Evidence
             </span>
           </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Import and correlate external vulnerability scans as supplemental evidence. Does not alter deterministic packet-verified policy scores.
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-2xl leading-relaxed">
+            <strong className="text-neutral-700 dark:text-neutral-300">Purpose & Data Boundary:</strong> Ingests external Greenbone / OpenVAS XML vulnerability reports as supplemental observational context. Correlates CVEs with observed VPN gateways without altering deterministic packet-derived policy scores.
           </p>
         </div>
 
@@ -199,7 +199,37 @@ export default function VulnerabilityReportsPage() {
 
       {/* TAB 1: IMPORT & PREVIEW */}
       {activeTab === "import" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="space-y-6">
+          {/* 4-Step Ingestion & Correlation Sequence */}
+          <div className="p-4 bg-neutral-50/80 dark:bg-[#141416] border border-neutral-200 dark:border-neutral-800">
+            <div className="text-[11px] font-mono font-bold uppercase text-neutral-500 mb-2">
+              Vulnerability Ingestion & Correlation Sequence:
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <div className="p-2.5 bg-white dark:bg-[#19191c] border border-neutral-200 dark:border-neutral-800 rounded">
+                <span className="font-bold text-[#FF3D00] mr-1.5">1.</span>
+                <span className="font-bold text-neutral-800 dark:text-neutral-200">Load XML File:</span>
+                <div className="text-[10px] text-neutral-500 mt-1">Select an exported Greenbone/OpenVAS XML file or sample report.</div>
+              </div>
+              <div className="p-2.5 bg-white dark:bg-[#19191c] border border-neutral-200 dark:border-neutral-800 rounded">
+                <span className="font-bold text-[#FF3D00] mr-1.5">2.</span>
+                <span className="font-bold text-neutral-800 dark:text-neutral-200">Preview & Attest:</span>
+                <div className="text-[10px] text-neutral-500 mt-1">Generate deterministic preview, parse target hosts, and confirm operator authorization.</div>
+              </div>
+              <div className="p-2.5 bg-white dark:bg-[#19191c] border border-neutral-200 dark:border-neutral-800 rounded">
+                <span className="font-bold text-[#FF3D00] mr-1.5">3.</span>
+                <span className="font-bold text-neutral-800 dark:text-neutral-200">Ingest to DB:</span>
+                <div className="text-[10px] text-neutral-500 mt-1">Persist findings to local operational database with parsed CVEs and QoD ratings.</div>
+              </div>
+              <div className="p-2.5 bg-white dark:bg-[#19191c] border border-neutral-200 dark:border-neutral-800 rounded">
+                <span className="font-bold text-[#FF3D00] mr-1.5">4.</span>
+                <span className="font-bold text-neutral-800 dark:text-neutral-200">Correlate Context:</span>
+                <div className="text-[10px] text-neutral-500 mt-1">View correlated findings alongside packet evidence without modifying policy scores.</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Upload & Attestation Form */}
           <div className="lg:col-span-6 space-y-4">
             <Card title="Upload Greenbone XML Report">
@@ -213,15 +243,85 @@ export default function VulnerabilityReportsPage() {
 
                 {/* File Select */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
-                    Report Artifact (.xml)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                      Report Artifact (.xml)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>
+<report id="d1a8c880-9943-41dc-b114-1e03c27e4e11" format_id="a994b278-1f62-11e1-96ac-406186ea4fc5" extension="xml" type="scan" version="2.0">
+  <task id="t-9921-prod-ike">
+    <name>Weekly IPsec Gateway Vulnerability Audit</name>
+  </task>
+  <scan_run_status>done</scan_run_status>
+  <scan_start>2026-09-24T18:00:00Z</scan_start>
+  <scan_end>2026-09-24T18:15:30Z</scan_end>
+  <ports max="1000" start="1"/>
+  <results>
+    <result id="res-001">
+      <name>strongSwan IKE Daemon Buffer Overflow</name>
+      <host>198.51.100.1<asset asset_id="ast-01"/></host>
+      <port>500/udp</port>
+      <nvt oid="1.3.6.1.4.1.25623.1.0.108001">
+        <name>strongSwan IKE Daemon Buffer Overflow</name>
+        <family>Buffer overflow</family>
+        <cvss_base>7.5</cvss_base>
+        <cve>CVE-2023-41913</cve>
+        <cpe>cpe:/a:strongswan:strongswan:5.9.8</cpe>
+        <solution type="VendorFix">Upgrade strongSwan to 5.9.11 or later.</solution>
+        <qod>
+          <value>80</value>
+          <type>remote_banner</type>
+        </qod>
+      </nvt>
+      <threat>High</threat>
+      <severity>7.5</severity>
+      <description>The remote strongSwan IKE daemon is vulnerable to denial of service.</description>
+    </result>
+    <result id="res-002">
+      <name>IKE Weak Transform Proposal Accepted</name>
+      <host>198.51.100.1</host>
+      <port>4500/udp</port>
+      <nvt oid="1.3.6.1.4.1.25623.1.0.108002">
+        <name>IKE Weak Transform Proposal Accepted</name>
+        <family>General</family>
+        <cvss_base>4.3</cvss_base>
+        <cve>CVE-2021-39900</cve>
+        <solution type="Workaround">Disable 3DES cipher suites in ipsec.conf.</solution>
+        <qod>
+          <value>70</value>
+          <type>remote_probe</type>
+        </qod>
+      </nvt>
+      <threat>Medium</threat>
+      <severity>4.3</severity>
+      <description>The remote gateway accepts legacy 3DES encryption transforms.</description>
+    </result>
+  </results>
+</report>`;
+                        const blob = new Blob([sampleXml], { type: "text/xml" });
+                        const file = new File([blob], "sample_greenbone_audit.xml", { type: "text/xml" });
+                        setSelectedFile(file);
+                        setHasConfirmedAttestation(true);
+                      }}
+                      className="text-[10px] font-mono text-[#FF3D00] hover:underline cursor-pointer"
+                    >
+                      Load Sample OpenVAS XML
+                    </button>
+                  </div>
                   <input
                     type="file"
                     accept=".xml"
                     onChange={handleFileChange}
                     className="block w-full text-xs text-neutral-500 file:mr-4 file:py-1.5 file:px-3 file:border file:border-neutral-300 dark:file:border-neutral-700 file:text-xs file:font-mono file:bg-neutral-100 dark:file:bg-neutral-800 file:text-neutral-800 dark:file:text-neutral-200 cursor-pointer bg-white dark:bg-[#111113] border border-neutral-300 dark:border-neutral-700 p-2 font-mono"
                   />
+                  {selectedFile && (
+                    <div className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                      Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                  )}
                   <p className="text-[11px] text-neutral-500 font-mono">
                     Accepts Greenbone/OpenVAS XML report export or GMP &lt;get_reports_response&gt; envelope.
                   </p>
@@ -410,6 +510,7 @@ export default function VulnerabilityReportsPage() {
             )}
           </div>
         </div>
+      </div>
       )}
 
       {/* TAB 2: REPORTS LIST */}

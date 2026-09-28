@@ -307,28 +307,34 @@ class MonitoringService:
                 )
                 db.add(event_record)
 
-                # 9. Update Sensor Health Projection
-                health_state.total_events_received += 1
-                health_state.last_source_timestamp = src_time
-                health_state.last_received_at = now_utc
-                health_state.clock_skew_seconds = clock_skew
-                health_state.active_quality_warnings = quality_warnings
+                # 9. Update Sensor Health Projection ONLY for non-synthetic events
+                is_synthetic = (
+                    event_dto.evidence_grade == EvidenceGrade.SYNTHETIC
+                    or bool(event_dto.payload and event_dto.payload.get("is_synthetic_test"))
+                )
 
-                # Health state transition
-                if event_dto.event_kind == EventKind.CAPTURE_FAILED:
-                    health_state.current_health = SensorHealthStatus.UNAVAILABLE.value
-                    health_state.health_reason = f"Capture sensor fatal error: {event_dto.failure_reason or 'Capture process failure'}"
-                elif quality_warnings:
-                    health_state.current_health = SensorHealthStatus.DEGRADED.value
-                    health_state.health_reason = f"Degraded telemetry: {', '.join(quality_warnings)}"
-                else:
-                    health_state.current_health = SensorHealthStatus.HEALTHY.value
-                    health_state.health_reason = "Telemetry streaming normally; 0 drops, 0 sequence gaps"
+                if not is_synthetic:
+                    health_state.total_events_received += 1
+                    health_state.last_source_timestamp = src_time
+                    health_state.last_received_at = now_utc
+                    health_state.clock_skew_seconds = clock_skew
+                    health_state.active_quality_warnings = quality_warnings
 
-                health_state.updated_at = now_utc
+                    # Health state transition
+                    if event_dto.event_kind == EventKind.CAPTURE_FAILED:
+                        health_state.current_health = SensorHealthStatus.UNAVAILABLE.value
+                        health_state.health_reason = f"Capture sensor fatal error: {event_dto.failure_reason or 'Capture process failure'}"
+                    elif quality_warnings:
+                        health_state.current_health = SensorHealthStatus.DEGRADED.value
+                        health_state.health_reason = f"Degraded telemetry: {', '.join(quality_warnings)}"
+                    else:
+                        health_state.current_health = SensorHealthStatus.HEALTHY.value
+                        health_state.health_reason = "Telemetry streaming normally; 0 drops, 0 sequence gaps"
 
-                # 10. Update Monitored SA State Projection
-                await MonitoringService._project_sa_state(db, event_dto, src_time)
+                    health_state.updated_at = now_utc
+
+                    # 10. Update Monitored SA State Projection
+                    await MonitoringService._project_sa_state(db, event_dto, src_time)
 
                 accepted_count += 1
 
@@ -342,6 +348,8 @@ class MonitoringService:
                     "initiator_spi": event_dto.initiator_spi,
                     "child_spi_in": event_dto.child_spi_in,
                     "raw_source_status": event_dto.raw_source_status,
+                    "is_synthetic": is_synthetic,
+                    "label": "DEMO / SYNTHETIC TEST PULSE — NOT OBSERVED TELEMETRY" if is_synthetic else "OBSERVED GATEWAY TELEMETRY",
                 })
 
             except Exception as exc:

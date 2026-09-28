@@ -170,6 +170,11 @@ class AnalysisListItemDTO(BaseModel):
     is_outdated_version: bool = False
     is_archived: bool = False
     is_synthetic_demo: bool = False
+    packet_count: int | None = None
+    flows_count: int | None = None
+    ike_sessions_count: int | None = None
+    unknown_controls: int | None = None
+    model_artifact_state: str = "EXPERIMENTAL"
 
 
 class TrafficFlowItemDTO(BaseModel):
