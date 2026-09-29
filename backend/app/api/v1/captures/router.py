@@ -28,6 +28,14 @@ class SampleCaptureDTO(BaseModel):
     provenance: str
 
 
+def _find_repo_root() -> Path:
+    current = Path(__file__).resolve()
+    for p in current.parents:
+        if (p / "tests" / "fixtures").exists() or (p / "pytest.ini").exists():
+            return p
+    return Path(".")
+
+
 SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
     "real_tunnel_gcm": {
         "sample_id": "real_tunnel_gcm",
@@ -50,6 +58,50 @@ SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
         "format": "PCAP",
         "sha256": "76b74be5fc6e60d931c1bcf959360c84b59d7f70bada30b46af8938bff339bdd",
         "provenance": "Subset of frames 5-12 isolating encrypted data plane encapsulation",
+    },
+    "sample_cbc_nopfs": {
+        "sample_id": "sample_cbc_nopfs",
+        "filename": "sample_cbc_nopfs.pcap",
+        "rel_path": "tests/fixtures/captures/sample_cbc_nopfs.pcap",
+        "title": "IKEv2 Tunnel Mode (AES-256-CBC / DH14 / No PFS)",
+        "description": "Authentic strongSwan tunnel with Perfect Forward Secrecy disabled. Triggers policy audit evaluation for non-PFS rekeying exposure.",
+        "packet_count": 12,
+        "format": "PCAP",
+        "sha256": "14782b9996945e3f5c82b48d2ea4596dd730ede00cae7f791bdb053daca804b2",
+        "provenance": "dual-strongSwan namespace benchmark capture from scn-02-tunnel-v4-cbc-nopfs",
+    },
+    "strongswan_natt_udp4500": {
+        "sample_id": "strongswan_natt_udp4500",
+        "filename": "03_strongswan_natt_udp4500.pcap",
+        "rel_path": "tests/fixtures/verification_captures/03_strongswan_natt_udp4500.pcap",
+        "title": "NAT-Traversal UDP Port 4500 Tunnel",
+        "description": "RFC 3948 UDP-encapsulated ESP tunnel passing through NAT boundary with Non-ESP marker detection.",
+        "packet_count": 12,
+        "format": "PCAP",
+        "sha256": "7b63a0fd455202ac286de8d5c1dd8e499fc988680b9bdcb6c8afe6567f7f21fa",
+        "provenance": "dual-strongSwan namespace test with iptables NAT-T port 4500 mapping",
+    },
+    "edge_esp_seq_jump_replay": {
+        "sample_id": "edge_esp_seq_jump_replay",
+        "filename": "10_edge_esp_seq_jump_replay.pcap",
+        "rel_path": "tests/fixtures/verification_captures/10_edge_esp_seq_jump_replay.pcap",
+        "title": "Anti-Replay Anomaly & Sequence Number Jump",
+        "description": "Synthesized sequence number regression testing RFC 4303 anti-replay window protection and replay attack alerting.",
+        "packet_count": 12,
+        "format": "PCAP",
+        "sha256": "f0cb561a3be595b59b21aac8f67b746251370faa105d91e0c5b31886ea879790",
+        "provenance": "Mutated ESP sequence number sequence testing anti-replay integrity checks",
+    },
+    "plaintext_icmp_control": {
+        "sample_id": "plaintext_icmp_control",
+        "filename": "04_plaintext_icmp_non_ipsec.pcap",
+        "rel_path": "tests/fixtures/verification_captures/04_plaintext_icmp_non_ipsec.pcap",
+        "title": "Plaintext ICMP Traffic (Negative Control)",
+        "description": "Non-IPsec network traffic used to verify negative control validation and automatic capture rejection.",
+        "packet_count": 10,
+        "format": "PCAP",
+        "sha256": "b37aa527dd51c80a1b003cc305f56bc77f53ba44da0ec3d4144fc29efb1ad61c",
+        "provenance": "Baseline client plaintext echo request/reply capture without IPsec transforms",
     },
 }
 
@@ -94,7 +146,7 @@ async def ingest_sample_capture(
             detail=f"Sample fixture '{sample_id}' not found. Available: {list(SAMPLE_FIXTURES.keys())}",
         )
     fix_meta = SAMPLE_FIXTURES[sample_id]
-    repo_root = Path(__file__).resolve().parents[5]
+    repo_root = _find_repo_root()
     file_path = repo_root / fix_meta["rel_path"]
     if not file_path.exists():
         raise HTTPException(

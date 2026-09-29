@@ -37,7 +37,7 @@ COPY backend /app/backend
 COPY policies /app/policies
 COPY models /app/models
 COPY knowledge /app/knowledge
-COPY tests/fixtures/captures /app/tests/fixtures/captures
+COPY tests/fixtures /app/tests/fixtures
 
 # 5. Create storage directories and set permissions for non-root execution
 RUN mkdir -p /app/storage/captures /app/storage/reports /app/storage/tmp /app/captures/golden && \

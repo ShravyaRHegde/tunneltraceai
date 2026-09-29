@@ -99,6 +99,22 @@
         "esp_packet_count": 8,
         "crypto_observations_count": 0
       }
+    },
+    {
+      "fixture_id": "FIX-CBC-NOPFS-01",
+      "filename": "sample_cbc_nopfs.pcap",
+      "path": "tests/fixtures/captures/sample_cbc_nopfs.pcap",
+      "format": "PCAP",
+      "sha256": "14782b9996945e3f5c82b48d2ea4596dd730ede00cae7f791bdb053daca804b2",
+      "file_size_bytes": 3264,
+      "packet_count": 12,
+      "scenario": "scn-02-tunnel-v4-cbc-nopfs",
+      "expected_facts": {
+        "ipsec_detected": true,
+        "ike_version": "IKEv2",
+        "transforms": ["AES-CBC-256", "AUTH_HMAC_SHA2_256_128", "MODP-2048 (DH14)"],
+        "pfs": "DISABLED"
+      }
     }
   ]
 }
