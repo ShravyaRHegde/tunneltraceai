@@ -685,10 +685,17 @@ async def get_analysis_traffic(
 
     ml_run_status = current_run.status if current_run else ("NO_FLOWS" if not flows else "NOT_CONFIGURED")
 
+    truly_classified = [
+        m for m in ml_records
+        if (m.input_status in ("VALID", "COMPLETE") or not m.input_status)
+        and getattr(m, "ood_status", "") == "KNOWN_ACCEPTED"
+        and m.final_class not in ("UNKNOWN", "UNAVAILABLE", "OUT_OF_DISTRIBUTION", "UNKNOWN_UNSEEN")
+    ]
+
     return TrafficSummaryResponseDTO(
         analysis_id=analysis_id,
         total_flows=len(flows),
-        classified_flows=current_run.classified_count if current_run else len(ml_records),
+        classified_flows=len(truly_classified),
         classes_detected=sorted(classes_detected),
         ood_count=ood_count,
         anomaly_count=anomaly_count,

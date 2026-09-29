@@ -124,11 +124,16 @@ export function ScoreDisplay({
   if (size === "lg") {
     return (
       <div className={`space-y-1 ${className}`}>
-        <div className="flex items-baseline space-x-2">
+        <div className="flex items-baseline space-x-2 flex-wrap">
           <span className={`text-3xl font-mono font-bold ${colorClass}`}>
             {numericScore}
           </span>
           <span className="text-sm font-mono text-neutral-400">/ 100</span>
+          {numericScore === 100 && covPct !== null && covPct < 99.0 && (
+            <span className="text-xs font-mono font-semibold text-amber-700 dark:text-amber-400">
+              (Assessed Rules Only · {formatCoverage(coverage)})
+            </span>
+          )}
         </div>
         {covPct !== null && (
           <p className="text-[11px] text-neutral-500 font-mono">

@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -66,7 +66,7 @@ async def get_liveness() -> LivenessResponse:
     summary="Application Readiness Probe",
     description="Evaluates connectivity to mandatory Stage-1 dependencies (PostgreSQL, Redis, Storage). Returns 200 if READY, 503 if NOT_READY.",
 )
-async def get_readiness(response: Response) -> ReadinessResponse:
+async def get_readiness(response: Response, request: Request) -> ReadinessResponse:
     """Readiness probe checking real PostgreSQL, Redis, and local storage connectivity."""
     # Check mandatory Stage-1 dependencies
     db_result = await check_database_health()
@@ -110,12 +110,12 @@ async def get_readiness(response: Response) -> ReadinessResponse:
             is_active = m_data.get("is_active", False)
             art_state = m_data.get("artifact_state", "EXPERIMENTAL")
             ml_status = {
-                "status": "READY" if is_active else "EXPERIMENTAL",
+                "status": "UP" if is_active else "NOT_CONFIGURED",
                 "bundle_id": m_data.get("bundle_id"),
                 "bundle_version": m_data.get("bundle_version"),
                 "artifact_state": art_state,
                 "is_active": is_active,
-                "note": "Production inference" if is_active else "Experimental model bundle; validation in progress",
+                "note": "Production inference" if is_active and art_state == "PRODUCTION" else "Experimental model bundle; validation in progress",
                 "stage": "STAGE_7",
             }
         else:
@@ -123,7 +123,10 @@ async def get_readiness(response: Response) -> ReadinessResponse:
     except Exception as exc:
         ml_status = {"status": "DEGRADED", "error": str(exc), "stage": "STAGE_7"}
 
-    is_dev = getattr(settings, "APP_ENV", "development") != "production"
+    app_settings = getattr(request.app.state, "settings", None) if (request and hasattr(request, "app") and hasattr(request.app, "state")) else None
+    active_settings = app_settings or settings
+    app_env_val = getattr(active_settings, "APP_ENV", None) or getattr(active_settings, "app_env", "development")
+    is_dev = str(app_env_val).lower() == "development"
     redis_up = redis_result.get("status") == "UP"
     queue_mode = "DISTRIBUTED_REDIS" if redis_up else ("IN_PROCESS_EAGER" if is_dev else "UNAVAILABLE")
 

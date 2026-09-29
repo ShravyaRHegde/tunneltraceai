@@ -57,10 +57,15 @@ class MockPrivilegedAgent(PrivilegedAgentClient):
             }
 
         elif action == "APPLY_CONFIG":
-            return {"applied_path": params.get("target_path"), "applied_hash": params.get("expected_hash"), "success": True}
+            return {
+                "applied_path": params.get("target_path"),
+                "applied_hash": params.get("expected_hash"),
+                "success": True,
+                "verified": True,
+            }
 
         elif action == "RELOAD_STRONGSWAN":
-            if self.should_fail_load:
+            if self.should_fail_load and "RESTORE_BACKUP" not in self.actions_called:
                 return {"load_success": False, "load_stdout": "Fatal syntax error in swanctl proposal"}
             return {"load_success": True, "load_stdout": "loaded 1 connection successfully"}
 
@@ -76,13 +81,23 @@ class MockPrivilegedAgent(PrivilegedAgentClient):
             return {"status": "CAPTURING", "session_id": params.get("session_id")}
 
         elif action == "STOP_LIVE_CAPTURE":
-            return {"status": "STOPPED", "pcap_path": "/tmp/mock.pcap"}
+            return {
+                "status": "STOPPED",
+                "pcap_path": "/tmp/mock.pcap",
+                "sha256": "mock_pcap_sha256_1234567890abcdef",
+                "file_size": 1024,
+            }
 
         elif action == "RUN_REMEDIATION_WORKLOAD":
             return {"success": True, "packets_transmitted": 3, "packets_received": 3}
 
         elif action == "RESTORE_BACKUP":
-            return {"restored": True, "target_path": params.get("target_path")}
+            return {
+                "restored": True,
+                "verified": True,
+                "target_path": params.get("target_path"),
+                "restored_sha256": params.get("expected_hash"),
+            }
 
         raise ValueError(f"Unhandled mock action: {action}")
 
@@ -162,23 +177,36 @@ async def test_closed_loop_runner_successful_execution():
         record_hash="hash-1",
     )
 
-
     # Configure db execute responses
     async def _mock_execute(query):
         mock_result = MagicMock()
         query_str = str(query)
         if "remediation_runs" in query_str and "WHERE remediation_runs.id =" in query_str:
             mock_result.scalar_one_or_none.return_value = run
+            mock_result.scalar_one.return_value = run
         elif "configuration_twins" in query_str:
             mock_result.scalar_one_or_none.return_value = twin
+            mock_result.scalar_one.return_value = twin
         elif "configuration_snapshots" in query_str:
             mock_result.scalar_one_or_none.return_value = hardened_snapshot
+            mock_result.scalar_one.return_value = hardened_snapshot
         elif "analysis_runs" in query_str:
             mock_result.scalar_one_or_none.return_value = analysis_run
+            mock_result.scalar_one.return_value = analysis_run
         elif "security_findings" in query_str:
-            mock_result.scalars.return_value.all.return_value = [finding]
+            if str(analysis_id) in query_str:
+                mock_result.scalars.return_value.all.return_value = [finding]
+            else:
+                mock_result.scalars.return_value.all.return_value = []
+        elif "protocol_observations" in query_str:
+            mock_obs = MagicMock()
+            mock_obs.field_name = "ike_sa.encryption_algorithm"
+            mock_obs.protocol = "ike_sa"
+            mock_obs.normalized_value = "AES256-GCM"
+            mock_result.scalars.return_value.all.return_value = [mock_obs]
         else:
             mock_result.scalar_one_or_none.return_value = None
+            mock_result.scalar_one.return_value = None
             mock_result.scalars.return_value.all.return_value = []
         return mock_result
 
@@ -200,6 +228,7 @@ async def test_closed_loop_runner_successful_execution():
     with (
         patch.object(LabResourceTracker, "acquire_lock") as mock_lock,
         patch.object(LabResourceTracker, "release_lock") as mock_unlock,
+        patch("app.services.pipeline.execute_full_analysis_pipeline", new_callable=AsyncMock),
     ):
         result_run = await runner.execute_closed_loop_run(
             db=db,

@@ -203,10 +203,10 @@ export default function AIAnalystPage({
           () =>
             reject(
               new Error(
-                "The AI assistant request timed out (20-second bounded limit). This may be due to complex evidence aggregation or local model latency. You can still inspect raw forensic findings directly in the Protocol, SA Explorer, or Evidence tabs."
+                "The AI assistant request timed out (50-second bounded limit). This may be due to complex evidence aggregation or local model latency. You can still inspect raw forensic findings directly in the Protocol, SA Explorer, or Evidence tabs."
               )
             ),
-          20000
+          50000
         )
       );
 

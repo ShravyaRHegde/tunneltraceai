@@ -1442,7 +1442,7 @@ export interface SystemReadinessDTO {
     tshark?: { status: string; version?: string; engine?: string; stage?: string };
     live_capture?: { status: string; stage?: string };
     privileged_agent?: { available: boolean; daemon_running?: boolean; error?: string };
-    ml_engine?: { status: string; stage?: string; reason?: string };
+    ml_engine?: { status: string; stage?: string; reason?: string; artifact_state?: string; bundle_version?: string };
     policy_engine?: { status: string; stage?: string };
     [key: string]: any;
   };

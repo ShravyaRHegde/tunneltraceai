@@ -87,7 +87,7 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
 
   return (
     <div
-      className={`w-[236px] p-2.5 rounded text-left transition-all duration-150 border select-none font-mono ${
+      className={`w-[216px] p-2.5 rounded text-left transition-all duration-150 border select-none font-mono ${
         isNotObserved
           ? "bg-neutral-50/85 dark:bg-[#121215] border-dashed border-neutral-400 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 opacity-85"
           : isInferred
@@ -374,9 +374,9 @@ export default function SecurityAssociationExplorerPage({
         return 2;
       };
 
-      const NODE_WIDTH = 236;
-      const HORIZ_GAP = 140;
-      const VERT_STEP = 145;
+      const NODE_WIDTH = 216;
+      const HORIZ_GAP = 70;
+      const VERT_STEP = 135;
 
       // Group nodes into distinct tiers
       const tiers: Record<number, any[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] };
@@ -387,7 +387,7 @@ export default function SecurityAssociationExplorerPage({
 
       // Align baseline center with Tier 0 (Peers) group
       const tier0Count = tiers[0].length || 1;
-      const calculatedCenter = 40 + ((tier0Count - 1) * VERT_STEP) / 2;
+      const calculatedCenter = 32 + ((tier0Count - 1) * VERT_STEP) / 2;
 
       // Unobserved node set for styling connected edges
       const unobservedNodeIds = new Set<string>();
@@ -417,7 +417,7 @@ export default function SecurityAssociationExplorerPage({
         const startY = calculatedCenter - ((count - 1) * VERT_STEP) / 2;
 
         nodesInTier.forEach((n, idx) => {
-          const xPos = 40 + tier * (NODE_WIDTH + HORIZ_GAP);
+          const xPos = 24 + tier * (NODE_WIDTH + HORIZ_GAP);
           const yPos = startY + idx * VERT_STEP;
 
           const evState = n.data?.evidence_state || (n as any).evidence_state || "";
@@ -649,7 +649,7 @@ export default function SecurityAssociationExplorerPage({
               </div>
 
               {/* React Flow Canvas */}
-              <div className="h-[500px] w-full bg-[#F8FAFC] dark:bg-[#0D0D11] rounded-b relative overflow-hidden">
+              <div className="h-[540px] w-full bg-[#F8FAFC] dark:bg-[#0D0D11] rounded-b relative overflow-hidden">
                 {nodes.length > 0 ? (
                   <ReactFlow
                     nodes={nodes}
@@ -661,9 +661,9 @@ export default function SecurityAssociationExplorerPage({
                     onInit={(instance) => setRfInstance(instance)}
                     colorMode={isDark ? "dark" : "light"}
                     fitView
-                    fitViewOptions={{ padding: 0.10, includeHiddenNodes: false }}
-                    minZoom={0.25}
-                    maxZoom={2.0}
+                    fitViewOptions={{ padding: 0.08, includeHiddenNodes: false }}
+                    minZoom={0.2}
+                    maxZoom={1.6}
                     defaultEdgeOptions={{ type: "smoothstep" }}
                   >
                     <Background

@@ -92,6 +92,11 @@ class EvidenceFirstRetrievalEngine:
         # Identify which rules are relevant to the query or findings in this analysis
         relevant_rules: set[str] = set(routing.entities.rule_ids)
 
+        if routing.intent == QueryIntent.PROTOCOL_EXPLANATION:
+            relevant_rules.update(["RULE-CIPHER-AEAD", "RULE-DH-GROUP", "RULE-ESP-ENCRYPTION", "RULE-IKE-V2"])
+        elif routing.intent == QueryIntent.SCORE_EXPLANATION:
+            relevant_rules.update(["RULE-IKE-V2", "RULE-CIPHER-AEAD"])
+
         # If findings were mentioned or exist in this analysis, pull their rule standards
         for item in fact_lock.items:
             if item.fact_type == "SECURITY_FINDING":

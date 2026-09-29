@@ -55,6 +55,9 @@ class GatewayCollector:
         output_dir: str = "./captures",
         interval: int = 10,
         mock_mode: bool = False,
+        max_pcap_files: int = 5,
+        max_pcap_mb: int = 50,
+        upload_on_stop: bool = False,
     ) -> None:
         self.api_url = api_url.rstrip("/")
         self.gateway_name = gateway_name
@@ -66,11 +69,62 @@ class GatewayCollector:
         self.output_dir = Path(output_dir)
         self.interval = interval
         self.mock_mode = mock_mode
+        self.max_pcap_files = max(1, max_pcap_files)
+        self.max_pcap_mb = max(1, max_pcap_mb)
+        self.upload_on_stop = upload_on_stop
         self.running = False
         self.sequence_number = 0
         self.session_id = str(uuid.uuid4())[:8]
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.enforce_retention()
+
+    def enforce_retention(self) -> list[Path]:
+        """Enforce strict local FIFO retention on PCAP files to protect router disk space."""
+        import hashlib
+        captures = sorted(
+            [p for p in self.output_dir.glob("*.pcap*") if p.is_file()],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        pruned: list[Path] = []
+        if len(captures) > self.max_pcap_files:
+            for old_file in captures[self.max_pcap_files:]:
+                try:
+                    old_file.unlink()
+                    pruned.append(old_file)
+                    logger.info("Enforced retention quota: pruned old capture %s", old_file.name)
+                except OSError as exc:
+                    logger.warning("Failed to prune old capture %s: %s", old_file.name, exc)
+
+        # Update local tamper-evident capture manifest
+        active_captures = [p for p in self.output_dir.glob("*.pcap*") if p.is_file()]
+        manifest_entries = []
+        for cap in sorted(active_captures, key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                size_b = cap.stat().st_size
+                manifest_entries.append({
+                    "filename": cap.name,
+                    "size_bytes": size_b,
+                    "modified_at": datetime.fromtimestamp(cap.stat().st_mtime, timezone.utc).isoformat(),
+                })
+            except OSError:
+                continue
+
+        manifest_file = self.output_dir / "capture_manifest.json"
+        try:
+            manifest_file.write_text(json.dumps({
+                "gateway": self.gateway_name,
+                "sensor_id": self.sensor_id,
+                "max_pcap_files": self.max_pcap_files,
+                "max_pcap_mb": self.max_pcap_mb,
+                "active_captures_count": len(manifest_entries),
+                "captures": manifest_entries,
+            }, indent=2), encoding="utf-8")
+        except OSError as exc:
+            logger.warning("Could not write capture manifest: %s", exc)
+
+        return pruned
 
     def check_prerequisites(self) -> dict[str, bool]:
         """Check for strongSwan tools, tshark/tcpdump, and raw socket permissions."""
@@ -189,17 +243,29 @@ class GatewayCollector:
                 "tshark",
                 "-i", self.interface,
                 "-f", BPF_FILTER,
+                "-b", f"filesize:{self.max_pcap_mb * 1024}",
+                "-b", f"files:{self.max_pcap_files}",
                 "-w", str(pcap_file),
             ]
-        else:
+        elif shutil.which("tcpdump"):
             # tcpdump expects BPF expression as positional argument, not preceded by -f
             cmd = [
                 "tcpdump",
                 "-i", self.interface,
+                "-C", str(self.max_pcap_mb),
+                "-W", str(self.max_pcap_files),
                 "-w", str(pcap_file),
                 BPF_FILTER,
             ]
-        logger.info("Launching IPsec capture process: %s", " ".join(cmd))
+        else:
+            logger.warning("Neither tshark nor tcpdump is available; skipping capture.")
+            return None
+        logger.info(
+            "Launching IPsec rolling capture (Ring buffer: %d files x %d MB): %s",
+            self.max_pcap_files,
+            self.max_pcap_mb,
+            " ".join(cmd),
+        )
         try:
             return subprocess.Popen(
                 cmd,
@@ -387,27 +453,48 @@ Examples:
     parser.add_argument("--gateway", default="strongswan-edge-router", help="Name/ID of the monitored VPN gateway")
     parser.add_argument("--gateway-id", help="UUID of registered MonitoredGateway (defaults to random UUID)")
     parser.add_argument("--sensor-id", help="UUID of registered MonitoredSensor (defaults to random UUID)")
-    parser.add_argument("--token", help="Secret authentication token issued by TunnelTrace for this sensor")
+    parser.add_argument(
+        "--token",
+        default=os.environ.get("SENSOR_TOKEN"),
+        help="Secret authentication token issued by TunnelTrace for this sensor (defaults to SENSOR_TOKEN env var)",
+    )
+    parser.add_argument(
+        "--token-file",
+        help="Path to protected file containing the secret authentication token (prevents process list exposure)",
+    )
     parser.add_argument("--scope", default="10.0.0.0/8", help="Authorized CIDR boundary or scope label")
     parser.add_argument("--api-url", default="http://127.0.0.1:8002/api/v1", help="TunnelTrace backend API URL")
     parser.add_argument("--interface", help="Network interface to capture (e.g. eth0, wan0)")
     parser.add_argument("--output-dir", default="./captures", help="Directory for rolling PCAPs and JSON telemetry")
     parser.add_argument("--interval", type=int, default=10, help="Heartbeat interval in seconds (default: 10)")
+    parser.add_argument("--pcap-max-files", type=int, default=5, help="Maximum number of rolling PCAP files to retain (FIFO)")
+    parser.add_argument("--pcap-max-mb", type=int, default=50, help="Maximum size in MB per rolling PCAP file before rotation")
     parser.add_argument("--mock", action="store_true", help="Run in mock mode for non-Linux or demonstration setups")
 
     args = parser.parse_args()
+
+    # Resolve token securely: --token CLI -> --token-file -> SENSOR_TOKEN env
+    resolved_token = args.token
+    if not resolved_token and args.token_file and os.path.exists(args.token_file):
+        try:
+            with open(args.token_file, "r", encoding="utf-8") as tf:
+                resolved_token = tf.read().strip()
+        except OSError as exc:
+            logger.warning("Could not read token from %s: %s", args.token_file, exc)
 
     collector = GatewayCollector(
         api_url=args.api_url,
         gateway_name=args.gateway,
         sensor_id=args.sensor_id,
         gateway_id=args.gateway_id,
-        token=args.token,
+        token=resolved_token,
         scope=args.scope,
         interface=args.interface,
         output_dir=args.output_dir,
         interval=args.interval,
         mock_mode=args.mock,
+        max_pcap_files=args.pcap_max_files,
+        max_pcap_mb=args.pcap_max_mb,
     )
 
     collector.check_prerequisites()

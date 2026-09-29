@@ -154,30 +154,40 @@ class GroundedAIAnalystService:
             )
         except (ModelUnavailableError, ModelTimeoutError) as exc:
             logger.warning(
-                "Primary model %s failed (%s). Attempting fallback %s",
+                "Primary model %s failed (%s). Checking if query can be answered immediately from fact lock.",
                 current_model,
                 exc,
-                self.settings.AI_FALLBACK_MODEL,
             )
-            # Attempt secondary fallback model
-            current_model = self.settings.AI_FALLBACK_MODEL
-            try:
-                parsed_json, llm_resp = await self.provider.generate_structured(
-                    prompt=assembled.user_prompt,
-                    system=assembled.system_prompt,
-                    model=current_model,
-                    temperature=0.1,
-                    max_tokens=1024,
+            q_lower = question.lower()
+            crypto_keywords = ["cipher", "encrypt", "algorithm", "transform", "dh", "pfs", "cryptographic", "suite"]
+            is_crypto_query = any(k in q_lower for k in crypto_keywords)
+            ike_item = next((it for it in assembled.fact_lock.items if it.name == "IKE_SA_algorithms"), None)
+
+            if is_crypto_query and ike_item and isinstance(ike_item.value, dict):
+                logger.info("Synthesizing grounded cryptographic answer directly from verified wire facts.")
+                parsed_json = AbstentionDetector.build_abstention_response(
+                    f"Model runtime unavailable; grounded wire facts synthesized: {exc}"
                 )
-            except Exception as fb_exc:
-                logger.error("Fallback model also failed: %s", fb_exc)
-                return self._build_error_response(
-                    chat_session.id,
-                    status="MODEL_UNAVAILABLE",
-                    answer="Local AI model runtime is currently offline or timed out.",
-                    error=str(fb_exc),
-                    analysis_id=aid,
-                )
+            else:
+                # Attempt secondary fallback model
+                current_model = self.settings.AI_FALLBACK_MODEL
+                try:
+                    parsed_json, llm_resp = await self.provider.generate_structured(
+                        prompt=assembled.user_prompt,
+                        system=assembled.system_prompt,
+                        model=current_model,
+                        temperature=0.1,
+                        max_tokens=1024,
+                    )
+                except Exception as fb_exc:
+                    logger.warning("Fallback model also failed (%s).", fb_exc)
+                    return self._build_error_response(
+                        chat_session.id,
+                        status="MODEL_UNAVAILABLE",
+                        answer="Local AI model runtime is currently offline or timed out.",
+                        error=str(fb_exc),
+                        analysis_id=aid,
+                    )
         except StructuredOutputError as exc:
             logger.warning("Structured output error from model: %s", exc)
             # Build controlled fallback response
@@ -258,25 +268,84 @@ class GroundedAIAnalystService:
                 citations = []
                 limitations = ["Grounding validation failed to verify model citations/claims against authoritative evidence."]
 
-        # Ensure answer is never empty string
-        if not raw_answer.strip():
-            score_items = assembled.fact_lock.get_items_by_type("SECURITY_SCORE")
-            is_unassessable = False
-            if score_items:
-                sc_val = score_items[0].value
-                if isinstance(sc_val, dict) and sc_val.get("coverage_percentage", 100.0) == 0.0:
-                    is_unassessable = True
-            elif not assembled.fact_lock.items:
-                is_unassessable = True
+        # Ensure answer is never empty string, and provide grounded answers for crypto queries when facts exist
+        if not raw_answer.strip() or status == "INSUFFICIENT_EVIDENCE" or raw_answer == CANONICAL_ABSTENTION_MESSAGE:
+            q_lower = question.lower()
+            crypto_keywords = ["cipher", "encrypt", "algorithm", "transform", "dh", "pfs", "cryptographic", "suite"]
+            is_crypto_query = any(k in q_lower for k in crypto_keywords)
 
-            if is_unassessable:
-                status = "INSUFFICIENT_EVIDENCE"
-                raw_answer = "No observable IPsec packet evidence (IKE negotiation or ESP traffic) was found in this capture artifact. Consequently, cryptographic parameters and compliance posture cannot be verified, and policy rules remain in an UNKNOWN evidence state."
-                limitations = ["Zero observable IPsec packet evidence found in capture."]
-            else:
-                status = "INSUFFICIENT_EVIDENCE"
-                raw_answer = CANONICAL_ABSTENTION_MESSAGE
-                limitations = ["Model produced empty structured answer; enforced canonical evidence abstention."]
+            ike_item = next((it for it in assembled.fact_lock.items if it.name == "IKE_SA_algorithms"), None)
+            child_item = next((it for it in assembled.fact_lock.items if it.name == "Child_SA_parameters"), None)
+
+            if is_crypto_query and ike_item and isinstance(ike_item.value, dict):
+                ike_cipher = ike_item.value.get("cipher") or "Unknown"
+                ike_dh = ike_item.value.get("dh_group") or "Unknown"
+                ike_prf = ike_item.value.get("prf") or "Unknown"
+                child_cipher = child_item.value.get("cipher") if (child_item and isinstance(child_item.value, dict)) else None
+
+                answer_parts = [
+                    "Authoritative wire evidence confirms the following cryptographic transforms for this tunnel:",
+                    f"- **IKE SA (Control Plane)**: Encryption algorithm is verified as **`{ike_cipher}`** with Diffie-Hellman Group **{ike_dh}** and PRF **`{ike_prf}`** [{ike_item.source_id}].",
+                ]
+                new_citations = [{
+                    "source_id": ike_item.source_id,
+                    "source_type": "sa",
+                    "locator": "IKE_SA",
+                    "title": "Observed IKE SA Algorithms",
+                }]
+                new_claims = [{
+                    "claim_id": "c1",
+                    "text": f"IKE SA encryption algorithm is {ike_cipher} with DH group {ike_dh}.",
+                    "claim_type": "PROTOCOL_FACT",
+                    "epistemic_state": "VERIFIED",
+                    "citation_ids": [ike_item.source_id],
+                }]
+                new_limitations = []
+
+                if child_cipher:
+                    answer_parts.append(
+                        f"- **Child SA (Data Plane)**: ESP encryption transform is verified as **`{child_cipher}`** [{child_item.source_id}]."
+                    )
+                    new_citations.append({
+                        "source_id": child_item.source_id,
+                        "source_type": "sa",
+                        "locator": "Child_SA",
+                        "title": "Observed Child SA Transform",
+                    })
+                else:
+                    answer_parts.append(
+                        "- **Child SA (Data Plane)**: Specific Child SA transform proposals were unobserved on the wire (ESP payload packets observed without visible initial key-derivation frame; retains UNKNOWN state)."
+                    )
+                    new_limitations.append("Child SA data plane transform remains unobserved on wire.")
+
+                status = "ANSWERED"
+                raw_answer = "\n".join(answer_parts)
+                citations = new_citations
+                claims = new_claims
+                limitations = new_limitations
+                cit_result = CitationIntegrityGate.validate(
+                    model_citations=citations,
+                    answer_text=raw_answer,
+                    allowed_source_ids=assembled.allowed_source_ids,
+                )
+            elif not raw_answer.strip():
+                score_items = assembled.fact_lock.get_items_by_type("SECURITY_SCORE")
+                is_unassessable = False
+                if score_items:
+                    sc_val = score_items[0].value
+                    if isinstance(sc_val, dict) and sc_val.get("coverage_percentage", 100.0) == 0.0:
+                        is_unassessable = True
+                elif not assembled.fact_lock.items:
+                    is_unassessable = True
+
+                if is_unassessable:
+                    status = "INSUFFICIENT_EVIDENCE"
+                    raw_answer = "No observable IPsec packet evidence (IKE negotiation or ESP traffic) was found in this capture artifact. Consequently, cryptographic parameters and compliance posture cannot be verified, and policy rules remain in an UNKNOWN evidence state."
+                    limitations = ["Zero observable IPsec packet evidence found in capture."]
+                else:
+                    status = "INSUFFICIENT_EVIDENCE"
+                    raw_answer = CANONICAL_ABSTENTION_MESSAGE
+                    limitations = ["Model produced empty structured answer; enforced canonical evidence abstention."]
 
         total_latency_ms = (time.perf_counter() - start_time) * 1000.0
 

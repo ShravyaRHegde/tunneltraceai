@@ -550,21 +550,23 @@ export default function TrafficIntelligencePage({
         <>
           {/* KPI Cards */}
           {(() => {
-            const isModelActive =
-              traffic.ml_run_status === "COMPLETED" && traffic.classified_flows > 0;
+            const isModelActive = traffic.ml_run_status === "COMPLETED";
 
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card title="Encrypted Flow Inference">
                   <div className="space-y-1 font-mono">
                     <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-                      {traffic.classified_flows} / {traffic.total_flows}
+                      {traffic.classified_flows} / {traffic.total_flows} Accepted
                     </div>
                     <p className="text-[11px] text-neutral-500">
-                      Run Status:{" "}
-                      <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                        {traffic.ml_run_status || "NOT_CONFIGURED"}
-                      </span>
+                      {traffic.ood_count > 0 ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                          {traffic.ood_count} flow(s) abstained as OOD
+                        </span>
+                      ) : (
+                        <span>Run Status: {traffic.ml_run_status || "NOT_CONFIGURED"}</span>
+                      )}
                     </p>
                   </div>
                 </Card>
@@ -576,7 +578,9 @@ export default function TrafficIntelligencePage({
                     </div>
                     <p className="text-[11px] text-neutral-500 truncate">
                       {isModelActive
-                        ? traffic.classes_detected?.join(", ") || "None"
+                        ? traffic.classes_detected && traffic.classes_detected.length > 0
+                          ? traffic.classes_detected.join(", ")
+                          : "None accepted (all flows OOD/abstained)"
                         : "Active model bundle not deployed"}
                     </p>
                   </div>
@@ -584,7 +588,7 @@ export default function TrafficIntelligencePage({
 
                 <Card title="OOD / Rejected Flows">
                   <div className="space-y-1 font-mono">
-                    <div className={`text-2xl font-bold ${isModelActive ? "text-amber-600" : "text-neutral-500 text-lg"}`}>
+                    <div className={`text-2xl font-bold ${isModelActive ? (traffic.ood_count > 0 ? "text-amber-600 dark:text-amber-400" : "text-neutral-900 dark:text-white") : "text-neutral-500 text-lg"}`}>
                       {isModelActive ? traffic.ood_count : "UNAVAILABLE"}
                     </div>
                     <p className="text-[11px] text-neutral-500">
@@ -597,12 +601,14 @@ export default function TrafficIntelligencePage({
 
                 <Card title="Behavioral Anomalies">
                   <div className="space-y-1 font-mono">
-                    <div className={`text-2xl font-bold ${isModelActive ? "text-rose-600" : "text-neutral-500 text-lg"}`}>
+                    <div className={`text-2xl font-bold ${isModelActive ? (traffic.anomaly_count > 0 ? "text-rose-600" : "text-neutral-900 dark:text-white") : "text-neutral-500 text-lg"}`}>
                       {isModelActive ? traffic.anomaly_count : "UNAVAILABLE"}
                     </div>
                     <p className="text-[11px] text-neutral-500">
                       {isModelActive
-                        ? "Statistical behavioral outliers (Not an attack signal)."
+                        ? traffic.anomaly_count > 0
+                          ? "Statistical behavioral outliers (Not an attack signal)."
+                          : "Zero behavioral timing/burst anomalies flagged."
                         : "Inference has not executed; anomaly scoring unavailable."}
                     </p>
                   </div>

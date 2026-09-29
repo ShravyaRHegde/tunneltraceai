@@ -336,7 +336,7 @@ function MonitoringContent() {
               {wsConnected
                 ? healthyCount > 0
                   ? `LIVE STREAMING (${liveEventCount})`
-                  : `WS CONNECTED · EDGE TELEMETRY INACTIVE (${liveEventCount})`
+                  : "WS CONNECTED (SENSOR IDLE / AWAITING TELEMETRY)"
                 : "POLLING LOOP (10s)"}
             </span>
           </div>
@@ -424,10 +424,13 @@ python scripts/gateway_collector.py \
   --gateway &quot;Perimeter-Gateway&quot; \
   --gateway-id &quot;&lt;GATEWAY_UUID&gt;&quot; \
   --sensor-id &quot;&lt;SENSOR_UUID&gt;&quot; \
-  --token &quot;$SENSOR_TOKEN&quot; \
   --scope &quot;10.0.0.0/8&quot; \
   --interface eth0
             </pre>
+            <p className="text-[10px] text-neutral-400 font-mono">
+              <strong className="text-neutral-300">Security Guarantee:</strong> SENSOR_TOKEN is read directly from the environment (or via <code className="text-emerald-400">--token-file</code>) to prevent secret leakage in process lists or /proc.
+              <strong className="text-neutral-300 ml-2">Local Retention:</strong> Rolling PCAPs remain locally on the gateway host in <code className="text-neutral-300">./captures</code>; raw captures are never uploaded without explicit operator authorization.
+            </p>
           </div>
           <div className="pt-0.5 flex flex-wrap items-center gap-3 text-[11px]">
             <span className="font-bold text-amber-950 dark:text-amber-100">Alternative:</span>
@@ -574,12 +577,12 @@ python scripts/gateway_collector.py \\
   --gateway "Perimeter-Gateway" \\
   --gateway-id "<GATEWAY_UUID>" \\
   --sensor-id "<SENSOR_UUID>" \\
-  --token "$SENSOR_TOKEN" \\
   --scope "10.0.0.0/8" \\
   --interface eth0`}
                 </div>
-                <div className="text-[10px] text-neutral-500 font-mono">
-                  Prerequisites: Linux kernel, root / CAP_NET_ADMIN, strongSwan (swanctl or ip xfrm), and reachable backend API.
+                <div className="text-[10px] text-neutral-500 font-mono space-y-0.5">
+                  <p><strong>Security:</strong> SENSOR_TOKEN is read directly from the environment or via <code className="text-emerald-500">--token-file</code> to prevent process list leakage.</p>
+                  <p><strong>Retention:</strong> Rolling PCAPs remain locally on gateway in <code className="text-neutral-400">./captures</code>; only authenticated telemetry events are forwarded to the API.</p>
                 </div>
               </div>
               {healthList.length > 0 && (

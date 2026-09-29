@@ -223,11 +223,11 @@ class Settings(BaseSettings):
         default="http://localhost:11434", description="Base URL for local Ollama runtime"
     )
     AI_PRIMARY_MODEL: str = Field(
-        default="gemma3:4b",
-        description="Primary local chat LLM (empirically benchmarked)",
+        default="qwen3:4b-instruct-2507-q4_K_M",
+        description="Primary local chat LLM (empirically benchmarked for fast structured generation)",
     )
     AI_FALLBACK_MODEL: str = Field(
-        default="qwen3:4b-instruct-2507-q4_K_M",
+        default="gemma3:4b",
         description="Secondary fallback local chat LLM",
     )
     AI_EMBEDDING_MODEL: str = Field(

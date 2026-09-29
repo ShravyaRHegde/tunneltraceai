@@ -173,8 +173,14 @@ export default function OverviewPage({
               Evaluated on observable packet evidence ({formatCoverage(security_posture.evidence_coverage)} coverage, {compliance_counts.unknown} unknown rules). Not a formal security certification.
             </p>
             {security_posture.score === 100 && security_posture.evidence_coverage !== undefined && security_posture.evidence_coverage < 1.0 && (
-              <div className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[10.5px] font-mono leading-tight">
-                <strong>0 Deductions:</strong> All {compliance_counts.pass || 6} evaluated checks passed; {compliance_counts.unknown || 1} check remains UNKNOWN due to unobserved wire evidence.
+              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[11px] font-mono leading-relaxed space-y-1">
+                <div className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Conditional Evaluation Notice</span>
+                </div>
+                <p>
+                  No deductions triggered among {compliance_counts.pass || 6} evaluated rules; {compliance_counts.unknown || 1} control unobserved on wire. Does not constitute proof of full tunnel security.
+                </p>
               </div>
             )}
             <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex justify-between text-[11px] font-mono">

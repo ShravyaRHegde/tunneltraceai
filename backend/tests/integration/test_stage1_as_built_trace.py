@@ -270,7 +270,8 @@ async def test_as_built_real_capture_end_to_end_trace(
 
     traffic_dto = await get_analysis_traffic(analysis_id, isolated_db)
     assert traffic_dto.total_flows == len(flows)
-    assert traffic_dto.classified_flows == len(flows)
+    assert traffic_dto.classified_flows == overview_dto.traffic_summary["classified_flows"]
+    assert traffic_dto.ood_count == 1
     assert len(traffic_dto.flows) == len(flows)
     assert traffic_dto.flows[0].final_class is not None
     assert traffic_dto.flows[0].calibrated_confidence is not None
