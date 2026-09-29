@@ -280,6 +280,25 @@ class AnalysisSnapshotBuilder:
                 seen_finding_keys.add(f_key)
                 findings.append(f)
 
+        # 7. Fetch Score, Risk, Threats, Fingerprintability
+        stmt_score = (
+            select(ScoreAssessmentModel)
+            .where(ScoreAssessmentModel.analysis_id == analysis_id)
+            .order_by(ScoreAssessmentModel.created_at.desc())
+        )
+        res_score = await self.db.execute(stmt_score)
+        score_row = res_score.scalars().first()
+
+        itemized_deductions = score_row.deduction_audit if (score_row and score_row.deduction_audit) else {}
+        audit_items = []
+        if isinstance(itemized_deductions, dict) and "audit" in itemized_deductions:
+            audit_items = itemized_deductions["audit"]
+        elif isinstance(itemized_deductions, list):
+            audit_items = itemized_deductions
+
+        deductions_by_id = {d.get("finding_id"): float(d.get("applied_deduction", 0.0)) for d in audit_items if isinstance(d, dict)}
+        deductions_by_rule = {d.get("rule_id"): float(d.get("applied_deduction", 0.0)) for d in audit_items if isinstance(d, dict)}
+
         findings_summary = {
             "total_findings": len(findings),
             "critical_count": sum(1 for f in findings if f.severity == "CRITICAL"),
@@ -293,7 +312,12 @@ class AnalysisSnapshotBuilder:
                     "title": f.title,
                     "severity": f.severity,
                     "category": f.category,
-                    "score_deduction": getattr(f, "score_deduction", 0.0) or 0.0,
+                    "score_deduction": (
+                        deductions_by_id.get(getattr(f, "finding_id", str(f.id)))
+                        or deductions_by_rule.get(f.rule_id)
+                        or (float(getattr(f, "score_deduction", 0.0)) if getattr(f, "score_deduction", None) is not None else 0.0)
+                        or (25.0 if f.severity == "CRITICAL" else 15.0 if f.severity == "HIGH" else 5.0 if f.severity == "MEDIUM" else 2.0 if f.severity == "LOW" else 0.0)
+                    ),
                     "affected_entity": getattr(f, "affected_entity", getattr(f, "affected_entity_id", "UNKNOWN")),
                     "technical_description": f.technical_description,
                     "remediation_guidance": getattr(f, "remediation_guidance", "N/A") or "N/A",
@@ -305,17 +329,7 @@ class AnalysisSnapshotBuilder:
             ],
         }
 
-        # 7. Fetch Score, Risk, Threats, Fingerprintability
-        stmt_score = (
-            select(ScoreAssessmentModel)
-            .where(ScoreAssessmentModel.analysis_id == analysis_id)
-            .order_by(ScoreAssessmentModel.created_at.desc())
-        )
-        res_score = await self.db.execute(stmt_score)
-        score_row = res_score.scalars().first()
-
         # Deductions reconciliation: if deduction_audit is empty or None but findings exist
-        itemized_deductions = score_row.deduction_audit if (score_row and score_row.deduction_audit) else {}
         if not itemized_deductions and findings:
             itemized_deductions = {
                 (f.rule_id or getattr(f, "finding_id", str(f.id))): float(

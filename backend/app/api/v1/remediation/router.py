@@ -220,6 +220,7 @@ async def _get_or_create_twin(
         sessions=sessions,
         child_sas=child_sas,
         flows=flows,
+        capture_filename=capture.original_filename if capture else None,
     )
 
     # Build Current Snapshot
@@ -283,21 +284,26 @@ async def _get_or_create_twin(
             existing_audit = existing_twin.projected_regression_audit or {}
             audit_baseline = existing_audit.get("baseline_score")
 
-            # Detect if existing twin cached UNKNOWN for fields that current_snapshot now proves are KNOWN
-            has_stale_unknowns = False
+            # Detect if existing twin cached values differing from current_snapshot (e.g. PFS state or UNKNOWNs)
+            has_stale_diff = False
             if existing_twin.semantic_diff:
                 for diff in existing_twin.semantic_diff:
                     field = diff.get("field")
-                    if diff.get("current_value") == "UNKNOWN" and hasattr(current_snapshot, field or ""):
-                        snap_val = getattr(current_snapshot, field or "")
-                        if hasattr(snap_val, "state") and snap_val.state.value == "KNOWN":
-                            has_stale_unknowns = True
+                    if field and hasattr(current_snapshot, field):
+                        snap_val = getattr(current_snapshot, field)
+                        curr_str = str(getattr(snap_val, "value", snap_val) or "").upper()
+                        diff_str = str(diff.get("current_value", "")).upper()
+                        if curr_str and diff_str and curr_str != diff_str:
+                            has_stale_diff = True
+                            break
+                        if diff.get("current_value") == "UNKNOWN" and hasattr(snap_val, "state") and snap_val.state.value == "KNOWN":
+                            has_stale_diff = True
                             break
 
             needs_reconcile = (
                 (audit_baseline != real_baseline_score)
                 or (not has_assessable_config and (existing_twin.projected_score is not None or existing_twin.projected_score_delta is not None))
-                or has_stale_unknowns
+                or has_stale_diff
             )
             if needs_reconcile:
                 proposed_ir = twin_engine.generate_remediation_proposal(current_snapshot, baseline_findings)

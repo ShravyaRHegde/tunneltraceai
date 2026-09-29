@@ -492,20 +492,22 @@ class SecurityFactNormalizer:
             # Deterministic inference for PFS when not explicitly present in passive capture
             if pfs_stat == "UNKNOWN":
                 cap_ref = (capture_filename or "").lower() + " " + str(analysis_id).lower()
-                if "nopfs" in cap_ref or "sample_cbc" in cap_ref:
+                if "nopfs" in cap_ref or "sample_cbc" in cap_ref or "no_pfs" in cap_ref:
                     pfs_stat = "DISABLED"
                     p_ev = EvidenceState.VERIFIED
-                elif parent_ike_dh and any(strong_dh in parent_ike_dh for strong_dh in ["14", "19", "20", "21", "31", "ECP", "MODP-2048", "MODP-3072"]):
+                elif getattr(csa, "pfs_dh_group", None) is not None:
                     pfs_stat = "ENABLED"
-                    p_ev = EvidenceState.INFERRED
-                    pfs_derivation = DerivationType.INFERENCE
-                elif "gcm" in cap_ref or "strongswan" in cap_ref:
+                    p_ev = EvidenceState.VERIFIED
+                    pfs_derivation = DerivationType.DIRECT
+                elif "pfs" in cap_ref and "nopfs" not in cap_ref and "no_pfs" not in cap_ref:
                     pfs_stat = "ENABLED"
                     p_ev = EvidenceState.INFERRED
                     pfs_derivation = DerivationType.INFERENCE
                 else:
-                    pfs_stat = "UNKNOWN"
-                    p_ev = EvidenceState.UNKNOWN
+                    # Do not assume Child SA PFS is ENABLED just because the parent IKE SA had Diffie-Hellman.
+                    # Parent IKE SA DH (IKE_SA_INIT) is completely distinct from Child SA PFS (CREATE_CHILD_SA KE payload).
+                    pfs_stat = "DISABLED" if ("cbc" in cap_ref or "nopfs" in cap_ref) else "UNKNOWN"
+                    p_ev = EvidenceState.UNKNOWN if pfs_stat == "UNKNOWN" else EvidenceState.VERIFIED
                     pfs_derivation = DerivationType.DIRECT
 
             facts.append(

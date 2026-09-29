@@ -73,6 +73,7 @@ class SecurityFindingDTO(BaseModel):
     observed_value: Any
     expected_requirement: Any
     evidence_state: str
+    score_deduction: float = 0.0
     remediation_guidance: str | None = None
     remediation_directive: str | None = None
     record_hash: str

@@ -14,7 +14,6 @@ import {
   Fingerprint,
   ListChecks,
   LayoutDashboard,
-  Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { formatRelativeTime } from "@/lib/format";

@@ -72,6 +72,15 @@ export interface AnalysisListItemDTO {
   risk_tier?: string | null;
   critical_findings: number;
   high_findings: number;
+  medium_findings?: number;
+  low_findings?: number;
+  total_findings?: number;
+  compliance_counts?: {
+    pass: number;
+    fail: number;
+    unknown: number;
+    not_applicable: number;
+  } | null;
   parent_analysis_id?: string | null;
   replay_mode?: string | null;
   provenance_metadata?: Record<string, any> | null;

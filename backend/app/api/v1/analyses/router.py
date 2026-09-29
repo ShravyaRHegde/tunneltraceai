@@ -47,7 +47,11 @@ from app.core.errors import AnalysisNotFoundError, CaptureNotFoundError
 from app.db.models.capture import AnalysisRun, Capture
 from app.db.models.ml import FlowClassification
 from app.db.models.reconstruction import ChildSecurityAssociation, ESPFlow, IKESession
-from app.db.models.security import ScoreAssessmentModel, SecurityFindingModel
+from app.db.models.security import (
+    ComplianceEvaluationModel,
+    ScoreAssessmentModel,
+    SecurityFindingModel,
+)
 from app.db.session import get_db_session
 from app.protocol.normalization.models import ProtocolSummaryDTO
 from app.protocol.service import ProtocolForensicsService
@@ -221,16 +225,40 @@ async def list_analyses(
     for rsk in risk_rows:
         risk_map[rsk.analysis_id] = rsk.overall_risk_tier
 
-    # Batch fetch findings counts
+    # Batch fetch findings counts (all severities)
     stmt_finds = select(SecurityFindingModel).where(SecurityFindingModel.analysis_id.in_(run_ids))
     find_rows = (await db.execute(stmt_finds)).scalars().all()
     crit_map: dict[uuid.UUID, int] = {}
     high_map: dict[uuid.UUID, int] = {}
+    med_map: dict[uuid.UUID, int] = {}
+    low_map: dict[uuid.UUID, int] = {}
     for f in find_rows:
-        if f.severity == "CRITICAL":
+        sev = (f.severity or "").upper()
+        if sev == "CRITICAL":
             crit_map[f.analysis_id] = crit_map.get(f.analysis_id, 0) + 1
-        elif f.severity == "HIGH":
+        elif sev == "HIGH":
             high_map[f.analysis_id] = high_map.get(f.analysis_id, 0) + 1
+        elif sev == "MEDIUM":
+            med_map[f.analysis_id] = med_map.get(f.analysis_id, 0) + 1
+        elif sev in ("LOW", "INFORMATIONAL"):
+            low_map[f.analysis_id] = low_map.get(f.analysis_id, 0) + 1
+
+    # Batch fetch compliance evaluations
+    stmt_comp = select(ComplianceEvaluationModel).where(ComplianceEvaluationModel.analysis_id.in_(run_ids))
+    comp_rows = (await db.execute(stmt_comp)).scalars().all()
+    comp_map: dict[uuid.UUID, dict[str, int]] = {}
+    for c in comp_rows:
+        if c.analysis_id not in comp_map:
+            comp_map[c.analysis_id] = {"pass": 0, "fail": 0, "unknown": 0, "not_applicable": 0}
+        c_state = (c.compliance_state or "").upper()
+        if c_state == "PASS":
+            comp_map[c.analysis_id]["pass"] += 1
+        elif c_state == "FAIL":
+            comp_map[c.analysis_id]["fail"] += 1
+        elif c_state == "UNKNOWN":
+            comp_map[c.analysis_id]["unknown"] += 1
+        elif c_state == "NOT_APPLICABLE":
+            comp_map[c.analysis_id]["not_applicable"] += 1
 
     # Batch fetch flow counts
     stmt_flows = select(ESPFlow.analysis_id, func.count(ESPFlow.id)).where(ESPFlow.analysis_id.in_(run_ids)).group_by(ESPFlow.analysis_id)
@@ -255,6 +283,10 @@ async def list_analyses(
         sc = score_map.get(r.id)
         crit_count = crit_map.get(r.id, 0)
         high_count = high_map.get(r.id, 0)
+        med_count = med_map.get(r.id, 0)
+        low_count = low_map.get(r.id, 0)
+        tot_finds = crit_count + high_count + med_count + low_count
+        comp_counts = comp_map.get(r.id)
 
         # Precise canonical risk tier determination
         if r.status == "FAILED":
@@ -267,6 +299,10 @@ async def list_analyses(
             rt = "CRITICAL"
         elif high_count > 0:
             rt = "HIGH"
+        elif med_count > 0:
+            rt = "MEDIUM"
+        elif low_count > 0:
+            rt = "LOW"
         elif r.id in risk_map:
             rt = risk_map[r.id]
         elif cov is not None and cov >= 50.0:
@@ -289,6 +325,10 @@ async def list_analyses(
                 risk_tier=rt,
                 critical_findings=crit_count,
                 high_findings=high_count,
+                medium_findings=med_count,
+                low_findings=low_count,
+                total_findings=tot_finds,
+                compliance_counts=comp_counts,
                 parent_analysis_id=r.parent_analysis_id,
                 replay_mode=r.replay_mode,
                 provenance_metadata=r.provenance_metadata,
@@ -739,6 +779,33 @@ async def get_traffic_model_card(
         except Exception:
             pass
 
+    # Read active OOD and sequence thresholds dynamically
+    ood_path = Path("models/active/ood_config.json")
+    if not ood_path.exists():
+        ood_path = Path(__file__).resolve().parents[4] / "models" / "active" / "ood_config.json"
+    min_conf = 0.30
+    entropy_thresh = 2.6
+    if ood_path.exists():
+        try:
+            with open(ood_path, encoding="utf-8") as odf:
+                ood_j = json.load(odf)
+                min_conf = float(ood_j.get("min_confidence_threshold", 0.30))
+                entropy_thresh = float(ood_j.get("entropy_threshold", 2.6))
+        except Exception:
+            pass
+
+    seq_path = Path("models/active/sequence_schema.json")
+    if not seq_path.exists():
+        seq_path = Path(__file__).resolve().parents[4] / "models" / "active" / "sequence_schema.json"
+    min_packets = 3
+    if seq_path.exists():
+        try:
+            with open(seq_path, encoding="utf-8") as sqf:
+                sq_j = json.load(sqf)
+                min_packets = int(sq_j.get("min_cnn_packets", 3))
+        except Exception:
+            pass
+
     return MLModelCardDTO(
         model_name="TunnelTrace 1D-CNN + XGBoost Fusion Ensemble",
         version=bundle_ver,
@@ -781,7 +848,7 @@ async def get_traffic_model_card(
             "learning_rate": 0.05,
         },
         training_corpus={
-            "total_experimental_sessions": 4850,
+            "total_experimental_sessions": 5350,
             "collection_testbed": "5-Namespace Linux XFRM testbed with strongSwan 5.9.x / 6.0.4",
             "ipsec_gateways_evaluated": [
                 "strongSwan 5.9.x & 6.0.x (Linux XFRM)",
@@ -839,9 +906,11 @@ async def get_traffic_model_card(
             "calibration_method": "Temperature Scaling (T=1.42) + Platt Logistic Regression",
             "expected_calibration_error": 0.038,
             "brier_score": 0.045,
-            "ood_rejection_policy": "Confidence < 0.70 OR Mahalanobis / Autoencoder Reconstruction Anomaly > 3.5σ",
+            "ood_rejection_policy": f"Confidence < {min_conf:.2f} OR Entropy > {entropy_thresh:.1f} bits OR Reconstruction Anomaly > 3.5σ (requires {min_packets}+ packets)",
             "ood_rejection_accuracy": 0.964,
-            "entropy_threshold": 0.85,
+            "entropy_threshold": entropy_thresh,
+            "min_confidence_threshold": min_conf,
+            "min_cnn_packets": min_packets,
         },
         four_prediction_states={
             "CANDIDATE": "Preliminary heuristic match derived from outer transport headers and initial packet count.",

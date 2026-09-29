@@ -564,6 +564,8 @@ async def get_sa_graph(
                         "duration": fl.duration_seconds,
                         "association": fl.association_state,
                         "evidence_state": "OBSERVED",
+                        "packet_count": fl.packet_count,
+                        "byte_count": fl.byte_count,
                     },
                 )
             )

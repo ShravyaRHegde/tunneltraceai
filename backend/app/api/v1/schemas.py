@@ -162,6 +162,10 @@ class AnalysisListItemDTO(BaseModel):
     risk_tier: str | None = None
     critical_findings: int = 0
     high_findings: int = 0
+    medium_findings: int = 0
+    low_findings: int = 0
+    total_findings: int = 0
+    compliance_counts: dict[str, int] | None = None
     parent_analysis_id: uuid.UUID | None = None
     replay_mode: str | None = None
     provenance_metadata: dict | None = None

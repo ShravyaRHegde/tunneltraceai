@@ -185,6 +185,12 @@ export function toCanonicalAnalysisSummary(
   const isAssessable = item.security_score !== null && item.security_score !== undefined && covPct >= 50.0;
   const score = isAssessable ? item.security_score : null;
 
+  const criticalCount = item.critical_findings ?? 0;
+  const highCount = item.high_findings ?? 0;
+  const mediumCount = item.medium_findings ?? 0;
+  const lowCount = item.low_findings ?? 0;
+  const totalFindings = item.total_findings ?? (criticalCount + highCount + mediumCount + lowCount);
+
   let riskTier: CanonicalRiskTier = "INSUFFICIENT_EVIDENCE";
   if (item.status === "FAILED") {
     riskTier = "FAILED";
@@ -192,10 +198,12 @@ export function toCanonicalAnalysisSummary(
     riskTier = "NOT_IPSEC";
   } else if (!isAssessable || covPct < 50.0) {
     riskTier = "INSUFFICIENT_EVIDENCE";
-  } else if (item.critical_findings > 0) {
+  } else if (criticalCount > 0) {
     riskTier = "CRITICAL";
-  } else if (item.high_findings > 0) {
+  } else if (highCount > 0) {
     riskTier = "HIGH";
+  } else if (totalFindings > 0 || (item.risk_tier && item.risk_tier.toUpperCase() === "MEDIUM")) {
+    riskTier = "MEDIUM";
   } else if (item.risk_tier && item.risk_tier !== "NO_FINDINGS_UNDER_THIS_POLICY") {
     riskTier = item.risk_tier as CanonicalRiskTier;
   } else {
@@ -209,6 +217,15 @@ export function toCanonicalAnalysisSummary(
     displayScore = `INSUFFICIENT EVIDENCE (${covPct.toFixed(1)}%)`;
   }
 
+  // Authoritative compliance figures
+  const comp = item.compliance_counts;
+  const compPass = comp?.pass ?? (isAssessable ? Math.max(0, 7 - totalFindings) : 0);
+  const compFail = comp?.fail ?? totalFindings;
+  const compUnknown = comp?.unknown ?? (isAssessable ? 0 : 7);
+  const compNA = comp?.not_applicable ?? 0;
+  const evaluatedControls = compPass + compFail;
+  const totalControls = evaluatedControls + compUnknown + compNA || 7;
+
   return {
     analysisId: item.analysis_id,
     captureId: item.capture_id,
@@ -220,21 +237,21 @@ export function toCanonicalAnalysisSummary(
     isAssessable,
     securityScore: score,
     coveragePercentage: covPct,
-    evaluatedControls: isAssessable ? 6 : 0,
-    totalControls: 7,
-    unknownControls: isAssessable ? 1 : 7,
+    evaluatedControls,
+    totalControls,
+    unknownControls: compUnknown,
     findings: {
-      total: item.critical_findings + item.high_findings,
-      critical: item.critical_findings,
-      high: item.high_findings,
-      medium: 0,
-      low: 0,
+      total: totalFindings,
+      critical: criticalCount,
+      high: highCount,
+      medium: mediumCount,
+      low: lowCount,
     },
     compliance: {
-      pass: isAssessable ? 6 : 0,
-      fail: item.critical_findings + item.high_findings,
-      unknown: isAssessable ? 1 : 7,
-      notApplicable: 0,
+      pass: compPass,
+      fail: compFail,
+      unknown: compUnknown,
+      notApplicable: compNA,
     },
     traffic: {
       totalFlows: (item as any).flows_count ?? 0,

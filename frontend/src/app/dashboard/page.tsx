@@ -28,7 +28,7 @@ import {
   Server,
   Terminal,
   Activity,
-  Sparkles,
+  Globe,
 } from "lucide-react";
 
 export default function SOCDashboardPage() {
@@ -105,7 +105,7 @@ export default function SOCDashboardPage() {
               className="inline-flex items-center space-x-1.5 border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-mono font-bold px-3 py-2.5 transition-colors uppercase"
               title="View Public Landing Page"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#FF3D00]" />
+              <Globe className="w-3.5 h-3.5 text-[#FF3D00]" />
               <span>Landing Page</span>
             </Link>
           </div>

@@ -345,8 +345,8 @@ export default function SecurityAssociationExplorerPage({
     saGraph.nodes.forEach((n: any) => {
       const t = (n.type || "").toLowerCase();
       const nid = (n.id || "").toLowerCase();
-      const ev = n.data?.evidence_state || n.evidence_state;
-      if (ev === "OBSERVED") counts.observed++;
+      const ev = (n.data?.evidence_state || n.evidence_state || "").toUpperCase();
+      if (ev === "OBSERVED" || ev === "VERIFIED" || ev === "DIRECT") counts.observed++;
 
       if (t.includes("peer") || nid.includes("peer")) counts.peers++;
       else if (t.includes("session") || nid.includes("session")) counts.sessions++;

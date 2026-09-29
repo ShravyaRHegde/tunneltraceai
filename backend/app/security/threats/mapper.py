@@ -46,6 +46,16 @@ class ThreatMatrixEngine:
                 # Finding is legitimate but has no catalog mapping -> remains unmapped
                 continue
 
+            # Sweet32 (CVE-2016-2183) strictly applies only to 64-bit block ciphers (e.g. 3DES, Blowfish).
+            # Disallow mapping to 128-bit block ciphers (such as AES-CBC or AES-GCM).
+            if entry.threat_id == "THR-002":
+                obs_str = str(getattr(finding, "observed_value", "")).lower()
+                desc_str = (finding.technical_description or "").lower()
+                title_str = (finding.title or "").lower()
+                is_64bit = any(w in obs_str or w in desc_str or w in title_str for w in ["3des", "des", "blowfish", "64-bit"])
+                if not is_64bit:
+                    continue
+
             # Determine realized risk tier for this threat instance based on finding severity
             if finding.severity.value in ("CRITICAL",):
                 realized_tier = RiskTier.CRITICAL

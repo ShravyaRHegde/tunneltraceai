@@ -33,5 +33,5 @@ remediation:
   strongswan_directive: "esp = aes256gcm16-ecp256!"
   target_config_key: "esp"
   guidance: "Replace CBC mode transforms with AES-GCM-16 to eliminate padding oracle risks."
-threat_mapping_id: "THR-002"
+threat_mapping_id: null
 status: "ACTIVE"

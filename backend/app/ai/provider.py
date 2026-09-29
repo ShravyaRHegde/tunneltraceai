@@ -278,7 +278,8 @@ class OllamaProvider(BaseLocalProvider):
         start_t = time.perf_counter()
         async with self._semaphore:
             try:
-                async with httpx.AsyncClient(timeout=self.timeout_sec) as client:
+                t_out = httpx.Timeout(self.timeout_sec, connect=1.5)
+                async with httpx.AsyncClient(timeout=t_out) as client:
                     resp = await client.post(url, json=payload)
                     if resp.status_code != 200:
                         raise ModelUnavailableError(

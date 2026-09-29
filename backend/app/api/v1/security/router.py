@@ -465,6 +465,27 @@ async def get_security_findings(
             seen_find_keys.add(f_key)
             findings.append(f)
 
+    # Fetch audited score deductions to attach exact deduction values
+    stmt_score = (
+        select(ScoreAssessmentModel)
+        .where(ScoreAssessmentModel.analysis_id == analysis_id)
+        .order_by(ScoreAssessmentModel.created_at.desc())
+    )
+    sa_row = (await db.execute(stmt_score)).scalars().first()
+    deductions_by_id: dict[str, float] = {}
+    deductions_by_rule: dict[str, float] = {}
+    if sa_row and sa_row.deduction_audit:
+        audit_items = sa_row.deduction_audit.get("audit", []) if isinstance(sa_row.deduction_audit, dict) else sa_row.deduction_audit
+        if isinstance(audit_items, list):
+            for d in audit_items:
+                if isinstance(d, dict):
+                    if d.get("finding_id"):
+                        deductions_by_id[d["finding_id"]] = float(d.get("applied_deduction", 0.0))
+                    if d.get("rule_id"):
+                        deductions_by_rule[d["rule_id"]] = float(d.get("applied_deduction", 0.0))
+
+    default_deductions = {"CRITICAL": 25.0, "HIGH": 15.0, "MEDIUM": 5.0, "LOW": 2.0}
+
     return [
         SecurityFindingDTO(
             finding_id=f.finding_id,
@@ -482,6 +503,11 @@ async def get_security_findings(
             observed_value=f.observed_value,
             expected_requirement=f.expected_requirement,
             evidence_state=f.evidence_state,
+            score_deduction=(
+                deductions_by_id.get(f.finding_id)
+                or deductions_by_rule.get(f.rule_id)
+                or default_deductions.get(f.severity.upper(), 0.0)
+            ),
             remediation_guidance=f.remediation_guidance,
             remediation_directive=f.remediation_directive,
             record_hash=f.record_hash,

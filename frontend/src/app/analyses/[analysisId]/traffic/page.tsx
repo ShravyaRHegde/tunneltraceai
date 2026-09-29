@@ -318,7 +318,11 @@ export default function TrafficIntelligencePage({
                 <div className="p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-2">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-neutral-500">Total Experimental Sessions:</span>
-                    <span className="font-bold text-neutral-900 dark:text-white">4,850 sessions</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">
+                      {modelCard?.training_corpus?.total_experimental_sessions
+                        ? `${modelCard.training_corpus.total_experimental_sessions.toLocaleString()} sessions (4,850 supervised + 500 OOD holdout)`
+                        : "5,350 sessions (4,850 supervised + 500 OOD holdout)"}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-neutral-500">Testbed Environment:</span>

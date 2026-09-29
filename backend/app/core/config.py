@@ -243,7 +243,7 @@ class Settings(BaseSettings):
         description="Vector dimension for embeddings (768 for nomic-embed-text)",
     )
     AI_REQUEST_TIMEOUT_SEC: float = Field(
-        default=15.0,
+        default=6.0,
         description="Local LLM inference timeout in seconds (bounded to avoid UI hanging)",
     )
     AI_MAX_CONCURRENCY: int = Field(

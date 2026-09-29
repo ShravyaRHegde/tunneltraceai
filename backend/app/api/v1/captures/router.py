@@ -103,6 +103,28 @@ SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
         "sha256": "b37aa527dd51c80a1b003cc305f56bc77f53ba44da0ec3d4144fc29efb1ad61c",
         "provenance": "Baseline client plaintext echo request/reply capture without IPsec transforms",
     },
+    "wireguard_control": {
+        "sample_id": "wireguard_control",
+        "filename": "05_wireguard_tunnel_non_ipsec.pcapng",
+        "rel_path": "tests/fixtures/verification_captures/05_wireguard_tunnel_non_ipsec.pcapng",
+        "title": "WireGuard Tunnel (Non-IPsec Negative Control)",
+        "description": "Non-IPsec modern VPN traffic (UDP 51820) verifying protocol discrimination and zero false-positive IPsec findings.",
+        "packet_count": 22,
+        "format": "PCAPNG",
+        "sha256": "39785eb5e094d2ad57163d3b7f8ab009a3934c978c76c8ff0e012b01817e1e41",
+        "provenance": "Controlled WireGuard application ping session for cross-protocol negative verification",
+    },
+    "openvpn_control": {
+        "sample_id": "openvpn_control",
+        "filename": "06_openvpn_chat_sample_non_ipsec.pcap",
+        "rel_path": "tests/fixtures/verification_captures/06_openvpn_chat_sample_non_ipsec.pcap",
+        "title": "OpenVPN TLS Handshake (Non-IPsec Negative Control)",
+        "description": "SSL/TLS based VPN encapsulation over port 1194 demonstrating protocol rejection and absence of spurious IPsec findings.",
+        "packet_count": 50,
+        "format": "PCAP",
+        "sha256": "2d50afea494353b793a8b03074ec7905c93e10f5028b73136e8b4a8796c50439",
+        "provenance": "Captured OpenVPN TLS session verifying strict IKE/ESP protocol boundaries",
+    },
 }
 
 

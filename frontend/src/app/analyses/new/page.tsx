@@ -18,7 +18,6 @@ import {
   FlaskConical,
   Info,
   Layers,
-  Sparkles,
   ExternalLink,
   Terminal,
   Copy,
@@ -241,7 +240,7 @@ export default function NewAnalysisPage() {
               : "border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-[#FF3D00]" />
+          <FlaskConical className="w-3.5 h-3.5 text-[#FF3D00]" />
           <span>Try Sample Captures</span>
         </button>
         <button
