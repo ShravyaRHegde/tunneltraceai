@@ -8,11 +8,13 @@ services:
     region: oregon
     healthCheckPath: /health
     envVars:
-      - key: ENVIRONMENT
-        value: production
+      - key: APP_ENV
+        value: staging
       - key: APP_DEBUG
         value: "false"
+      - key: APP_SECRET_KEY
+        value: "tunneltrace-ai-production-secret-key-32chars-min"
+      - key: DATABASE_URL
+        value: "sqlite+aiosqlite:////app/backend/soc_dev.sqlite"
       - key: CORS_ORIGINS
         value: '["https://*.vercel.app","http://localhost:3000"]'
-      - key: APP_SECRET_KEY
-        generateValue: true

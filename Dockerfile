@@ -11,8 +11,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH="/app/backend:/app:${PYTHONPATH}" \
     DEBIAN_FRONTEND=noninteractive \
-    APP_ENV=production \
+    APP_ENV=staging \
     APP_DEBUG=false \
+    APP_SECRET_KEY="tunneltrace-ai-production-secret-key-32chars-min" \
     STORAGE_ROOT="/app/storage" \
     DATABASE_URL="sqlite+aiosqlite:////app/backend/soc_dev.sqlite"
 
@@ -37,10 +38,12 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # 4. Copy repository assets required for runtime
 COPY backend /app/backend
+COPY lab /app/lab
 COPY policies /app/policies
 COPY models /app/models
 COPY knowledge /app/knowledge
 COPY tests/fixtures /app/tests/fixtures
+COPY run_backend.py /app/run_backend.py
 
 # 5. Create storage directories and set permissions for non-root execution
 RUN mkdir -p /app/storage/captures /app/storage/reports /app/storage/tmp /app/captures/golden && \
@@ -55,4 +58,4 @@ USER 10001:10001
 EXPOSE 8000
 
 # 8. Start uvicorn dynamically binding to $PORT (Render injects $PORT, fallback 8000)
-CMD ["sh", "-c", "uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uvicorn --app-dir /app/backend app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]

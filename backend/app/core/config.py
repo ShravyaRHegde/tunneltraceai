@@ -366,7 +366,28 @@ class Settings(BaseSettings):
                 return [origin.strip() for origin in v.split(",") if origin.strip()]
         elif isinstance(v, (list, tuple, set)):
             return [str(origin) for origin in v]
-        return ["http://localhost:3000", "http://127.0.0.1:3000"]
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def resolve_database_url(cls, v: object) -> str:
+        if isinstance(v, str) and v.strip():
+            url = v.strip()
+            if url.startswith("postgresql") and "127.0.0.1:5432" in url:
+                for candidate in [
+                    Path("/app/backend/soc_dev.sqlite"),
+                    Path("backend/soc_dev.sqlite"),
+                    Path("soc_dev.sqlite"),
+                ]:
+                    if candidate.exists():
+                        return f"sqlite+aiosqlite:///{candidate.resolve().as_posix()}"
+            return url
+        for candidate in [
+            Path("/app/backend/soc_dev.sqlite"),
+            Path("backend/soc_dev.sqlite"),
+            Path("soc_dev.sqlite"),
+        ]:
+            if candidate.exists():
+                return f"sqlite+aiosqlite:///{candidate.resolve().as_posix()}"
+        return "postgresql+asyncpg://tunneltrace_user:tunneltrace_dev_password@127.0.0.1:5432/tunneltrace_db"
 
     @property
     def sync_database_url(self) -> str:
