@@ -103,6 +103,10 @@ class Settings(BaseSettings):
         description="List of allowed CORS origins (never wildcard * in production)",
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True, description="Allow credentials in CORS")
+    CORS_ORIGIN_REGEX: str | None = Field(
+        default=r"https://.*\.vercel\.app",
+        description="Optional regex pattern for allowed CORS origins (e.g. Vercel deployments)",
+    )
 
     # --------------------------------------------------------------------------
     # Stage 3: Capture Ingestion & Protocol Forensics Settings

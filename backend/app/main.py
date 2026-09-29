@@ -92,14 +92,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
 
     # 2. Attach CORS Middleware with Strict Origin Allowlist
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=app_settings.CORS_ALLOWED_ORIGINS,
-        allow_credentials=app_settings.CORS_ALLOW_CREDENTIALS,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=["*"],
-        expose_headers=["X-Request-ID", "X-Response-Time"],
-    )
+    cors_kwargs = {
+        "allow_origins": app_settings.CORS_ALLOWED_ORIGINS,
+        "allow_credentials": app_settings.CORS_ALLOW_CREDENTIALS,
+        "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        "allow_headers": ["*"],
+        "expose_headers": ["X-Request-ID", "X-Response-Time"],
+    }
+    if app_settings.CORS_ORIGIN_REGEX:
+        cors_kwargs["allow_origin_regex"] = app_settings.CORS_ORIGIN_REGEX
+    app.add_middleware(CORSMiddleware, **cors_kwargs)
 
     # 3. Register Domain and Catch-all Exception Handlers
     app.add_exception_handler(TunnelTraceError, tunneltrace_error_handler)  # type: ignore[arg-type]

@@ -36,8 +36,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/install/bin:${PATH}" \
     PYTHONPATH="/app:${PYTHONPATH}"
 
-# Install minimal runtime shared libraries if needed and create non-root user
-RUN groupadd -g 10001 appgroup && \
+# Install minimal runtime shared libraries, TShark, and create non-root user
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tshark \
+    libpcap-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -s /sbin/nologin -M appuser && \
     mkdir -p /var/lib/tunneltrace/storage /app && \
     chown -R 10001:10001 /var/lib/tunneltrace/storage /app
@@ -56,4 +61,4 @@ USER 10001:10001
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
