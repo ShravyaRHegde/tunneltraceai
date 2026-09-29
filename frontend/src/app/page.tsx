@@ -69,7 +69,7 @@ function CaptureFilter() {
         <button
           type="button"
           onClick={copyFilter}
-          className="inline-flex min-h-9 items-center gap-2 border border-white/50 px-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-white hover:text-[#1f3d8f] cursor-pointer"
+          className="inline-flex min-h-9 items-center gap-2 border border-white/50 px-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-white hover:text-[#FF3D00] cursor-pointer"
           aria-label="Copy IPsec capture filter"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}

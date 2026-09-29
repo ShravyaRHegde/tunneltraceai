@@ -12,15 +12,15 @@
   --color-ink: #101113;
   --color-ink-2: #34383b;
   --color-ink-3: #676e72;
-  --color-brand: #1f3d8f;
-  --color-accent: #f4c400;
-  --color-accent-ink: #1f3d8f;
-  --color-accent-soft: #fff2b7;
-  --color-accent-press: #d9ad00;
-  --color-accent-border: #c69d00;
-  --color-on-accent: #101113;
+  --color-brand: #FF3D00;
+  --color-accent: #FF3D00;
+  --color-accent-ink: #FF3D00;
+  --color-accent-soft: #FFEBE6;
+  --color-accent-press: #E63700;
+  --color-accent-border: #FF3D00;
+  --color-on-accent: #ffffff;
   --color-hover: #e7e8e5;
-  --color-active: #fff2b7;
+  --color-active: #FFEBE6;
   --color-disabled: #77786f;
   --color-critical: #b83830;
   --color-critical-bg: #f5e5e2;
@@ -153,13 +153,13 @@ body {
   --color-ink: #101113;
   --color-ink-2: #34383b;
   --color-ink-3: #676e72;
-  --color-brand: #1f3d8f;
-  --color-accent: #f4c400;
-  --color-accent-ink: #1f3d8f;
-  --color-accent-soft: #fff2b7;
-  --color-accent-press: #d9ad00;
-  --color-accent-border: #c69d00;
-  --color-on-accent: #101113;
+  --color-brand: #FF3D00;
+  --color-accent: #FF3D00;
+  --color-accent-ink: #FF3D00;
+  --color-accent-soft: #FFEBE6;
+  --color-accent-press: #E63700;
+  --color-accent-border: #FF3D00;
+  --color-on-accent: #ffffff;
   --color-hover: #e7e8e5;
   --color-critical: #b83830;
   --color-positive: #495d3c;
@@ -167,11 +167,11 @@ body {
 
 .site-shell { min-height: 100svh; background: var(--color-ground); color: var(--color-ink); }
 .site-header { position: sticky; z-index: 40; top: 0; background: var(--color-brand); color: white; transition: box-shadow .25s ease, border-color .25s ease; }
-.site-header[data-scrolled="true"] { box-shadow: 0 5px 18px rgba(16,24,49,.2); }
+.site-header[data-scrolled="true"] { box-shadow: 0 5px 18px rgba(255, 61, 0, 0.25); }
 .header-inner { width: min(100% - 3rem, 94rem); margin: auto; }
 .site-wordmark { font-family: "Arial Black", "Arial", sans-serif; font-size: 1.28rem; font-weight: 900; letter-spacing: .09em; line-height: 1; color: white; text-transform: uppercase; }
-.site-nav-link { display: inline-flex; min-height: 2.8rem; align-items: center; padding: .5rem .7rem; border-bottom: 3px solid transparent; color: rgba(255,255,255,.86); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; transition: color .18s ease, border-color .18s ease; }
-.site-nav-link:hover, .site-nav-link[aria-current="page"] { color: white; border-bottom-color: var(--color-accent); }
+.site-nav-link { display: inline-flex; min-height: 2.8rem; align-items: center; padding: .5rem .7rem; border-bottom: 3px solid transparent; color: rgba(255,255,255,.9); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; transition: color .18s ease, border-color .18s ease; }
+.site-nav-link:hover, .site-nav-link[aria-current="page"] { color: white; border-bottom-color: white; }
 .page-wrap { width: min(100% - 3rem, 94rem); margin-inline: auto; }
 .editorial-title { font-family: "Arial Black", "Arial", sans-serif; font-weight: 700; letter-spacing: -.03em; }
 .micro-label { font-family: "SFMono-Regular", Consolas, monospace; font-size: .65rem; line-height: 1.35; letter-spacing: .11em; text-transform: uppercase; }
@@ -193,7 +193,7 @@ body {
 .editorial-btn { min-height: 2.8rem; flex-shrink: 0; border-radius: 0; border-width: 2px; border-color: var(--color-ink); font-weight: 700; transition: color .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease; cursor: pointer; }
 .editorial-btn:hover { box-shadow: 2px 2px 0 var(--color-ink); transform: translate(-1px,-1px); }
 .editorial-btn-primary { border-color: var(--color-ink); background: var(--color-brand); color: #fff; }
-.editorial-btn-primary:hover { border-color: var(--color-ink); background: var(--color-accent); color: var(--color-ink); }
+.editorial-btn-primary:hover { border-color: var(--color-ink); background: var(--color-ink); color: #fff; }
 .editorial-btn-outline { border: 2px solid var(--color-ink); background: var(--color-panel); color: var(--color-ink); }
 .editorial-btn-outline:hover { background: var(--color-ink); color: var(--color-ground); }
 

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, ChevronDown, Menu, X, LayoutDashboard, UploadCloud } from "lucide-react";
+import { ArrowUpRight, Menu, X, LayoutDashboard, UploadCloud } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 
@@ -51,13 +51,12 @@ export function LandingHeader() {
   return (
     <header className="site-header border-b border-line" data-scrolled={scrolled}>
       <div className="header-inner flex min-h-[4.6rem] items-center justify-between gap-4">
-        <Link href="/" aria-label="TunnelTrace.AI home" className="site-wordmark flex shrink-0 items-center gap-2">
-          <svg viewBox="0 0 34 24" aria-hidden="true" className="h-6 w-9">
-            <path d="M2 12h11m8 0h11" stroke="#f4c400" strokeWidth="4" />
-            <circle cx="17" cy="12" r="6.5" fill="white" stroke="#101113" strokeWidth="2" />
-          </svg>
+        <Link href="/" aria-label="TunnelTrace.AI home" className="site-wordmark flex shrink-0 items-center gap-2.5">
+          <div className="w-7 h-7 bg-white text-[#FF3D00] flex items-center justify-center font-mono font-black text-xs shrink-0 rounded-xs shadow-sm">
+            T
+          </div>
           <span>
-            TunnelTrace<span className="align-top font-sans text-[.58rem] font-semibold tracking-normal text-[#f4c400]">.AI</span>
+            TunnelTrace<span className="align-top font-sans text-[.58rem] font-semibold tracking-normal text-white/90">.AI</span>
           </span>
         </Link>
 
@@ -84,7 +83,7 @@ export function LandingHeader() {
                 isError || readiness?.status === "FAILED"
                   ? "bg-critical"
                   : readiness?.status === "READY"
-                  ? "bg-accent"
+                  ? "bg-white"
                   : "bg-white/60"
               }`}
             />
@@ -93,7 +92,7 @@ export function LandingHeader() {
 
           <Link
             href="/dashboard"
-            className="editorial-btn editorial-btn-primary inline-flex min-h-10 items-center gap-2 px-3 text-xs font-bold uppercase tracking-wider sm:px-4 sm:text-sm bg-white text-[#1f3d8f] hover:bg-[#f4c400] hover:text-[#101113] border-2 border-black"
+            className="editorial-btn editorial-btn-primary inline-flex min-h-10 items-center gap-2 px-3 text-xs font-bold uppercase tracking-wider sm:px-4 sm:text-sm bg-white text-[#FF3D00] hover:bg-black hover:text-white border-2 border-black"
           >
             <LayoutDashboard className="h-4 w-4" />
             <span>Launch Workbench</span>
@@ -104,6 +103,7 @@ export function LandingHeader() {
             onClick={() => setMobileOpen((open) => !open)}
             aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
             className="grid h-10 w-10 place-items-center border border-white/50 text-white xl:hidden cursor-pointer"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -112,7 +112,7 @@ export function LandingHeader() {
       </div>
 
       {mobileOpen && (
-        <div id="mobile-navigation" className="border-t border-line bg-[#1f3d8f] text-white xl:hidden">
+        <div id="mobile-navigation" className="border-t border-line bg-[#FF3D00] text-white xl:hidden">
           <nav aria-label="Mobile navigation" className="header-inner grid py-3">
             {navItems.map((item) => (
               <Link
@@ -126,7 +126,7 @@ export function LandingHeader() {
             ))}
             <Link
               href="/analyses/new"
-              className="mt-3 inline-flex items-center justify-center gap-2 bg-[#f4c400] text-[#101113] py-2.5 px-4 font-bold uppercase text-xs"
+              className="mt-3 inline-flex items-center justify-center gap-2 bg-white text-[#FF3D00] hover:bg-black hover:text-white py-2.5 px-4 font-bold uppercase text-xs border-2 border-black"
             >
               <UploadCloud className="h-4 w-4" />
               <span>Analyze Capture</span>
