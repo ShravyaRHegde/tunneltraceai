@@ -110,6 +110,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # 4. Mount API v1 Routers under /api prefix
     app.include_router(api_v1_router, prefix="/api")
 
+    # 5. Cloud deployment health probes (Render, AWS ALB, Docker HEALTHCHECK)
+    @app.get("/health", tags=["System"])
+    @app.get("/api/v1/health", tags=["System"])
+    async def root_health_check() -> dict[str, str]:
+        return {"status": "healthy", "service": "TunnelTrace AI", "version": "0.1.0"}
+
     return app
 
 

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: tunneltrace-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: CORS_ORIGINS
+        value: '["https://*.vercel.app","http://localhost:3000"]'
+      - key: APP_SECRET_KEY
+        generateValue: true

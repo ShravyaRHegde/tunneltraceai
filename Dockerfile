@@ -16,8 +16,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     STORAGE_ROOT="/app/storage" \
     DATABASE_URL="sqlite+aiosqlite:////app/backend/soc_dev.sqlite"
 
-# 1. Install system utilities and TShark for packet forensics
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 1. Install system utilities and TShark for packet forensics non-interactively
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends debconf-utils && \
+    echo "wireshark-common wireshark-common/install-setuid boolean true" | debconf-set-selections && \
+    apt-get install -y --no-install-recommends \
     tshark \
     libpcap-dev \
     curl \

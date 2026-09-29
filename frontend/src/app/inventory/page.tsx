@@ -1160,7 +1160,7 @@ TwkhlhRfq9iDH9yt+Ro11AaliWe60GmeP37HMFv5EgJo5klLMq9oDpNs
                   The SHA-256 digest <code>e3b0c442...</code> is the hash of an empty 0-byte string. This record serves as an unpopulated placeholder and must not be used as an approved security baseline for drift analysis.
                 </p>
                 <div className="text-[11px] font-semibold text-amber-200">
-                  Next Step: Open the "Import Ingestion" tab, supply a valid strongSwan <code>swanctl.conf</code> file with configured connections, and mark it as the approved baseline.
+                  Next Step: Open the &quot;Import Ingestion&quot; tab, supply a valid strongSwan <code>swanctl.conf</code> file with configured connections, and mark it as the approved baseline.
                 </div>
               </div>
             )}
