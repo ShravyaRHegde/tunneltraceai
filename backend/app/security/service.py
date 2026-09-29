@@ -96,6 +96,8 @@ class SecurityAssessmentService:
         parent_analysis_id: str | None = None,
         replay_mode: str | None = None,
         scenario_metadata: dict[str, Any] | None = None,
+        raw_observations: list[Any] | None = None,
+        capture_filename: str | None = None,
     ) -> SecurityAssessmentResult:
         """Execute end-to-end deterministic security assessment."""
         logger.info("Starting security assessment for analysis %s on profile %s", analysis_id, profile_id)
@@ -107,6 +109,8 @@ class SecurityAssessmentService:
             sessions=sessions,
             child_sas=child_sas,
             flows=flows,
+            raw_observations=raw_observations,
+            capture_filename=capture_filename,
         )
 
         # 2. Retrieve Active Policy Bundle

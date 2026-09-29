@@ -101,12 +101,13 @@ class PolicyRegistry:
                     selected[r.rule_id] = r
 
         elif profile == PolicyProfile.PROFILE_NIST_SP800_77:
-            # NIST SP 800-77 includes federal crypto strength, DH Group 14+, modern IKEv2
+            # NIST SP 800-77 includes federal crypto strength, DH Group 14+, modern IKEv2, and PFS
             for r in active_rules:
                 if r.rule_id.startswith("POL-NIST-") or r.rule_id in [
                     "POL-RFC-7296-01",
                     "POL-RFC-8221-01",
                     "POL-REPLAY-001",
+                    "POL-PFS-001",
                 ]:
                     selected[r.rule_id] = r
 

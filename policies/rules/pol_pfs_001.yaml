@@ -3,7 +3,7 @@ rule_version: "1.0.0"
 title: "Child SA Perfect Forward Secrecy (PFS) Enforcement"
 description: "Child SAs must negotiate independent Diffie-Hellman exchanges during rekeying to ensure that compromise of the parent IKE SA does not expose data plane keys."
 category: "PFS"
-profile: "profile_enterprise_strict"
+profile: "profile_nist_sp800_77"
 authority_tier: "NATIONAL_STANDARD"
 authoritative_reference:
   source: "NIST SP 800-77 Rev. 1"

@@ -1,7 +1,7 @@
 {
-  "entropy_threshold": 1.5,
+  "entropy_threshold": 2.6,
   "log2_num_classes": 2.807354922057604,
-  "min_confidence_threshold": 0.4,
+  "min_confidence_threshold": 0.3,
   "num_classes": 7,
   "tuning_metrics": {}
 }

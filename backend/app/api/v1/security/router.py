@@ -29,7 +29,7 @@ from app.api.v1.security.schemas import (
     ThreatIntelResponseDTO,
 )
 from app.core.errors import AnalysisNotFoundError
-from app.db.models.capture import AnalysisRun, Capture
+from app.db.models.capture import AnalysisRun, Capture, ProtocolObservation
 from app.db.models.reconstruction import ChildSecurityAssociation, ESPFlow, IKESession
 from app.db.models.security import (
     ComplianceEvaluationModel,
@@ -103,6 +103,9 @@ async def _ensure_assessment_executed(
     stmt_flow = select(ESPFlow).where(ESPFlow.analysis_id == analysis_id)
     flows = (await db.execute(stmt_flow)).scalars().all()
 
+    stmt_obs = select(ProtocolObservation).where(ProtocolObservation.analysis_id == analysis_id)
+    raw_obs = (await db.execute(stmt_obs)).scalars().all()
+
     # Execute deterministic assessment
     result: SecurityAssessmentResult = service.run_assessment(
         analysis_id=str(analysis_id),
@@ -113,6 +116,8 @@ async def _ensure_assessment_executed(
         profile_id=profile_id,
         parent_analysis_id=str(analysis_run.parent_analysis_id) if analysis_run.parent_analysis_id else None,
         replay_mode=analysis_run.replay_mode,
+        raw_observations=raw_obs,
+        capture_filename=capture.original_filename if capture else None,
     )
 
     # Persist records transactionally

@@ -15,7 +15,7 @@
     "feature_schema.json": "c17dab5d4ab8b7b7636182916f9fa72e78a87222e8b5ffcb0e7d67a9b784e32b",
     "fusion_config.json": "c8bedb8963932e46cccfe909432b5d8a93b5255de91d22ca59609b6e65604665",
     "label_mapping.json": "e8bcc40e8c6765d46a0ba79e5739f7b500c5c69311772147f88ee7a038da5deb",
-    "ood_config.json": "5470bf40fab7a768717f56213a2066499e704c02440b1119cc350fbfacb6abf0",
+    "ood_config.json": "75d5a8238a36f3a2808b5c356579c8c44b8694a57918a92eeebde0a8953109af",
     "preprocessor.json": "f25e78ad1364a67fad677ed43f419d1408e9113338b78862f95b1a2f850afa0e",
     "sequence_schema.json": "5d14ceddd7ce6acc7a4bb5f10b0c553e733cb47e5743e1ca0e0a598b78cb0d59",
     "xgboost/model.json": "025018dfaf668b42527f69c2ea751ea65ab7e21e69f0cb4c7e9a832473ab0f12"
@@ -27,7 +27,7 @@
   },
   "fusion_config_hash": "a4395d84a3dcafa7cd12e26f3a10f8f1c0efa81b290b0b150697d6ee1b96a4ca",
   "is_active": true,
-  "ood_config_hash": "af2dec3cb1c8e7303061e9f1d33dd6be03fd8d741508c79147cef93f4aa1c8a0",
+  "ood_config_hash": "1118c3b8257237593a48923dc57ad516ddd5e13a631b73d2324414ff5374dee1",
   "sequence_schema_hash": "58cc807fd4ffdd999c380b9606c6183575aaddf6fa4a588a8c132dc554c2cda2",
   "split_manifest_hash": "STAGE7_SPLIT_HASH",
   "target_device": "cpu"

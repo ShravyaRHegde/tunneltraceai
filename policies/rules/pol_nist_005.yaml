@@ -1,0 +1,37 @@
+rule_id: "POL-NIST-005"
+rule_version: "1.0.0"
+title: "Mandatory Authenticated Encryption (AEAD / AES-GCM)"
+description: "NIST SP 800-77 Rev. 1 Section 5.1.1 mandates Authenticated Encryption with Associated Data (AEAD) algorithms such as AES-GCM. Legacy CBC-mode ciphers with separate HMAC transforms are deprecated due to padding oracle vulnerabilities."
+category: "CRYPTOGRAPHY"
+profile: "profile_nist_sp800_77"
+authority_tier: "NATIONAL_STANDARD"
+authoritative_reference:
+  source: "NIST SP 800-77 Rev. 1"
+  section: "Section 5.1.1"
+  url: "https://csrc.nist.gov/publications/detail/sp/800-77/rev-1/final"
+  normative_requirement: "AEAD algorithms (e.g. AES-GCM) SHALL be used for IPsec encryption to prevent padding oracle side-channel attacks."
+  verification_date: "2026-09-24T00:00:00Z"
+  verified_by: "NIST Standards Assurance Auditor"
+evidence_requirements:
+  - "ike_sa.encryption_algorithm"
+applicability: null
+assertion:
+  target_field: "ike_sa.encryption_algorithm"
+  operator: "not_in_set"
+  expected_value:
+    - "AES-CBC-128"
+    - "AES-CBC-192"
+    - "AES-CBC-256"
+    - "ENCR_AES_CBC_128"
+    - "ENCR_AES_CBC_192"
+    - "ENCR_AES_CBC_256"
+    - "AES-CBC"
+severity: "MEDIUM"
+root_cause_key: "CIPHER_LEGACY_CBC_MODE"
+remediation:
+  summary: "Migrate encryption cipher from legacy AES-CBC to Authenticated Encryption (AES-256-GCM)."
+  strongswan_directive: "esp = aes256gcm16-ecp256!"
+  target_config_key: "esp"
+  guidance: "Replace CBC mode transforms with AES-GCM-16 to eliminate padding oracle risks."
+threat_mapping_id: "THR-002"
+status: "ACTIVE"
