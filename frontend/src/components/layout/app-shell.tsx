@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // On the public landing / showcase page, render full bleed without workbench shell
-  if (pathname === "/landing" || pathname === "/showcase") {
+  if (pathname === "/" || pathname === "/landing" || pathname === "/showcase") {
     return <>{children}</>;
   }
 
