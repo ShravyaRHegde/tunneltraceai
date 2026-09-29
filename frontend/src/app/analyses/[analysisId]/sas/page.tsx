@@ -87,12 +87,12 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
 
   return (
     <div
-      className={`w-[216px] p-2.5 rounded text-left transition-all duration-150 border select-none font-mono ${
+      className={`w-[224px] p-3 rounded-xs text-left transition-all duration-150 border select-none font-mono ${
         isNotObserved
-          ? "bg-neutral-50/85 dark:bg-[#121215] border-dashed border-neutral-400 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 opacity-85"
+          ? "bg-neutral-50/90 dark:bg-[#131317] border-dashed border-neutral-300 dark:border-neutral-700/80 text-neutral-500 dark:text-neutral-400 opacity-85"
           : isInferred
-          ? "bg-white dark:bg-[#161619] border-neutral-300 dark:border-neutral-700/80 shadow-xs"
-          : "bg-white dark:bg-[#161619] border-neutral-300 dark:border-neutral-700/80 shadow-xs"
+          ? "bg-white dark:bg-[#18181D] border-neutral-300/90 dark:border-neutral-700/80 shadow-xs"
+          : "bg-white dark:bg-[#18181D] border-neutral-300/90 dark:border-neutral-700/80 shadow-xs"
       } ${
         selected
           ? "!border-[#FF3D00] !ring-2 !ring-[#FF3D00]/25 shadow-md"
@@ -102,7 +102,7 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2 !h-2 !border-2 !border-white dark:!border-[#161619] !bg-neutral-400 dark:!bg-neutral-500 !-left-1"
+        className="!w-2.5 !h-2.5 !border-2 !border-white dark:!border-[#18181D] !bg-neutral-400 dark:!bg-neutral-500 !-left-1.5"
       />
 
       {/* Top Header: Neutral Entity Type + Dedicated Evidence Badge */}
@@ -117,7 +117,7 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
         {/* Evidence Status Chip */}
         {isNotObserved ? (
           <span
-            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-dashed border-neutral-300 dark:border-neutral-700 shrink-0"
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-dashed border-neutral-300 dark:border-neutral-700 shrink-0"
             title="Absent from capture (e.g. handshake occurred prior to capture)"
           >
             <span className="w-1.5 h-1.5 rounded-full border border-neutral-400 dark:border-neutral-500"></span>
@@ -125,7 +125,7 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
           </span>
         ) : isInferred ? (
           <span
-            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0"
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0"
             title="Inferred from observed traffic or Child SAs"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -133,7 +133,7 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
           </span>
         ) : (
           <span
-            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0"
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0"
             title="Directly observed in capture packet frames"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -279,7 +279,7 @@ function SANode({ data, selected }: { data: SANodeData; selected?: boolean }) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-2 !h-2 !border-2 !border-white dark:!border-[#161619] !bg-neutral-400 dark:!bg-neutral-500 !-right-1"
+        className="!w-2.5 !h-2.5 !border-2 !border-white dark:!border-[#18181D] !bg-neutral-400 dark:!bg-neutral-500 !-right-1.5"
       />
     </div>
   );
@@ -374,9 +374,9 @@ export default function SecurityAssociationExplorerPage({
         return 2;
       };
 
-      const NODE_WIDTH = 216;
-      const HORIZ_GAP = 70;
-      const VERT_STEP = 135;
+      const NODE_WIDTH = 224;
+      const HORIZ_GAP = 124;
+      const VERT_STEP = 160;
 
       // Group nodes into distinct tiers
       const tiers: Record<number, any[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] };
@@ -387,7 +387,7 @@ export default function SecurityAssociationExplorerPage({
 
       // Align baseline center with Tier 0 (Peers) group
       const tier0Count = tiers[0].length || 1;
-      const calculatedCenter = 32 + ((tier0Count - 1) * VERT_STEP) / 2;
+      const calculatedCenter = 120 + ((tier0Count - 1) * VERT_STEP) / 2;
 
       // Unobserved node set for styling connected edges
       const unobservedNodeIds = new Set<string>();
@@ -417,7 +417,7 @@ export default function SecurityAssociationExplorerPage({
         const startY = calculatedCenter - ((count - 1) * VERT_STEP) / 2;
 
         nodesInTier.forEach((n, idx) => {
-          const xPos = 24 + tier * (NODE_WIDTH + HORIZ_GAP);
+          const xPos = 28 + tier * (NODE_WIDTH + HORIZ_GAP);
           const yPos = startY + idx * VERT_STEP;
 
           const evState = n.data?.evidence_state || (n as any).evidence_state || "";
@@ -445,8 +445,8 @@ export default function SecurityAssociationExplorerPage({
 
       // Ensure no nodes are placed higher than padding margin
       const minY = Math.min(...formattedNodes.map((n) => n.position.y));
-      if (minY < 40) {
-        const offset = 40 - minY;
+      if (minY < 50) {
+        const offset = 50 - minY;
         formattedNodes.forEach((n) => {
           n.position.y += offset;
         });
@@ -458,11 +458,17 @@ export default function SecurityAssociationExplorerPage({
           ? isDashed ? "#52525B" : "#71717A"
           : isDashed ? "#94A3B8" : "#64748B";
 
+        const cleanLabel = e.label
+          ? String(e.label)
+              .replace(/_\((?:UNOBSERVED|UNMAPPED|INFERRED)\)/gi, "")
+              .replace(/_/g, " ")
+          : undefined;
+
         return {
           id: e.id,
           source: e.source,
           target: e.target,
-          label: e.label,
+          label: cleanLabel,
           type: "smoothstep",
           pathOptions: { borderRadius: 12 },
           markerEnd: {
@@ -483,10 +489,10 @@ export default function SecurityAssociationExplorerPage({
             fontSize: 8.5,
             fontFamily: "ui-monospace, monospace",
             fontWeight: 700,
-            letterSpacing: "0.03em",
+            letterSpacing: "0.04em",
           },
           labelBgStyle: {
-            fill: isDark ? "#141416" : "#FFFFFF",
+            fill: isDark ? "#18181D" : "#FFFFFF",
             fillOpacity: 0.98,
             stroke: isDark
               ? isDashed ? "#3F3F46" : "#52525B"
@@ -649,7 +655,7 @@ export default function SecurityAssociationExplorerPage({
               </div>
 
               {/* React Flow Canvas */}
-              <div className="h-[540px] w-full bg-[#F8FAFC] dark:bg-[#0D0D11] rounded-b relative overflow-hidden">
+              <div className="h-[520px] w-full bg-[#F8FAFC] dark:bg-[#0E0E12] rounded-b relative overflow-hidden">
                 {nodes.length > 0 ? (
                   <ReactFlow
                     nodes={nodes}
@@ -658,25 +664,30 @@ export default function SecurityAssociationExplorerPage({
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onNodeClick={onNodeClick}
-                    onInit={(instance) => setRfInstance(instance)}
+                    onInit={(instance) => {
+                      setRfInstance(instance);
+                      setTimeout(() => {
+                        instance.fitView({ padding: 0.14, includeHiddenNodes: false });
+                      }, 50);
+                    }}
                     colorMode={isDark ? "dark" : "light"}
                     fitView
-                    fitViewOptions={{ padding: 0.08, includeHiddenNodes: false }}
-                    minZoom={0.2}
-                    maxZoom={1.6}
+                    fitViewOptions={{ padding: 0.14, includeHiddenNodes: false }}
+                    minZoom={0.25}
+                    maxZoom={1.75}
                     defaultEdgeOptions={{ type: "smoothstep" }}
                   >
                     <Background
-                      color={isDark ? "#27272A" : "#CBD5E1"}
-                      gap={22}
+                      color={isDark ? "#24242C" : "#CBD5E1"}
+                      gap={24}
                       size={1}
                     />
                     <Controls
                       position="bottom-left"
                       showInteractive={false}
-                      className={`!border rounded shadow-md font-mono text-xs ${
+                      className={`!border rounded-xs shadow-md font-mono text-xs ${
                         isDark
-                          ? "!bg-[#18181B] !border-neutral-700 !text-neutral-200 fill-neutral-200 [&_button]:!bg-[#18181B] [&_button]:!border-neutral-700 [&_button]:!fill-neutral-300 [&_button:hover]:!bg-neutral-800"
+                          ? "!bg-[#18181D] !border-neutral-700 !text-neutral-200 fill-neutral-200 [&_button]:!bg-[#18181D] [&_button]:!border-neutral-700 [&_button]:!fill-neutral-300 [&_button:hover]:!bg-neutral-800"
                           : "!bg-white !border-neutral-300 !text-neutral-700 fill-neutral-700 [&_button]:!bg-white [&_button]:!border-neutral-200 [&_button]:!fill-neutral-600 [&_button:hover]:!bg-neutral-100"
                       }`}
                     />
@@ -689,13 +700,13 @@ export default function SecurityAssociationExplorerPage({
                         if (ev.includes("INFERRED")) return "#F59E0B";
                         return "#10B981";
                       }}
-                      maskColor={isDark ? "rgba(13, 13, 17, 0.75)" : "rgba(240, 244, 248, 0.65)"}
+                      maskColor={isDark ? "rgba(14, 14, 18, 0.75)" : "rgba(240, 244, 248, 0.65)"}
                       style={{
-                        background: isDark ? "#141417" : "#FFFFFF",
-                        border: isDark ? "1px solid #333338" : "1px solid #CBD5E1",
-                        borderRadius: "4px",
-                        width: 140,
-                        height: 80,
+                        background: isDark ? "#141418" : "#FFFFFF",
+                        border: isDark ? "1px solid #2B2B33" : "1px solid #CBD5E1",
+                        borderRadius: "3px",
+                        width: 144,
+                        height: 84,
                       }}
                     />
                   </ReactFlow>
