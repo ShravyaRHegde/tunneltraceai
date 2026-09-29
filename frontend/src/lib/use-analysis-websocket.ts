@@ -52,16 +52,23 @@ export function useAnalysisWebSocket(analysisId: string | null) {
       let host = "127.0.0.1:8002";
       let protocol = "ws:";
       if (typeof window !== "undefined") {
-        protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         if (apiEnv) {
           try {
             const u = new URL(apiEnv);
             host = u.host;
+            protocol = u.protocol === "https:" ? "wss:" : "ws:";
           } catch {
-            host = window.location.hostname + ":8002";
+            host = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+              ? "tunneltraceai.onrender.com"
+              : `${window.location.hostname}:8002`;
+            protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
           }
+        } else if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+          host = "tunneltraceai.onrender.com";
+          protocol = "wss:";
         } else {
-          host = window.location.hostname + ":8002";
+          host = window.location.hostname ? `${window.location.hostname}:8002` : "127.0.0.1:8002";
+          protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         }
       }
       wsUrl = analysisId

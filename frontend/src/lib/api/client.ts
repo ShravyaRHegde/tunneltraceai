@@ -39,8 +39,20 @@ import {
 } from "./types";
 
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+export function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") {
+      return "https://tunneltraceai.onrender.com/api/v1";
+    }
+  }
+  return "http://127.0.0.1:8002/api/v1";
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(
@@ -57,7 +69,8 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+  const base = getApiBaseUrl();
+  const url = `${base}${path}`;
   const headers = new Headers(options.headers || {});
 
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
@@ -219,10 +232,10 @@ export const api = {
       return request<ReplayLineageDTO>(`/analyses/${id}/replay-lineage`);
     },
     getExportManifestUrl: (id: string): string => {
-      return `${API_BASE_URL}/analyses/${id}/export/manifest`;
+      return `${getApiBaseUrl()}/analyses/${id}/export/manifest`;
     },
     getExportFindingsCsvUrl: (id: string): string => {
-      return `${API_BASE_URL}/analyses/${id}/export/findings.csv`;
+      return `${getApiBaseUrl()}/analyses/${id}/export/findings.csv`;
     },
     recompute: async (id: string): Promise<AnalysisRunResponseDTO> => {
       return request<AnalysisRunResponseDTO>(`/analyses/${id}/recompute`, {
@@ -275,7 +288,7 @@ export const api = {
       reportId: string,
       format: "pdf" | "html"
     ): string => {
-      return `${API_BASE_URL}/analyses/${analysisId}/reports/${reportId}/download?format=${format}`;
+      return `${getApiBaseUrl()}/analyses/${analysisId}/reports/${reportId}/download?format=${format}`;
     },
   },
 

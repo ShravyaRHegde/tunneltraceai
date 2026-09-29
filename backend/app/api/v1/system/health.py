@@ -126,7 +126,8 @@ async def get_readiness(response: Response, request: Request) -> ReadinessRespon
     app_settings = getattr(request.app.state, "settings", None) if (request and hasattr(request, "app") and hasattr(request.app, "state")) else None
     active_settings = app_settings or settings
     app_env_val = getattr(active_settings, "APP_ENV", None) or getattr(active_settings, "app_env", "development")
-    is_dev = str(app_env_val).lower() == "development"
+    db_url_str = str(getattr(active_settings, "DATABASE_URL", ""))
+    is_dev = str(app_env_val).lower() in ("development", "staging", "test") or "sqlite" in db_url_str
     redis_up = redis_result.get("status") == "UP"
     queue_mode = "DISTRIBUTED_REDIS" if redis_up else ("IN_PROCESS_EAGER" if is_dev else "UNAVAILABLE")
 

@@ -30,6 +30,7 @@ build/
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 
 # Node & Next.js
 node_modules/
@@ -49,10 +50,12 @@ data/
 /backend/storage/
 var/
 *.sqlite
+!backend/soc_dev.sqlite
 *.sqlite3
 *.db
 
 # Packet Captures & Temp Artifacts (Except Golden Fixtures)
+output/
 scratch/
 tmp/
 /captures/*

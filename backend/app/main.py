@@ -57,6 +57,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     storage = get_storage_provider()
     logger.info(f"Initialized storage provider with root: '{storage.root_path}'")
 
+    # Initialize database schema tables and populate baseline assets if empty
+    try:
+        from app.db.session import get_engine, get_session_factory
+        from app.db.auto_seed import ensure_db_initialized
+        db_engine = get_engine()
+        db_sf = get_session_factory()
+        await ensure_db_initialized(db_engine, db_sf)
+    except Exception as exc:
+        logger.error(f"Error during startup database initialization/seeding: {exc}", exc_info=True)
+
     yield
 
     # Graceful shutdown of persistent network pools
