@@ -1,3 +1,4 @@
+# Rebuild trigger: 2026-09-29T14:44:30
 # Core Web and Serialization
 fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
