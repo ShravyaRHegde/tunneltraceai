@@ -44,6 +44,7 @@ COPY models /app/models
 COPY knowledge /app/knowledge
 COPY tests/fixtures /app/tests/fixtures
 COPY run_backend.py /app/run_backend.py
+COPY entrypoint.py /app/entrypoint.py
 
 # 5. Create storage directories and set permissions for non-root execution
 RUN mkdir -p /app/storage/captures /app/storage/reports /app/storage/tmp /app/captures/golden && \
@@ -57,5 +58,5 @@ USER 10001:10001
 # 7. Expose default port
 EXPOSE 8000
 
-# 8. Start uvicorn dynamically binding to $PORT (Render injects $PORT, fallback 8000)
-CMD ["sh", "-c", "uvicorn --app-dir /app/backend app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
+# 8. Start backend service via production entrypoint
+CMD ["python", "/app/entrypoint.py"]
