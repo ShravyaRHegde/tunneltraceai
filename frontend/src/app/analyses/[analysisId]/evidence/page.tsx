@@ -610,7 +610,7 @@ function EvidenceExplorerContent({
                         </td>
                       </tr>
                     ) : (
-                      (evidence?.nodes || []).map((n) => {
+                      (evidence?.nodes || []).map((n, idx) => {
                         const nodeType = n.node_type || (n as any).type || (n as any).data?.nodeType || "NODE";
                         const label = n.label || (n as any).data?.labelRaw || (n as any).data?.label || n.id;
                         const entityId = n.entity_id || (n as any).data?.entityId || (n as any).data?.subject_id || (n as any).data?.rule_id || n.id;
@@ -618,7 +618,7 @@ function EvidenceExplorerContent({
 
                         return (
                           <tr
-                            key={n.id}
+                            key={`${n.id}-${idx}`}
                             onClick={() => setSelectedNode({ id: n.id, node_type: nodeType, label, entity_id: entityId, properties: props })}
                             className={`cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors ${
                               selectedNode?.id === n.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""
@@ -676,7 +676,7 @@ function EvidenceExplorerContent({
           ) : (
             <Card title={`Textual Evidence Lineage Nodes (${(evidence?.nodes || []).length})`}>
               <div className="divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
-                {(evidence?.nodes || []).map((node) => {
+                {(evidence?.nodes || []).map((node, idx) => {
                   const nodeType = node.node_type || (node as any).type || (node as any).data?.nodeType || "NODE";
                   const label = node.label || (node as any).data?.labelRaw || (node as any).data?.label || node.id;
                   const entityId = node.entity_id || (node as any).data?.entityId || (node as any).data?.subject_id || (node as any).data?.rule_id || node.id;
@@ -684,7 +684,7 @@ function EvidenceExplorerContent({
 
                   return (
                     <div
-                      key={node.id}
+                      key={`${node.id}-${idx}`}
                       onClick={() => setSelectedNode({ id: node.id, node_type: nodeType, label, entity_id: entityId, properties: props })}
                       className={`py-3 px-2 flex items-center justify-between cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/60 ${
                         selectedNode?.id === node.id ? "bg-neutral-100 dark:bg-neutral-800/80 font-bold border-l-2 border-l-[#FF3D00]" : ""

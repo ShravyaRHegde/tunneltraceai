@@ -26,6 +26,9 @@ class SampleCaptureDTO(BaseModel):
     format: str
     sha256: str
     provenance: str
+    category: str | None = None
+    existing_analysis_id: str | None = None
+    existing_run_status: str | None = None
 
 
 def _find_repo_root() -> Path:
@@ -42,44 +45,36 @@ SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
         "filename": "real_tunnel_gcm.pcapng",
         "rel_path": "tests/fixtures/captures/real_tunnel_gcm.pcapng",
         "title": "IKEv2 Site-to-Site Tunnel (AES-256-GCM / ECP-256 / PFS)",
-        "description": "Full RFC 7296 cryptographic handshake with IKE_SA_INIT, IKE_AUTH, and 8 bidirectional ESP data plane frames.",
+        "description": "Full RFC 7296 cryptographic handshake with IKE_SA_INIT, IKE_AUTH, and 8 bidirectional ESP data plane frames. 100/100 NIST SP 800-77 compliant baseline.",
         "packet_count": 12,
         "format": "PCAPNG",
         "sha256": "949531329196d1fbc836ee0685efe8a204c68d6d8da5a5b75ecaa0128c59e04d",
         "provenance": "Authentic dual-strongSwan Linux namespace benchmark capture",
-    },
-    "real_esp_only": {
-        "sample_id": "real_esp_only",
-        "filename": "real_esp_only.pcap",
-        "rel_path": "tests/fixtures/captures/real_esp_only.pcap",
-        "title": "ESP-Only Mid-Stream Flow (No Handshake Observed)",
-        "description": "Mid-stream ESP packets illustrating passive visibility limitations when IKE exchange packets are missing from capture.",
-        "packet_count": 8,
-        "format": "PCAP",
-        "sha256": "76b74be5fc6e60d931c1bcf959360c84b59d7f70bada30b46af8938bff339bdd",
-        "provenance": "Subset of frames 5-12 isolating encrypted data plane encapsulation",
+        "category": "BENCHMARK SHOWCASE · 100/100 COMPLIANT",
     },
     "sample_cbc_nopfs": {
         "sample_id": "sample_cbc_nopfs",
         "filename": "sample_cbc_nopfs.pcap",
         "rel_path": "tests/fixtures/captures/sample_cbc_nopfs.pcap",
         "title": "IKEv2 Tunnel Mode (AES-256-CBC / DH14 / No PFS)",
-        "description": "Authentic strongSwan tunnel with Perfect Forward Secrecy disabled. Triggers policy audit evaluation for non-PFS rekeying exposure.",
+        "description": "Authentic strongSwan tunnel with Perfect Forward Secrecy disabled. Triggers policy audit evaluation for non-PFS rekeying exposure and CBC vulnerability recommendations.",
         "packet_count": 12,
         "format": "PCAP",
         "sha256": "14782b9996945e3f5c82b48d2ea4596dd730ede00cae7f791bdb053daca804b2",
         "provenance": "dual-strongSwan namespace benchmark capture from scn-02-tunnel-v4-cbc-nopfs",
+        "category": "VULNERABILITY AUDIT · POLICY FINDINGS",
     },
     "strongswan_natt_udp4500": {
         "sample_id": "strongswan_natt_udp4500",
         "filename": "03_strongswan_natt_udp4500.pcap",
         "rel_path": "tests/fixtures/verification_captures/03_strongswan_natt_udp4500.pcap",
         "title": "NAT-Traversal UDP Port 4500 Tunnel",
-        "description": "RFC 3948 UDP-encapsulated ESP tunnel passing through NAT boundary with Non-ESP marker detection.",
+        "description": "RFC 3948 UDP-encapsulated ESP tunnel passing through NAT boundary with Non-ESP marker detection and dynamic port renegotiation.",
         "packet_count": 12,
         "format": "PCAP",
         "sha256": "7b63a0fd455202ac286de8d5c1dd8e499fc988680b9bdcb6c8afe6567f7f21fa",
         "provenance": "dual-strongSwan namespace test with iptables NAT-T port 4500 mapping",
+        "category": "NETWORK ARCHITECTURE · NAT-T UDP 4500",
     },
     "edge_esp_seq_jump_replay": {
         "sample_id": "edge_esp_seq_jump_replay",
@@ -91,28 +86,19 @@ SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
         "format": "PCAP",
         "sha256": "f0cb561a3be595b59b21aac8f67b746251370faa105d91e0c5b31886ea879790",
         "provenance": "Mutated ESP sequence number sequence testing anti-replay integrity checks",
+        "category": "THREAT FORENSICS · ANTI-REPLAY ANOMALY",
     },
-    "plaintext_icmp_control": {
-        "sample_id": "plaintext_icmp_control",
-        "filename": "04_plaintext_icmp_non_ipsec.pcap",
-        "rel_path": "tests/fixtures/verification_captures/04_plaintext_icmp_non_ipsec.pcap",
-        "title": "Plaintext ICMP Traffic (Negative Control)",
-        "description": "Non-IPsec network traffic used to verify negative control validation and automatic capture rejection.",
-        "packet_count": 10,
+    "real_esp_only": {
+        "sample_id": "real_esp_only",
+        "filename": "real_esp_only.pcap",
+        "rel_path": "tests/fixtures/captures/real_esp_only.pcap",
+        "title": "ESP-Only Mid-Stream Flow (No Handshake Observed)",
+        "description": "Mid-stream ESP packets illustrating passive visibility limitations and metadata-level flow analysis when IKE exchange packets are missing from capture.",
+        "packet_count": 8,
         "format": "PCAP",
-        "sha256": "b37aa527dd51c80a1b003cc305f56bc77f53ba44da0ec3d4144fc29efb1ad61c",
-        "provenance": "Baseline client plaintext echo request/reply capture without IPsec transforms",
-    },
-    "wireguard_control": {
-        "sample_id": "wireguard_control",
-        "filename": "05_wireguard_tunnel_non_ipsec.pcapng",
-        "rel_path": "tests/fixtures/verification_captures/05_wireguard_tunnel_non_ipsec.pcapng",
-        "title": "WireGuard Tunnel (Non-IPsec Negative Control)",
-        "description": "Non-IPsec modern VPN traffic (UDP 51820) verifying protocol discrimination and zero false-positive IPsec findings.",
-        "packet_count": 22,
-        "format": "PCAPNG",
-        "sha256": "39785eb5e094d2ad57163d3b7f8ab009a3934c978c76c8ff0e012b01817e1e41",
-        "provenance": "Controlled WireGuard application ping session for cross-protocol negative verification",
+        "sha256": "76b74be5fc6e60d931c1bcf959360c84b59d7f70bada30b46af8938bff339bdd",
+        "provenance": "Subset of frames 5-12 isolating encrypted data plane encapsulation",
+        "category": "PASSIVE OBSERVATION · ENCRYPTED ESP FLOW",
     },
     "openvpn_control": {
         "sample_id": "openvpn_control",
@@ -124,6 +110,31 @@ SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
         "format": "PCAP",
         "sha256": "2d50afea494353b793a8b03074ec7905c93e10f5028b73136e8b4a8796c50439",
         "provenance": "Captured OpenVPN TLS session verifying strict IKE/ESP protocol boundaries",
+        "category": "NEGATIVE CONTROL · NON-IPSEC REJECTION",
+    },
+    "wireguard_control": {
+        "sample_id": "wireguard_control",
+        "filename": "05_wireguard_tunnel_non_ipsec.pcapng",
+        "rel_path": "tests/fixtures/verification_captures/05_wireguard_tunnel_non_ipsec.pcapng",
+        "title": "WireGuard Tunnel (Non-IPsec Negative Control)",
+        "description": "Non-IPsec modern VPN traffic (UDP 51820) verifying protocol discrimination and zero false-positive IPsec findings.",
+        "packet_count": 22,
+        "format": "PCAPNG",
+        "sha256": "39785eb5e094d2ad57163d3b7f8ab009a3934c978c76c8ff0e012b01817e1e41",
+        "provenance": "Controlled WireGuard application ping session for cross-protocol negative verification",
+        "category": "NEGATIVE CONTROL · NON-IPSEC REJECTION",
+    },
+    "plaintext_icmp_control": {
+        "sample_id": "plaintext_icmp_control",
+        "filename": "04_plaintext_icmp_non_ipsec.pcap",
+        "rel_path": "tests/fixtures/verification_captures/04_plaintext_icmp_non_ipsec.pcap",
+        "title": "Plaintext ICMP Traffic (Negative Control)",
+        "description": "Non-IPsec network traffic used to verify negative control validation and automatic capture rejection.",
+        "packet_count": 10,
+        "format": "PCAP",
+        "sha256": "b37aa527dd51c80a1b003cc305f56bc77f53ba44da0ec3d4144fc29efb1ad61c",
+        "provenance": "Baseline client plaintext echo request/reply capture without IPsec transforms",
+        "category": "NEGATIVE CONTROL · PLAINTEXT REJECTION",
     },
 }
 
@@ -133,21 +144,48 @@ SAMPLE_FIXTURES: dict[str, dict[str, Any]] = {
     response_model=list[SampleCaptureDTO],
     summary="List available repository sample captures for immediate evaluation",
 )
-async def list_sample_captures() -> list[SampleCaptureDTO]:
+async def list_sample_captures(
+    db: AsyncSession = Depends(get_db_session),
+) -> list[SampleCaptureDTO]:
     """Retrieve safe repository benchmark fixtures ready for one-click ingestion."""
-    return [
-        SampleCaptureDTO(
-            sample_id=item["sample_id"],
-            filename=item["filename"],
-            title=item["title"],
-            description=item["description"],
-            packet_count=item["packet_count"],
-            format=item["format"],
-            sha256=item["sha256"],
-            provenance=item["provenance"],
+    from app.db.models.capture import AnalysisRun, Capture
+
+    items: list[SampleCaptureDTO] = []
+    for item in SAMPLE_FIXTURES.values():
+        existing_run_id: str | None = None
+        existing_status: str | None = None
+
+        stmt_run = (
+            select(AnalysisRun)
+            .join(Capture, AnalysisRun.capture_id == Capture.id)
+            .where(
+                Capture.sha256_hash == item["sha256"],
+                AnalysisRun.status == "COMPLETED",
+                AnalysisRun.is_archived == False,
+            )
+            .order_by(AnalysisRun.created_at.desc())
         )
-        for item in SAMPLE_FIXTURES.values()
-    ]
+        existing_run = (await db.execute(stmt_run)).scalars().first()
+        if existing_run:
+            existing_run_id = str(existing_run.id)
+            existing_status = existing_run.status
+
+        items.append(
+            SampleCaptureDTO(
+                sample_id=item["sample_id"],
+                filename=item["filename"],
+                title=item["title"],
+                description=item["description"],
+                packet_count=item["packet_count"],
+                format=item["format"],
+                sha256=item["sha256"],
+                provenance=item["provenance"],
+                category=item.get("category"),
+                existing_analysis_id=existing_run_id,
+                existing_run_status=existing_status,
+            )
+        )
+    return items
 
 
 @router.post(
@@ -192,8 +230,9 @@ async def ingest_sample_capture(
 
     stmt_run = (
         select(AnalysisRun)
+        .join(Capture, AnalysisRun.capture_id == Capture.id)
         .where(
-            AnalysisRun.capture_id == capture.id,
+            Capture.sha256_hash == fix_meta["sha256"],
             AnalysisRun.status == "COMPLETED",
             AnalysisRun.is_archived == False,
         )

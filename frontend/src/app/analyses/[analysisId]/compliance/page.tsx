@@ -161,6 +161,9 @@ export default function ComplianceScorecardPage({
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
             <input
+              id="search-compliance"
+              name="search-compliance"
+              aria-label="Search compliance rules"
               type="text"
               placeholder="Search rules by ID, standard, or title..."
               value={search}
@@ -206,9 +209,9 @@ export default function ComplianceScorecardPage({
                   </tr>
                 </TableHeader>
                 <TableBody>
-                  {filteredEvaluations.map((ev) => (
+                  {filteredEvaluations.map((ev, idx) => (
                     <TableRow
-                      key={ev.rule_id}
+                      key={`${ev.rule_id}-${idx}`}
                       onClick={() => setSelectedRule(ev)}
                       isSelected={selectedRule?.rule_id === ev.rule_id}
                     >

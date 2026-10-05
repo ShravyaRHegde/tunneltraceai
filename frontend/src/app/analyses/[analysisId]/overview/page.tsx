@@ -133,7 +133,7 @@ export default function OverviewPage({
       )}
 
       {/* Insufficient Evidence / Not Assessable Banner */}
-      {!isDemoOrSeeded && (security_posture.score === null || (security_posture as any).status === "NOT_ASSESSABLE" || (security_posture as any).status === "INSUFFICIENT_EVIDENCE" || (security_posture.evidence_coverage !== undefined && security_posture.evidence_coverage < 0.5)) && (
+      {!isDemoOrSeeded && (security_posture.score === null || (security_posture as any).status === "NOT_ASSESSABLE" || (security_posture as any).status === "INSUFFICIENT_EVIDENCE") && (
         <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 text-amber-900 dark:text-amber-200 text-xs font-mono space-y-1">
           <div className="flex items-center space-x-2 font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
             <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -289,8 +289,8 @@ export default function OverviewPage({
           >
             {findings_summary.top_findings && findings_summary.top_findings.length > 0 ? (
               <div className="divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
-                {findings_summary.top_findings.map((f) => (
-                  <div key={f.finding_id} className="py-2.5 flex items-start justify-between gap-3">
+                {findings_summary.top_findings.map((f, idx) => (
+                  <div key={`${f.finding_id}-${idx}`} className="py-2.5 flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <SeverityBadge severity={f.severity} />

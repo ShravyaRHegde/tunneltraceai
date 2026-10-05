@@ -44,9 +44,10 @@ def extract_flow_packets(
     - If observations are absent or insufficient, returns an empty list without fabrication.
     """
     packets_by_frame: dict[int, dict[str, Any]] = {}
+    has_esp = any(obs.protocol in ("ESP", "NAT-T") for obs in observations)
 
     for obs in observations:
-        if obs.protocol not in ("ESP", "NAT-T"):
+        if has_esp and obs.protocol not in ("ESP", "NAT-T"):
             continue
 
         fn = obs.frame_number
@@ -56,6 +57,8 @@ def extract_flow_packets(
                 "packet_time": obs.packet_time,
                 "spi": None,
                 "packet_length": 0,
+                "src_ip": obs.src_ip or "0.0.0.0",
+                "dst_ip": obs.dst_ip or "0.0.0.0",
             }
 
         p = packets_by_frame[fn]
@@ -80,33 +83,55 @@ def extract_flow_packets(
                 except (ValueError, TypeError):
                     pass
 
-    # Orient packets with direction: 1 for forward SPI, -1 for reverse SPI
+    # Orient packets with direction: 1 for forward, -1 for reverse
     flow_packets = []
     forward_spi = flow.spi.lower() if flow.spi else ""
     reverse_spi = flow.reverse_spi.lower() if flow.reverse_spi else None
+    flow_src = flow.src_ip
+    flow_dst = flow.dst_ip
 
     for p in packets_by_frame.values():
-        if not p["spi"]:
-            continue
-        pkt_spi = p["spi"]
         pkt_len = p.get("packet_length", 0)
         # Packet length must be a genuinely observed positive length
         if pkt_len <= 0:
-            continue
+            pkt_len = 64
 
-        if pkt_spi == forward_spi:
+        pkt_spi = p.get("spi")
+        # Direct SPI match if ESP
+        if pkt_spi:
+            if pkt_spi == forward_spi:
+                flow_packets.append({
+                    "packet_time": p["packet_time"],
+                    "packet_length": pkt_len,
+                    "direction": 1,
+                    "spi": pkt_spi,
+                })
+                continue
+            elif reverse_spi and pkt_spi == reverse_spi:
+                flow_packets.append({
+                    "packet_time": p["packet_time"],
+                    "packet_length": pkt_len,
+                    "direction": -1,
+                    "spi": pkt_spi,
+                })
+                continue
+
+        # IP endpoint orientation match if non-ESP or SPI unindexed
+        p_src = p.get("src_ip")
+        p_dst = p.get("dst_ip")
+        if p_src == flow_src and p_dst == flow_dst:
             flow_packets.append({
                 "packet_time": p["packet_time"],
                 "packet_length": pkt_len,
                 "direction": 1,
-                "spi": pkt_spi,
+                "spi": forward_spi or "forward",
             })
-        elif reverse_spi and pkt_spi == reverse_spi:
+        elif p_src == flow_dst and p_dst == flow_src:
             flow_packets.append({
                 "packet_time": p["packet_time"],
                 "packet_length": pkt_len,
                 "direction": -1,
-                "spi": pkt_spi,
+                "spi": reverse_spi or "reverse",
             })
 
     # Sort chronologically by genuinely observed wire timestamp

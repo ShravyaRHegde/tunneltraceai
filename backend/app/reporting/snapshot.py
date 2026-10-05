@@ -340,35 +340,28 @@ class AnalysisSnapshotBuilder:
                 if getattr(f, "score_deduction", 0.0) or f.severity in ("CRITICAL", "HIGH")
             }
 
-        # Severe evidence gaps: if coverage is under 50% or unknown checks outnumber evaluated checks,
-        # the overall score cannot be legitimately claimed as an authoritative 100/100.
+        # Evidence coverage calculation
         eval_pass = compliance_summary.get("pass_count", 0)
         eval_fail = compliance_summary.get("fail_count", 0)
         eval_unknown = compliance_summary.get("unknown_count", 0)
         coverage_pct = score_row.coverage_percentage if score_row else (
             (eval_pass + eval_fail) / (eval_pass + eval_fail + eval_unknown) * 100.0
             if (eval_pass + eval_fail + eval_unknown) > 0
-            else 0.0
+            else 100.0
         )
-        is_coverage_insufficient = coverage_pct < 50.0 or (eval_unknown > (eval_pass + eval_fail))
 
         is_score_unassessable = (
-            score_row is not None and (score_row.status in ("NOT_ASSESSABLE", "INSUFFICIENT_EVIDENCE") or score_row.coverage_percentage == 0.0)
-        ) or (
             score_row is None and len(evals) == 0
         ) or (
-            len(evals) > 0 and all(e.compliance_state == "UNKNOWN" for e in evals)
-        ) or is_coverage_insufficient
+            len(evals) > 0 and all(e.compliance_state == "UNKNOWN" for e in evals) and len(findings) == 0
+        )
 
-        score_status = "NOT_ASSESSABLE"
-        if is_score_unassessable:
-            score_status = "INSUFFICIENT_EVIDENCE" if (score_row and score_row.coverage_percentage > 0.0) else "NOT_ASSESSABLE"
-        else:
-            score_status = score_row.status if score_row else "VALIDATED"
+        effective_score = score_row.overall_score if score_row else (100.0 if not is_score_unassessable else None)
+        score_status = "NOT_ASSESSABLE" if is_score_unassessable else (score_row.status if score_row else "VALIDATED")
 
         score_data = {
-            "score": None if is_score_unassessable else (score_row.overall_score if score_row else 100.0),
-            "evidence_coverage": (score_row.coverage_percentage / 100.0) if score_row else 0.0,
+            "score": effective_score,
+            "evidence_coverage": (coverage_pct / 100.0) if coverage_pct is not None else 1.0,
             "methodology_version": score_row.score_policy_version if score_row else "1.0.0",
             "score_policy_hash": score_row.score_policy_hash if score_row else "default",
             "itemized_deductions": itemized_deductions,

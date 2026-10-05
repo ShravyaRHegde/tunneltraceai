@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.ai.analyst import GroundedAIAnalystService
 from app.ai.context.assembler import ContextAssembler, RetrievedStandardItem
 from app.ai.context.fact_lock import FactLockContext, FactLockItem
-from app.ai.provider import ModelUnavailableError
+from app.ai.provider import EmbeddingResult, ModelUnavailableError
 from app.ai.retrieval.engine import EvidenceFirstRetrievalEngine
 from app.db.base import Base
 from app.db.models.capture import AnalysisRun, Capture
@@ -121,7 +121,17 @@ async def test_ai_analyst_offline_model_graceful_handling(monkeypatch):
             async def generate_structured(self, *args, **kwargs):
                 raise ModelUnavailableError("Local Ollama runtime unreachable on port 11434")
 
-        monkeypatch.setattr(service, "provider", OfflineProvider())
+            async def embed(self, *args, **kwargs):
+                return EmbeddingResult(
+                    embeddings=[[0.0] * 384],
+                    model="bge-small-en-v1.5",
+                    dimension=384,
+                    duration_ms=1.0,
+                )
+
+        offline_prov = OfflineProvider()
+        monkeypatch.setattr(service, "provider", offline_prov)
+        monkeypatch.setattr(service.retrieval_engine.knowledge_service, "provider", offline_prov)
 
         # Execute query
         resp = await service.execute_query(

@@ -31,6 +31,9 @@ export interface SampleCaptureDTO {
   format: string;
   sha256: string;
   provenance: string;
+  category?: string | null;
+  existing_analysis_id?: string | null;
+  existing_run_status?: string | null;
 }
 
 export interface AnalysisRunResponseDTO {

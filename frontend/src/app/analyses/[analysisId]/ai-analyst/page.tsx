@@ -325,8 +325,11 @@ export default function AIAnalystPage({
           {/* Chip 2: Model Selector / Loaded Status */}
           <div className="flex items-center border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1">
             <Cpu className="w-3.5 h-3.5 text-neutral-500 mr-1.5" />
-            <span className="text-neutral-500 mr-1 text-[10px] uppercase font-bold">Model:</span>
+            <label htmlFor="ai-model-select" className="text-neutral-500 mr-1 text-[10px] uppercase font-bold">Model:</label>
             <select
+              id="ai-model-select"
+              name="ai-model-select"
+              aria-label="Local AI Model Selection"
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               disabled={isGenerating}
@@ -656,6 +659,9 @@ export default function AIAnalystPage({
                   className="flex space-x-2"
                 >
                   <input
+                    id="ai-analyst-query"
+                    name="ai-analyst-query"
+                    aria-label="Ask AI Analyst or search RFC knowledge base"
                     type="text"
                     value={inputQuery}
                     onChange={(e) => setInputQuery(e.target.value)}

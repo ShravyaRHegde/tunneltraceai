@@ -830,8 +830,11 @@ python scripts/gateway_collector.py \\
             {/* Filter by Event Kind and Gateway */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
-                <label className="text-xs font-mono text-neutral-500">GATEWAY:</label>
+                <label htmlFor="filter-gw-id" className="text-xs font-mono text-neutral-500">GATEWAY:</label>
                 <select
+                  id="filter-gw-id"
+                  name="filter-gw-id"
+                  aria-label="Filter events by Gateway"
                   value={filterGatewayId}
                   onChange={(e) => setFilterGatewayId(e.target.value)}
                   className="bg-white dark:bg-[#111113] border border-neutral-300 dark:border-neutral-700 text-xs font-mono px-2 py-1 rounded"
@@ -846,8 +849,11 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div className="flex items-center gap-1.5">
-                <label className="text-xs font-mono text-neutral-500">KIND:</label>
+                <label htmlFor="filter-event-kind" className="text-xs font-mono text-neutral-500">KIND:</label>
                 <select
+                  id="filter-event-kind"
+                  name="filter-event-kind"
+                  aria-label="Filter events by kind"
                   value={filterEventKind}
                   onChange={(e) => setFilterEventKind(e.target.value)}
                   className="bg-white dark:bg-[#111113] border border-neutral-300 dark:border-neutral-700 text-xs font-mono px-2 py-1 rounded"
@@ -1177,8 +1183,10 @@ python scripts/gateway_collector.py \\
 
             <div className="space-y-3 font-mono text-xs">
               <div>
-                <label className="block text-neutral-500 mb-1">GATEWAY NAME</label>
+                <label htmlFor="reg-gw-name" className="block text-neutral-500 mb-1">GATEWAY NAME</label>
                 <input
+                  id="reg-gw-name"
+                  name="reg-gw-name"
                   type="text"
                   value={gwName}
                   onChange={(e) => setGwName(e.target.value)}
@@ -1188,8 +1196,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">PRIMARY IP ADDRESS</label>
+                <label htmlFor="reg-gw-ip" className="block text-neutral-500 mb-1">PRIMARY IP ADDRESS</label>
                 <input
+                  id="reg-gw-ip"
+                  name="reg-gw-ip"
                   type="text"
                   value={gwIp}
                   onChange={(e) => setGwIp(e.target.value)}
@@ -1199,8 +1209,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">AUTHORIZED CIDR SCOPE</label>
+                <label htmlFor="reg-gw-scope" className="block text-neutral-500 mb-1">AUTHORIZED CIDR SCOPE</label>
                 <input
+                  id="reg-gw-scope"
+                  name="reg-gw-scope"
                   type="text"
                   value={gwScope}
                   onChange={(e) => setGwScope(e.target.value)}
@@ -1210,8 +1222,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">AUTHORIZATION REFERENCE</label>
+                <label htmlFor="reg-gw-auth-ref" className="block text-neutral-500 mb-1">AUTHORIZATION REFERENCE</label>
                 <input
+                  id="reg-gw-auth-ref"
+                  name="reg-gw-auth-ref"
                   type="text"
                   value={gwAuthRef}
                   onChange={(e) => setGwAuthRef(e.target.value)}
@@ -1269,8 +1283,10 @@ python scripts/gateway_collector.py \\
 
             <div className="space-y-3 font-mono text-xs">
               <div>
-                <label className="block text-neutral-500 mb-1">SENSOR NAME</label>
+                <label htmlFor="reg-sensor-name" className="block text-neutral-500 mb-1">SENSOR NAME</label>
                 <input
+                  id="reg-sensor-name"
+                  name="reg-sensor-name"
                   type="text"
                   value={sensorName}
                   onChange={(e) => setSensorName(e.target.value)}
@@ -1280,8 +1296,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">TARGET GATEWAY</label>
+                <label htmlFor="reg-sensor-gw-id" className="block text-neutral-500 mb-1">TARGET GATEWAY</label>
                 <select
+                  id="reg-sensor-gw-id"
+                  name="reg-sensor-gw-id"
                   value={sensorGwId}
                   onChange={(e) => {
                     setSensorGwId(e.target.value);
@@ -1300,8 +1318,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">SENSOR TYPE</label>
+                <label htmlFor="reg-sensor-type" className="block text-neutral-500 mb-1">SENSOR TYPE</label>
                 <select
+                  id="reg-sensor-type"
+                  name="reg-sensor-type"
                   value={sensorType}
                   onChange={(e) => setSensorType(e.target.value as any)}
                   className="w-full px-3 py-2 bg-neutral-100 dark:bg-black border border-neutral-300 dark:border-neutral-800 rounded focus:border-[#FF3D00] outline-none"
@@ -1312,8 +1332,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">BOUND SCOPE</label>
+                <label htmlFor="reg-sensor-scope" className="block text-neutral-500 mb-1">BOUND SCOPE</label>
                 <input
+                  id="reg-sensor-scope"
+                  name="reg-sensor-scope"
                   type="text"
                   value={sensorScope}
                   onChange={(e) => setSensorScope(e.target.value)}
@@ -1323,8 +1345,10 @@ python scripts/gateway_collector.py \\
               </div>
 
               <div>
-                <label className="block text-neutral-500 mb-1">FRESHNESS WINDOW (SECONDS)</label>
+                <label htmlFor="reg-sensor-freshness" className="block text-neutral-500 mb-1">FRESHNESS WINDOW (SECONDS)</label>
                 <input
+                  id="reg-sensor-freshness"
+                  name="reg-sensor-freshness"
                   type="number"
                   value={sensorFreshness}
                   onChange={(e) => setSensorFreshness(Number(e.target.value))}

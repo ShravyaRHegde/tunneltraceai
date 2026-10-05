@@ -135,13 +135,15 @@ export default function ThreatMatrixPage({
                   </tr>
                 </TableHeader>
                 <TableBody>
-                  {threats.map((threat) => {
+                  {threats.map((threat, idx) => {
                     const attackId = threat.mitre_attack_id || (threat.mitre_technique_id !== "N/A" ? threat.mitre_technique_id : null);
+                    const rowKey = `${threat.threat_id}-${threat.finding_id || "nofind"}-${idx}`;
+                    const isSelected = selectedThreat?.threat_id === threat.threat_id && (threat.finding_id ? selectedThreat?.finding_id === threat.finding_id : true);
                     return (
                       <TableRow
-                        key={threat.threat_id}
+                        key={rowKey}
                         onClick={() => setSelectedThreat(threat)}
-                        isSelected={selectedThreat?.threat_id === threat.threat_id}
+                        isSelected={isSelected}
                       >
                         <TableCell mono>
                           <span className="font-bold text-neutral-900 dark:text-white">
@@ -311,9 +313,9 @@ export default function ThreatMatrixPage({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {threatIntel.intel_items.map((item: ThreatIntelItemDTO) => (
+              {threatIntel.intel_items.map((item: ThreatIntelItemDTO, idx: number) => (
                 <div
-                  key={item.cve_id}
+                  key={`${item.cve_id}-${idx}`}
                   className="p-3 bg-white dark:bg-[#141416] border border-neutral-300 dark:border-neutral-800 font-mono text-xs space-y-2"
                 >
                   <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-1.5">

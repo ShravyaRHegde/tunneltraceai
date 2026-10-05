@@ -239,10 +239,12 @@ export default function DiscoveryPage() {
             <form onSubmit={handleOpenConfirmation} className="space-y-4 text-xs">
               {/* Job Name */}
               <div className="space-y-1">
-                <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                <label htmlFor="disc-job-name" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                   JOB NAME / ENGAGEMENT TITLE
                 </label>
                 <input
+                  id="disc-job-name"
+                  name="disc-job-name"
                   type="text"
                   value={jobName}
                   onChange={(e) => setJobName(e.target.value)}
@@ -253,10 +255,12 @@ export default function DiscoveryPage() {
 
               {/* Scan Profile Selection */}
               <div className="space-y-1">
-                <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                <label htmlFor="disc-scan-profile" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                   BOUNDED SCAN PROFILE
                 </label>
                 <select
+                  id="disc-scan-profile"
+                  name="disc-scan-profile"
                   value={profile}
                   onChange={(e) => setProfile(e.target.value)}
                   className="w-full px-3 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#FF3D00]"
@@ -281,10 +285,12 @@ export default function DiscoveryPage() {
               {/* Operator ID & Authorization Ref */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                  <label htmlFor="disc-operator-id" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                     OPERATOR ID
                   </label>
                   <input
+                    id="disc-operator-id"
+                    name="disc-operator-id"
                     type="text"
                     value={operatorId}
                     onChange={(e) => setOperatorId(e.target.value)}
@@ -293,10 +299,12 @@ export default function DiscoveryPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                  <label htmlFor="disc-auth-ref" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                     AUTH REFERENCE / TICKET
                   </label>
                   <input
+                    id="disc-auth-ref"
+                    name="disc-auth-ref"
                     type="text"
                     value={authRef}
                     onChange={(e) => setAuthRef(e.target.value)}
@@ -310,7 +318,7 @@ export default function DiscoveryPage() {
               {/* Targets */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                  <label htmlFor="disc-targets-text" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                     APPROVED TARGETS (IPs, CIDRs, or HOSTNAMES)
                   </label>
                   <span className="text-[10px] font-mono text-neutral-500">
@@ -360,6 +368,9 @@ export default function DiscoveryPage() {
                 </div>
 
                 <textarea
+                  id="disc-targets-text"
+                  name="disc-targets-text"
+                  aria-label="Target IP or CIDR scope"
                   rows={2}
                   value={targetsText}
                   onChange={(e) => setTargetsText(e.target.value)}
@@ -372,10 +383,12 @@ export default function DiscoveryPage() {
               {/* Exclusions & Ports */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                  <label htmlFor="disc-exclusions-text" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                     EXCLUSIONS (OPTIONAL)
                   </label>
                   <input
+                    id="disc-exclusions-text"
+                    name="disc-exclusions-text"
                     type="text"
                     value={exclusionsText}
                     onChange={(e) => setExclusionsText(e.target.value)}
@@ -384,10 +397,12 @@ export default function DiscoveryPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
+                  <label htmlFor="disc-ports-text" className="font-mono text-neutral-600 dark:text-neutral-400 font-medium">
                     PORTS (OPTIONAL)
                   </label>
                   <input
+                    id="disc-ports-text"
+                    name="disc-ports-text"
                     type="text"
                     value={portsText}
                     onChange={(e) => setPortsText(e.target.value)}
@@ -399,8 +414,10 @@ export default function DiscoveryPage() {
 
               {/* Explicit Legal Attestation */}
               <div className="p-3 rounded bg-neutral-100 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 space-y-2">
-                <label className="flex items-start space-x-2 cursor-pointer">
+                <label htmlFor="disc-attestation-confirmed" className="flex items-start space-x-2 cursor-pointer">
                   <input
+                    id="disc-attestation-confirmed"
+                    name="disc-attestation-confirmed"
                     type="checkbox"
                     checked={hasConfirmedAttestation}
                     onChange={(e) => setHasConfirmedAttestation(e.target.checked)}
@@ -410,7 +427,13 @@ export default function DiscoveryPage() {
                     I explicitly attest that testing of these targets has been formally authorized by their legal owner.
                   </span>
                 </label>
+                <label htmlFor="disc-auth-attestation" className="block text-[10px] text-neutral-500 font-mono">
+                  Written Authorization Reference / Scope Notes:
+                </label>
                 <textarea
+                  id="disc-auth-attestation"
+                  name="disc-auth-attestation"
+                  aria-label="Written Authorization Reference and Scope Notes"
                   rows={2}
                   value={authAttestation}
                   onChange={(e) => setAuthAttestation(e.target.value)}

@@ -359,8 +359,8 @@ export default function ReportsWorkspacePage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {reports.map((rep) => (
-                  <tr key={rep.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
+                {reports.map((rep, idx) => (
+                  <tr key={`${rep.id}-${idx}`} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors">
                     <td className="py-3 px-3">
                       <div className="flex items-center space-x-2">
                         <span className="font-bold text-neutral-900 dark:text-white uppercase">

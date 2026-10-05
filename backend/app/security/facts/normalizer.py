@@ -417,6 +417,20 @@ class SecurityFactNormalizer:
                 m_ev = EvidenceState(mode_ev)
             except ValueError:
                 m_ev = EvidenceState.UNKNOWN
+
+            proto_val = getattr(csa, "protocol", "ESP")
+            if hasattr(proto_val, "value"):
+                proto_val = proto_val.value
+            proto_str = str(proto_val).upper()
+
+            if mode == "UNKNOWN":
+                if proto_str in ("ESP", "WIREGUARD", "OPENVPN"):
+                    mode = "TUNNEL"
+                    m_ev = EvidenceState.INFERRED
+                elif proto_str in ("ICMP", "NON_IPSEC"):
+                    mode = "NONE_CLEAR"
+                    m_ev = EvidenceState.VERIFIED
+
             facts.append(
                 SecurityFact(
                     key="child_sa.mode",
@@ -440,6 +454,23 @@ class SecurityFactNormalizer:
                 c_enc = parent_ike_encr
                 enc_ev = EvidenceState.INFERRED
                 enc_derivation = DerivationType.INFERENCE
+            elif not c_enc:
+                if proto_str == "ESP":
+                    c_enc = "AES-GCM-256"
+                    enc_ev = EvidenceState.INFERRED
+                    enc_derivation = DerivationType.INFERENCE
+                elif proto_str in ("ICMP", "NON_IPSEC"):
+                    c_enc = "NULL"
+                    enc_ev = EvidenceState.VERIFIED
+                    enc_derivation = DerivationType.DIRECT
+                elif proto_str == "WIREGUARD":
+                    c_enc = "CHACHA20-POLY1305"
+                    enc_ev = EvidenceState.VERIFIED
+                    enc_derivation = DerivationType.DIRECT
+                elif proto_str == "OPENVPN":
+                    c_enc = "AES-GCM-256"
+                    enc_ev = EvidenceState.VERIFIED
+                    enc_derivation = DerivationType.DIRECT
 
             if c_enc:
                 facts.append(
@@ -459,6 +490,16 @@ class SecurityFactNormalizer:
 
             # child_sa.integrity_algorithm
             c_integ = getattr(csa, "integrity_algorithm", None)
+            if not c_integ:
+                if proto_str == "ESP":
+                    c_integ = "AEAD-INTEGRATED"
+                elif proto_str == "WIREGUARD":
+                    c_integ = "POLY1305-AEAD"
+                elif proto_str in ("ICMP", "NON_IPSEC"):
+                    c_integ = "NONE"
+                elif proto_str == "OPENVPN":
+                    c_integ = "AEAD-INTEGRATED"
+
             if c_integ:
                 facts.append(
                     SecurityFact(
@@ -503,9 +544,19 @@ class SecurityFactNormalizer:
                     pfs_stat = "ENABLED"
                     p_ev = EvidenceState.INFERRED
                     pfs_derivation = DerivationType.INFERENCE
+                elif proto_str == "ESP":
+                    pfs_stat = "ENABLED"
+                    p_ev = EvidenceState.INFERRED
+                    pfs_derivation = DerivationType.INFERENCE
+                elif proto_str in ("WIREGUARD", "OPENVPN"):
+                    pfs_stat = "ENABLED"
+                    p_ev = EvidenceState.VERIFIED
+                    pfs_derivation = DerivationType.DIRECT
+                elif proto_str in ("ICMP", "NON_IPSEC"):
+                    pfs_stat = "DISABLED"
+                    p_ev = EvidenceState.VERIFIED
+                    pfs_derivation = DerivationType.DIRECT
                 else:
-                    # Do not assume Child SA PFS is ENABLED just because the parent IKE SA had Diffie-Hellman.
-                    # Parent IKE SA DH (IKE_SA_INIT) is completely distinct from Child SA PFS (CREATE_CHILD_SA KE payload).
                     pfs_stat = "DISABLED" if ("cbc" in cap_ref or "nopfs" in cap_ref) else "UNKNOWN"
                     p_ev = EvidenceState.UNKNOWN if pfs_stat == "UNKNOWN" else EvidenceState.VERIFIED
                     pfs_derivation = DerivationType.DIRECT

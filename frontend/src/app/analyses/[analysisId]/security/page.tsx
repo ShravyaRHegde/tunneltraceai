@@ -243,6 +243,9 @@ export default function SecurityAssessmentPage({
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
             <input
+              id="search-findings"
+              name="search-findings"
+              aria-label="Search findings by rule ID, title, or entity"
               type="text"
               placeholder="Search findings by rule ID, title, or entity..."
               value={search}
@@ -290,11 +293,11 @@ export default function SecurityAssessmentPage({
                   </tr>
                 </TableHeader>
                 <TableBody>
-                  {filteredFindings.map((finding) => {
+                  {filteredFindings.map((finding, idx) => {
                     const src = getFindingSource(finding);
                     return (
                       <TableRow
-                        key={finding.finding_id}
+                        key={`${finding.finding_id}-${idx}`}
                         onClick={() => setSelectedFinding(finding)}
                         isSelected={selectedFinding?.finding_id === finding.finding_id}
                       >

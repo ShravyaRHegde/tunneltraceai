@@ -34,6 +34,9 @@ class ObservationCategory(str, Enum):
     ESP_HEADER = "ESP_HEADER"
     AH_HEADER = "AH_HEADER"
     NAT_T = "NAT_T"
+    ICMP = "ICMP"
+    TCP = "TCP"
+    NON_IPSEC = "NON_IPSEC"
     PARSER_WARNING = "PARSER_WARNING"
 
 

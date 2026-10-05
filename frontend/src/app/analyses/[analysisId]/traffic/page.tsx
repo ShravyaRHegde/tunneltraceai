@@ -659,7 +659,7 @@ export default function TrafficIntelligencePage({
                       </tr>
                     </TableHeader>
                     <TableBody>
-                      {traffic.flows.map((flow) => {
+                      {traffic.flows.map((flow, idx) => {
                         const isOOD =
                           flow.ood_status &&
                           flow.ood_status !== "KNOWN_ACCEPTED" &&
@@ -683,7 +683,7 @@ export default function TrafficIntelligencePage({
 
                         return (
                           <TableRow
-                            key={flow.flow_id}
+                            key={`${flow.flow_id}-${idx}`}
                             onClick={() => setSelectedFlow(flow)}
                             isSelected={selectedFlow?.flow_id === flow.flow_id}
                           >

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from typing import Any
 
@@ -36,11 +37,12 @@ class ESPFlowAggregator:
     def extract_packets(
         self, observations: list[ProtocolObservation]
     ) -> list[dict[str, Any]]:
-        """Extract frame-level ESP packet metadata."""
+        """Extract frame-level packet metadata supporting ESP, NAT-T, and non-IPsec flows."""
         packets_by_frame: dict[int, dict[str, Any]] = {}
+        has_esp = any(obs.protocol in ("ESP", "NAT-T") for obs in observations)
 
         for obs in observations:
-            if obs.protocol not in ("ESP", "NAT-T"):
+            if has_esp and obs.protocol not in ("ESP", "NAT-T"):
                 continue
 
             fn = obs.frame_number
@@ -56,6 +58,7 @@ class ESPFlowAggregator:
                     "dst_ip": obs.dst_ip or "0.0.0.0",
                     "ip_version": ip_ver,
                     "is_nat_t": False,
+                    "protocol": obs.protocol or "IP",
                 }
 
             p = packets_by_frame[fn]
@@ -64,7 +67,11 @@ class ESPFlowAggregator:
 
             # Extract packet length from extra_attributes if present
             if obs.extra_attributes and isinstance(obs.extra_attributes, dict):
-                len_val = obs.extra_attributes.get("packet_len_bytes") or obs.extra_attributes.get("length")
+                len_val = (
+                    obs.extra_attributes.get("packet_len_bytes")
+                    or obs.extra_attributes.get("length")
+                    or obs.extra_attributes.get("frame_len")
+                )
                 if len_val is not None:
                     try:
                         p["packet_length"] = int(len_val)
@@ -83,10 +90,30 @@ class ESPFlowAggregator:
                     p["packet_length"] = int(obs.normalized_value or obs.raw_value or 0)
                 except (ValueError, TypeError):
                     pass
+            elif obs.field_name == "icmp.seq":
+                try:
+                    p["sequence_number"] = int(obs.normalized_value or obs.raw_value or 0)
+                except (ValueError, TypeError):
+                    pass
+
+        # For non-ESP observations, assign synthetic SPI based on protocol and flow endpoints
+        if not has_esp:
+            for fn, p in packets_by_frame.items():
+                if p["spi"] is None:
+                    proto_tag = (p.get("protocol") or "NET").lower()
+                    flow_hash = hashlib.md5(f"{proto_tag}:{p['src_ip']}:{p['dst_ip']}".encode()).hexdigest()[:8]
+                    p["spi"] = f"0x{flow_hash}"
+                if p["sequence_number"] is None:
+                    p["sequence_number"] = fn
+
+        # Ensure packet length has reasonable non-zero fallback
+        for p in packets_by_frame.values():
+            if not p["packet_length"] or p["packet_length"] <= 0:
+                p["packet_length"] = 64
 
         # Sort packets by packet_time
         sorted_pkts = [
-            p for p in packets_by_frame.values() if p["spi"] is not None
+            p for p in packets_by_frame.values() if p["spi"] is not None and p["packet_length"] > 0
         ]
         sorted_pkts.sort(key=lambda p: (p["packet_time"], p["frame_number"]))
         return sorted_pkts

@@ -198,9 +198,9 @@ export default function RemediationTwinPage({
 
           {/* SAGA Step Progress Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-800">
-            {activeRun?.steps?.map((step: RemediationRunStepDTO) => (
+            {activeRun?.steps?.map((step: RemediationRunStepDTO, idx: number) => (
               <div
-                key={step.sequence}
+                key={`${step.sequence}-${idx}`}
                 className={`p-2 border text-[10px] ${
                   step.status === "SUCCESS"
                     ? "border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300"
@@ -347,8 +347,8 @@ export default function RemediationTwinPage({
                 <div className="text-[11px] font-bold text-neutral-400 uppercase">
                   {twin?.has_linked_baseline ? "Configured Properties" : "Observable Wire Properties"}
                 </div>
-                {twin?.semantic_diff?.map((prop: SemanticDiffItemDTO) => (
-                  <div key={prop.field} className="p-2 border border-neutral-200 dark:border-neutral-800 space-y-1">
+                {twin?.semantic_diff?.map((prop: SemanticDiffItemDTO, idx: number) => (
+                  <div key={`${prop.field}-${idx}`} className="p-2 border border-neutral-200 dark:border-neutral-800 space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-neutral-500">{prop.label}:</span>
                       <span className="font-bold text-neutral-900 dark:text-white">{String(prop.current_value)}</span>
@@ -412,6 +412,9 @@ export default function RemediationTwinPage({
                   </button>
                 </div>
                 <textarea
+                  id="edited-config"
+                  name="edited-config"
+                  aria-label="swanctl.conf proposal template"
                   value={editedConfig}
                   onChange={(e) => setEditedConfig(e.target.value)}
                   rows={14}
@@ -467,9 +470,9 @@ export default function RemediationTwinPage({
                   {/* Claims quick summary */}
                   <div className="space-y-1.5">
                     <div className="text-[10px] font-bold text-neutral-400 uppercase">Itemized Claims ({latestVerification.claims.length})</div>
-                    {latestVerification.claims.map((claim: VerificationClaimDTO) => (
+                    {latestVerification.claims.map((claim: VerificationClaimDTO, idx: number) => (
                       <div
-                        key={claim.claim_id}
+                        key={`${claim.claim_id}-${idx}`}
                         className="p-2 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px]"
                       >
                         <span className="font-bold truncate max-w-[150px]">{claim.rule_id}</span>
@@ -509,9 +512,9 @@ export default function RemediationTwinPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {twin?.semantic_diff?.map((diff: SemanticDiffItemDTO) => (
+                {twin?.semantic_diff?.map((diff: SemanticDiffItemDTO, idx: number) => (
                   <tr
-                    key={diff.field}
+                    key={`${diff.field}-${idx}`}
                     className={diff.is_changed ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}
                   >
                     <td className="p-3 font-bold text-neutral-900 dark:text-white">{diff.label}</td>
@@ -565,8 +568,8 @@ export default function RemediationTwinPage({
               {/* Resolved Items */}
               <div className="space-y-2 pt-2">
                 <h4 className="text-[11px] font-bold uppercase text-emerald-600">Targeted Findings Projected Resolved</h4>
-                {twin?.projected_regression_audit?.projected_resolved_findings?.map((item: ProjectedFindingDTO) => (
-                  <div key={item.finding_id} className="p-2.5 border border-emerald-300 dark:border-emerald-800 bg-emerald-50/20 dark:bg-emerald-950/10 flex items-center justify-between">
+                {twin?.projected_regression_audit?.projected_resolved_findings?.map((item: ProjectedFindingDTO, idx: number) => (
+                  <div key={`${item.finding_id}-${idx}`} className="p-2.5 border border-emerald-300 dark:border-emerald-800 bg-emerald-50/20 dark:bg-emerald-950/10 flex items-center justify-between">
                     <div>
                       <span className="font-bold">{item.rule_id}</span> — {item.title}
                       <p className="text-[10px] text-neutral-500 mt-0.5">{item.rationale}</p>
@@ -587,11 +590,11 @@ export default function RemediationTwinPage({
         <Card title="Verification Claim Ledger (Finding-Level Proof Audit)">
           {latestVerification?.claims?.length ? (
             <div className="space-y-3 font-mono text-xs">
-              {latestVerification.claims.map((claim: VerificationClaimDTO) => {
+              {latestVerification.claims.map((claim: VerificationClaimDTO, idx: number) => {
                 const isExpanded = expandedClaimId === claim.claim_id;
                 return (
                   <div
-                    key={claim.claim_id}
+                    key={`${claim.claim_id}-${idx}`}
                     className="border border-neutral-300 dark:border-neutral-800 overflow-hidden"
                   >
                     <button
@@ -685,8 +688,10 @@ export default function RemediationTwinPage({
               </div>
 
               <div>
-                <label className="block text-neutral-500 uppercase text-[10px] mb-1">Authorizing Operator Identifier:</label>
+                <label htmlFor="remediation-operator-id" className="block text-neutral-500 uppercase text-[10px] mb-1">Authorizing Operator Identifier:</label>
                 <input
+                  id="remediation-operator-id"
+                  name="remediation-operator-id"
                   type="text"
                   value={operatorId}
                   onChange={(e) => setOperatorId(e.target.value)}
@@ -695,8 +700,10 @@ export default function RemediationTwinPage({
                 />
               </div>
 
-              <label className="flex items-start space-x-2 cursor-pointer pt-1 border-t border-neutral-200 dark:border-neutral-800">
+              <label htmlFor="confirm-controlled-lab" className="flex items-start space-x-2 cursor-pointer pt-1 border-t border-neutral-200 dark:border-neutral-800">
                 <input
+                  id="confirm-controlled-lab"
+                  name="confirm-controlled-lab"
                   type="checkbox"
                   checked={confirmControlledLab}
                   onChange={(e) => setConfirmControlledLab(e.target.checked)}

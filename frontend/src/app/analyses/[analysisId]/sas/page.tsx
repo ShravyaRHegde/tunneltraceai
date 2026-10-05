@@ -739,9 +739,9 @@ export default function SecurityAssociationExplorerPage({
                     </tr>
                   </TableHeader>
                   <TableBody>
-                    {saList.map((sa) => (
+                    {saList.map((sa, idx) => (
                       <TableRow
-                        key={sa.id}
+                        key={`${sa.id}-${idx}`}
                         onClick={() => {
                           setSelectedSa(sa);
                           setSelectedNode(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
@@ -22,6 +22,7 @@ import {
   Terminal,
   Copy,
   Check,
+  RotateCw,
 } from "lucide-react";
 
 export default function NewAnalysisPage() {
@@ -30,6 +31,16 @@ export default function NewAnalysisPage() {
 
   // Tab: "upload" vs "samples" vs "live"
   const [activeTab, setActiveTab] = useState<"upload" | "samples" | "live">("upload");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "samples" || tab === "upload" || tab === "live") {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
 
   // Upload State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -79,22 +90,19 @@ export default function NewAnalysisPage() {
       setIngestingSampleId(sampleId);
       setUploadError(null);
       setDuplicateNotice(null);
-      const capture = await api.captures.ingestSample(sampleId);
+      const capture = await api.captures.ingestSample(sampleId, forceRerun);
       if (capture.already_analyzed && capture.existing_analysis_id && !forceRerun) {
         setIngestingSampleId(null);
-        setDuplicateNotice({
-          captureId: sampleId,
-          existingAnalysisId: capture.existing_analysis_id,
-          pipelineVersion: capture.existing_pipeline_version || "2.0.0",
-          source: "sample",
-        });
-        return { analysis: null };
+        router.push(`/analyses/${capture.existing_analysis_id}/overview`);
+        return { analysis: { analysis_id: capture.existing_analysis_id } as any };
       }
       const analysis = await api.analyses.create(capture.capture_id, forceRerun);
+      setIngestingSampleId(null);
+      router.push(`/analyses/${analysis.analysis_id}/overview`);
       return { analysis };
     },
     onSuccess: (data) => {
-      if (data.analysis) {
+      if (data?.analysis?.analysis_id) {
         router.push(`/analyses/${data.analysis.analysis_id}/overview`);
       }
     },
@@ -271,6 +279,9 @@ export default function NewAnalysisPage() {
             >
               <input
                 ref={fileInputRef}
+                id="pcap-file-upload"
+                name="pcap-file-upload"
+                aria-label="Upload PCAP or PCAPNG file"
                 type="file"
                 accept=".pcap,.pcapng"
                 className="hidden"
@@ -562,36 +573,74 @@ export default function NewAnalysisPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4">
-                  {samples.map((sample: SampleCaptureDTO) => (
+                  {samples.map((sample: SampleCaptureDTO, idx: number) => (
                     <div
-                      key={sample.sample_id}
-                      className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] p-5 space-y-3 hover:border-neutral-400 transition-colors"
+                      key={`${sample.sample_id}-${idx}`}
+                      className="border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-[#111113] p-5 space-y-3 hover:border-neutral-400 dark:hover:border-neutral-700 transition-colors"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[10px] font-mono px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 uppercase font-semibold">
                               {sample.format}
                             </span>
-                            <h3 className="font-mono font-bold text-sm text-neutral-900 dark:text-white">
-                              {sample.title}
-                            </h3>
+                            {sample.category && (
+                              <span className="text-[10px] font-mono px-2 py-0.5 bg-orange-50 dark:bg-orange-950/40 text-[#FF3D00] border border-orange-200 dark:border-orange-900/60 font-bold uppercase">
+                                {sample.category}
+                              </span>
+                            )}
+                            {sample.existing_analysis_id && (
+                              <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 font-bold uppercase flex items-center space-x-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>DEMO READY</span>
+                              </span>
+                            )}
                           </div>
+                          <h3 className="font-mono font-bold text-sm text-neutral-900 dark:text-white">
+                            {sample.title}
+                          </h3>
                           <p className="text-xs text-neutral-500 font-mono">
                             File: {sample.filename} • Packets: {sample.packet_count}
                           </p>
                         </div>
 
-                        <button
-                          disabled={ingestingSampleId === sample.sample_id}
-                          onClick={() => ingestSampleMutation.mutate({ sampleId: sample.sample_id, forceRerun: false })}
-                          className="shrink-0 flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                          <span>
-                            {ingestingSampleId === sample.sample_id ? "INGESTING..." : "INGEST SAMPLE"}
-                          </span>
-                        </button>
+                        <div className="flex items-center space-x-2 shrink-0">
+                          {sample.existing_analysis_id ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={ingestingSampleId === sample.sample_id}
+                                onClick={() => router.push(`/analyses/${sample.existing_analysis_id}/overview`)}
+                                className="flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                                title="Open existing investigation for this capture"
+                              >
+                                <span>OPEN INVESTIGATION</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={ingestingSampleId === sample.sample_id}
+                                onClick={() => ingestSampleMutation.mutate({ sampleId: sample.sample_id, forceRerun: true })}
+                                className="flex items-center space-x-1 px-2.5 py-2 border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-mono font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                                title="Force clean re-analysis run"
+                              >
+                                <RotateCw className={`w-3 h-3 ${ingestingSampleId === sample.sample_id ? "animate-spin" : ""}`} />
+                                <span className="hidden sm:inline">RE-RUN</span>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={ingestingSampleId === sample.sample_id}
+                              onClick={() => ingestSampleMutation.mutate({ sampleId: sample.sample_id, forceRerun: false })}
+                              className="flex items-center space-x-1.5 px-4 py-2 bg-[#FF3D00] hover:bg-[#e03600] text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                              title="Ingest fixture and launch full investigation"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              <span>{ingestingSampleId === sample.sample_id ? "INGESTING..." : "INGEST & OPEN"}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
@@ -728,9 +777,9 @@ export default function NewAnalysisPage() {
                     Select Capture Interface
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {interfaces.map((iface) => (
+                    {interfaces.map((iface, idx) => (
                       <div
-                        key={iface.interface_id}
+                        key={`${iface.interface_id}-${idx}`}
                         onClick={() => setSelectedInterface(iface.interface_id)}
                         className={`p-3 border cursor-pointer transition-colors ${
                           selectedInterface === iface.interface_id
@@ -755,10 +804,12 @@ export default function NewAnalysisPage() {
                   </div>
 
                   <div className="pt-2">
-                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
+                    <label htmlFor="capture-duration" className="block text-xs font-mono font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                       Capture Duration (Seconds)
                     </label>
                     <input
+                      id="capture-duration"
+                      name="capture-duration"
                       type="number"
                       min={5}
                       max={300}

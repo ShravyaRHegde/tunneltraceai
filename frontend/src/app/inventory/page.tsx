@@ -386,8 +386,11 @@ function InventoryContent() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-neutral-400">Filter Gateway:</span>
+              <label htmlFor="filter-gateway" className="text-neutral-400">Filter Gateway:</label>
               <input
+                id="filter-gateway"
+                name="filter-gateway"
+                aria-label="Filter Gateway"
                 type="text"
                 placeholder="All gateways..."
                 value={selectedGateway}
@@ -528,8 +531,10 @@ function InventoryContent() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs">
               <div>
-                <label className="block text-neutral-400 mb-1">Baseline Snapshot:</label>
+                <label htmlFor="drift-baseline-select" className="block text-neutral-400 mb-1">Baseline Snapshot:</label>
                 <select
+                  id="drift-baseline-select"
+                  name="drift-baseline-select"
                   value={driftBaselineId}
                   onChange={(e) => setDriftBaselineId(e.target.value)}
                   className="w-full bg-[#1F1F1F] border border-[#333] text-neutral-200 p-1.5 rounded"
@@ -552,8 +557,10 @@ function InventoryContent() {
               </div>
 
               <div>
-                <label className="block text-neutral-400 mb-1">Observed Snapshot:</label>
+                <label htmlFor="drift-observed-select" className="block text-neutral-400 mb-1">Observed Snapshot:</label>
                 <select
+                  id="drift-observed-select"
+                  name="drift-observed-select"
                   value={driftObservedId}
                   onChange={(e) => setDriftObservedId(e.target.value)}
                   className="w-full bg-[#1F1F1F] border border-[#333] text-neutral-200 p-1.5 rounded"
@@ -740,8 +747,11 @@ function InventoryContent() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-neutral-400">Validity Status:</span>
+              <label htmlFor="cert-validity-filter" className="text-neutral-400">Validity Status:</label>
               <select
+                id="cert-validity-filter"
+                name="cert-validity-filter"
+                aria-label="Certificate Validity Status"
                 value={certValidityFilter}
                 onChange={(e) => setCertValidityFilter(e.target.value)}
                 className="bg-[#191919] border border-[#333] px-2.5 py-1 text-neutral-200 rounded text-xs"
@@ -891,8 +901,9 @@ function InventoryContent() {
           <Card className="p-4 bg-[#161616] border-[#2A2A2A] space-y-4 font-mono text-xs">
             <div className="flex items-center gap-4 border-b border-[#2A2A2A] pb-3">
               <span className="text-neutral-300 font-bold">Import Target:</span>
-              <label className="flex items-center gap-1.5 text-neutral-200 cursor-pointer">
+              <label htmlFor="import-type-config" className="flex items-center gap-1.5 text-neutral-200 cursor-pointer">
                 <input
+                  id="import-type-config"
                   type="radio"
                   name="importType"
                   checked={importType === "config"}
@@ -900,8 +911,9 @@ function InventoryContent() {
                 />
                 strongSwan Configuration (swanctl.conf)
               </label>
-              <label className="flex items-center gap-1.5 text-neutral-200 cursor-pointer">
+              <label htmlFor="import-type-cert" className="flex items-center gap-1.5 text-neutral-200 cursor-pointer">
                 <input
+                  id="import-type-cert"
                   type="radio"
                   name="importType"
                   checked={importType === "cert"}
@@ -914,8 +926,10 @@ function InventoryContent() {
             {/* Scope & Operator Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-neutral-400 mb-1">Gateway Identity (FQDN / ID):</label>
+                <label htmlFor="inv-gateway-identity" className="block text-neutral-400 mb-1">Gateway Identity (FQDN / ID):</label>
                 <input
+                  id="inv-gateway-identity"
+                  name="inv-gateway-identity"
                   type="text"
                   value={gatewayIdentity}
                   onChange={(e) => setGatewayIdentity(e.target.value)}
@@ -924,8 +938,10 @@ function InventoryContent() {
               </div>
 
               <div>
-                <label className="block text-neutral-400 mb-1">Authorized Scope (CIDR):</label>
+                <label htmlFor="inv-authorized-scope" className="block text-neutral-400 mb-1">Authorized Scope (CIDR):</label>
                 <input
+                  id="inv-authorized-scope"
+                  name="inv-authorized-scope"
                   type="text"
                   value={authorizedScope}
                   onChange={(e) => setAuthorizedScope(e.target.value)}
@@ -934,8 +950,10 @@ function InventoryContent() {
               </div>
 
               <div>
-                <label className="block text-neutral-400 mb-1">Operator ID:</label>
+                <label htmlFor="inv-operator-id" className="block text-neutral-400 mb-1">Operator ID:</label>
                 <input
+                  id="inv-operator-id"
+                  name="inv-operator-id"
                   type="text"
                   value={operatorId}
                   onChange={(e) => setOperatorId(e.target.value)}
@@ -944,8 +962,10 @@ function InventoryContent() {
               </div>
 
               <div>
-                <label className="block text-neutral-400 mb-1">Authorization Reference:</label>
+                <label htmlFor="inv-auth-ref" className="block text-neutral-400 mb-1">Authorization Reference:</label>
                 <input
+                  id="inv-auth-ref"
+                  name="inv-auth-ref"
                   type="text"
                   value={authRef}
                   onChange={(e) => setAuthRef(e.target.value)}
@@ -1004,6 +1024,9 @@ secrets {
                   </button>
                 </div>
                 <textarea
+                  id="inv-config-text"
+                  name="inv-config-text"
+                  aria-label="swanctl.conf content"
                   rows={10}
                   value={configText}
                   onChange={(e) => setConfigText(e.target.value)}
@@ -1018,7 +1041,7 @@ secrets {
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-neutral-400">
+                    <label htmlFor="inv-cert-pem-text" className="block text-neutral-400">
                       Public X.509 Certificate (PEM Format):
                     </label>
                     <button
@@ -1049,6 +1072,9 @@ TwkhlhRfq9iDH9yt+Ro11AaliWe60GmeP37HMFv5EgJo5klLMq9oDpNs
                     </button>
                   </div>
                   <textarea
+                    id="inv-cert-pem-text"
+                    name="inv-cert-pem-text"
+                    aria-label="Public X.509 Certificate (PEM Format)"
                     rows={6}
                     value={certPemText}
                     onChange={(e) => setCertPemText(e.target.value)}
@@ -1058,10 +1084,13 @@ TwkhlhRfq9iDH9yt+Ro11AaliWe60GmeP37HMFv5EgJo5klLMq9oDpNs
                 </div>
 
                 <div>
-                  <label className="block text-neutral-400 mb-1">
+                  <label htmlFor="inv-trust-store-pem-text" className="block text-neutral-400 mb-1">
                     Optional CA Trust Store (PEM Format) for Chain Validation:
                   </label>
                   <textarea
+                    id="inv-trust-store-pem-text"
+                    name="inv-trust-store-pem-text"
+                    aria-label="Optional CA Trust Store (PEM Format)"
                     rows={4}
                     value={trustStorePemText}
                     onChange={(e) => setTrustStorePemText(e.target.value)}
@@ -1081,8 +1110,10 @@ TwkhlhRfq9iDH9yt+Ro11AaliWe60GmeP37HMFv5EgJo5klLMq9oDpNs
             </div>
 
             {/* Operator Attestation */}
-            <label className="flex items-center gap-2 cursor-pointer pt-2">
+            <label htmlFor="inv-attestation-confirmed" className="flex items-center gap-2 cursor-pointer pt-2">
               <input
+                id="inv-attestation-confirmed"
+                name="inv-attestation-confirmed"
                 type="checkbox"
                 checked={attestationConfirmed}
                 onChange={(e) => setAttestationConfirmed(e.target.checked)}

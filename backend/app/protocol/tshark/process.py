@@ -30,6 +30,8 @@ class TSharkProcessRunner:
         pcap_path: Path | str,
         display_filter: str = IPSEC_DISPLAY_FILTER,
         timeout_sec: float | None = None,
+        allow_fallback: bool = True,
+        max_packets: int | None = None,
     ) -> list[dict[str, Any]]:
         """Execute TShark on the target PCAP and return parsed frame layer records.
 
@@ -73,6 +75,8 @@ class TSharkProcessRunner:
             "json",
             "--no-duplicate-keys",
         ]
+        if max_packets is not None:
+            args.extend(["-c", str(max_packets)])
 
         cmd = self.toolchain.resolve_command("tshark", args)
 
@@ -128,21 +132,36 @@ class TSharkProcessRunner:
             )
 
         output_str = proc.stdout.strip()
-        if not output_str:
-            # Valid capture, but display filter matched 0 packets
+        data: list[dict[str, Any]] = []
+        if output_str:
+            try:
+                parsed = json.loads(output_str)
+                if isinstance(parsed, list):
+                    data = parsed
+                elif isinstance(parsed, dict):
+                    data = [parsed]
+            except json.JSONDecodeError as exc:
+                logger.error(f"TShark JSON decode error: {exc}. Output prefix: {output_str[:200]}")
+                raise ParserError(
+                    "TShark produced malformed JSON output.",
+                    code="PARSER_OUTPUT_INVALID",
+                    details={"error": str(exc)},
+                ) from exc
+
+        if not data:
+            # Valid capture, but primary IPsec filter matched 0 packets.
+            # Run adaptive fallback for protocol discrimination (WireGuard, OpenVPN, ICMP, cleartext, etc.)
+            if allow_fallback and display_filter == IPSEC_DISPLAY_FILTER:
+                logger.info(
+                    f"IPsec filter matched 0 packets in '{pcap.name}'. Running adaptive fallback for protocol discrimination."
+                )
+                return self.run_dissection(
+                    pcap_path,
+                    display_filter="ip or ipv6",
+                    timeout_sec=timeout_sec or 120.0,
+                    allow_fallback=False,
+                    max_packets=5000,
+                )
             return []
 
-        try:
-            data = json.loads(output_str)
-            if isinstance(data, list):
-                return data
-            elif isinstance(data, dict):
-                return [data]
-            return []
-        except json.JSONDecodeError as exc:
-            logger.error(f"TShark JSON decode error: {exc}. Output prefix: {output_str[:200]}")
-            raise ParserError(
-                "TShark produced malformed JSON output.",
-                code="PARSER_OUTPUT_INVALID",
-                details={"error": str(exc)},
-            ) from exc
+        return data

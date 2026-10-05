@@ -244,7 +244,7 @@ export default function VulnerabilityReportsPage() {
                 {/* File Select */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
+                    <label htmlFor="openvas-xml-file" className="text-xs font-mono font-bold uppercase text-neutral-700 dark:text-neutral-300">
                       Report Artifact (.xml)
                     </label>
                     <button
@@ -312,6 +312,9 @@ export default function VulnerabilityReportsPage() {
                     </button>
                   </div>
                   <input
+                    id="openvas-xml-file"
+                    name="openvas-xml-file"
+                    aria-label="Upload OpenVAS or Greenbone XML Report"
                     type="file"
                     accept=".xml"
                     onChange={handleFileChange}
@@ -338,8 +341,10 @@ export default function VulnerabilityReportsPage() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-neutral-500">Operator ID</label>
+                      <label htmlFor="vuln-operator-id" className="text-[11px] font-medium text-neutral-500">Operator ID</label>
                       <input
+                        id="vuln-operator-id"
+                        name="vuln-operator-id"
                         type="text"
                         value={operatorId}
                         onChange={(e) => setOperatorId(e.target.value)}
@@ -347,8 +352,10 @@ export default function VulnerabilityReportsPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-neutral-500">Auth Reference</label>
+                      <label htmlFor="vuln-auth-ref" className="text-[11px] font-medium text-neutral-500">Auth Reference</label>
                       <input
+                        id="vuln-auth-ref"
+                        name="vuln-auth-ref"
                         type="text"
                         value={authRef}
                         onChange={(e) => setAuthRef(e.target.value)}
@@ -358,8 +365,10 @@ export default function VulnerabilityReportsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-neutral-500">Authorized Targets / Boundary</label>
+                    <label htmlFor="vuln-auth-targets" className="text-[11px] font-medium text-neutral-500">Authorized Targets / Boundary</label>
                     <input
+                      id="vuln-auth-targets"
+                      name="vuln-auth-targets"
                       type="text"
                       value={authorizedTargetsText}
                       onChange={(e) => setAuthorizedTargetsText(e.target.value)}
@@ -372,8 +381,10 @@ export default function VulnerabilityReportsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-neutral-500">Engagement Scope Title</label>
+                    <label htmlFor="vuln-engagement-scope" className="text-[11px] font-medium text-neutral-500">Engagement Scope Title</label>
                     <input
+                      id="vuln-engagement-scope"
+                      name="vuln-engagement-scope"
                       type="text"
                       value={engagementScope}
                       onChange={(e) => setEngagementScope(e.target.value)}
@@ -382,8 +393,11 @@ export default function VulnerabilityReportsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-neutral-500">Written Attestation</label>
+                    <label htmlFor="vuln-auth-attestation" className="text-[11px] font-medium text-neutral-500">Written Attestation</label>
                     <textarea
+                      id="vuln-auth-attestation"
+                      name="vuln-auth-attestation"
+                      aria-label="Written Authorization Attestation Statement"
                       rows={2}
                       value={authAttestation}
                       onChange={(e) => setAuthAttestation(e.target.value)}
@@ -391,8 +405,10 @@ export default function VulnerabilityReportsPage() {
                     />
                   </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer pt-1">
+                  <label htmlFor="vuln-attestation-confirmed" className="flex items-center gap-2 cursor-pointer pt-1">
                     <input
+                      id="vuln-attestation-confirmed"
+                      name="vuln-attestation-confirmed"
                       type="checkbox"
                       checked={hasConfirmedAttestation}
                       onChange={(e) => setHasConfirmedAttestation(e.target.checked)}

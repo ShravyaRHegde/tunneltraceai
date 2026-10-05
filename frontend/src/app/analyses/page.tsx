@@ -268,6 +268,9 @@ function evaluateClusterDisposition(runs: any[]): ClusterDisposition {
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
           <input
+            id="search-analyses"
+            name="search-analyses"
+            aria-label="Search by analysis ID, filename, or SHA-256"
             type="text"
             placeholder="Search by analysis ID, filename, or SHA-256..."
             value={search}
@@ -277,8 +280,10 @@ function evaluateClusterDisposition(runs: any[]): ClusterDisposition {
         </div>
 
         <div className="flex items-center space-x-4">
-          <label className="flex items-center space-x-2 text-xs font-mono cursor-pointer text-neutral-600 dark:text-neutral-400 select-none">
+          <label htmlFor="group-by-hash" className="flex items-center space-x-2 text-xs font-mono cursor-pointer text-neutral-600 dark:text-neutral-400 select-none">
             <input
+              id="group-by-hash"
+              name="group-by-hash"
               type="checkbox"
               checked={groupByHash}
               onChange={(e) => setGroupByHash(e.target.checked)}
@@ -287,8 +292,10 @@ function evaluateClusterDisposition(runs: any[]): ClusterDisposition {
             <span>Group Replays by Hash</span>
           </label>
 
-          <label className="flex items-center space-x-2 text-xs font-mono cursor-pointer text-neutral-600 dark:text-neutral-400 select-none">
+          <label htmlFor="include-archived" className="flex items-center space-x-2 text-xs font-mono cursor-pointer text-neutral-600 dark:text-neutral-400 select-none">
             <input
+              id="include-archived"
+              name="include-archived"
               type="checkbox"
               checked={includeArchived}
               onChange={(e) => setIncludeArchived(e.target.checked)}
@@ -507,7 +514,7 @@ function evaluateClusterDisposition(runs: any[]): ClusterDisposition {
                           isExpanded &&
                           cluster.runs.slice(1).map((subRun, subIdx) => (
                             <TableRow
-                              key={subRun.analysis_id}
+                              key={`${subRun.analysis_id}-${subIdx}`}
                               className={`bg-neutral-50/70 dark:bg-neutral-900/40 border-l-2 border-[#FF3D00] ${
                                 subRun.is_archived ? "opacity-60" : ""
                               }`}
@@ -592,8 +599,8 @@ function evaluateClusterDisposition(runs: any[]): ClusterDisposition {
                       </React.Fragment>
                     );
                   })
-                : filteredAnalyses.map((run) => (
-                    <TableRow key={run.analysis_id} className={run.is_archived ? "opacity-60 bg-neutral-50/50 dark:bg-neutral-900/20" : ""}>
+                : filteredAnalyses.map((run, idx) => (
+                    <TableRow key={`${run.analysis_id}-${idx}`} className={run.is_archived ? "opacity-60 bg-neutral-50/50 dark:bg-neutral-900/20" : ""}>
                       <TableCell mono>
                         <CopyableValue value={run.analysis_id} truncate label="Analysis ID" />
                       </TableCell>

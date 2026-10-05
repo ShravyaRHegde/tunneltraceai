@@ -22,8 +22,13 @@ class LocalStorageProvider(StorageProvider):
         root_path: Path | str | None = None,
         root_dir: Path | str | None = None,
     ) -> None:
+        repo_storage = Path(__file__).resolve().parent.parent.parent.parent / "storage"
         chosen = root_path if root_path is not None else (root_dir if root_dir is not None else "./storage")
-        self._root_path = Path(chosen).resolve()
+        candidate_root = Path(chosen).resolve()
+        if not (candidate_root / "captures").exists() and (repo_storage / "captures").exists():
+            self._root_path = repo_storage
+        else:
+            self._root_path = candidate_root
         self._initialize_directories()
 
     @property

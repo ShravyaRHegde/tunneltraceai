@@ -125,9 +125,6 @@ function SidebarInner({
               </span>
             </Link>
             <div className="flex items-center space-x-1.5">
-              <span className="text-[10px] font-mono px-1.5 py-0.5 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold uppercase">
-                PS 26160
-              </span>
               {/* Desktop Collapse Toggle */}
               {onToggleCollapse && (
                 <button

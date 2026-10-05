@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -61,17 +61,30 @@ async def _ensure_assessment_executed(
     db: AsyncSession,
     service: SecurityAssessmentService,
     profile_id: str = "profile_nist_sp800_77",
+    force: bool = False,
 ) -> None:
-    """Check if assessment exists in DB; if not, execute assessment and persist."""
-    # Check if finding or evaluation exists
-    stmt_check = (
-        select(ScoreAssessmentModel)
-        .where(ScoreAssessmentModel.analysis_id == analysis_id)
-        .order_by(ScoreAssessmentModel.created_at.desc())
-    )
-    res_check = await db.execute(stmt_check)
-    if res_check.scalars().first() is not None:
-        return
+    """Check if assessment exists in DB; if not (or if force=True), execute assessment and persist."""
+    if force:
+        for m in (
+            ComplianceEvaluationModel,
+            SecurityFindingModel,
+            ScoreAssessmentModel,
+            RiskAssessmentModel,
+            ThreatInstanceModel,
+            FingerprintabilityAssessmentModel,
+            EvidenceGraphModel,
+        ):
+            await db.execute(delete(m).where(m.analysis_id == analysis_id))
+    else:
+        # Check if finding or evaluation exists
+        stmt_check = (
+            select(ScoreAssessmentModel)
+            .where(ScoreAssessmentModel.analysis_id == analysis_id)
+            .order_by(ScoreAssessmentModel.created_at.desc())
+        )
+        res_check = await db.execute(stmt_check)
+        if res_check.scalars().first() is not None:
+            return
 
     # Fetch AnalysisRun & Capture
     stmt_ar = select(AnalysisRun).where(AnalysisRun.id == analysis_id)

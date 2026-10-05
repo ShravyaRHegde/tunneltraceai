@@ -23,9 +23,12 @@ from app.reconstruction.flow.aggregator import (
 )
 from app.reconstruction.ike.correlator import IKEEventCorrelator
 from app.reconstruction.models import (
+    EvidenceState,
     FlowAssociationState,
+    LifecycleState,
     Mode,
     PFSStatus,
+    ReconstructedChildSA,
     ReconstructionSummary,
 )
 from app.reconstruction.sa.builder import SABuilder
@@ -124,9 +127,54 @@ class ReconstructionEngine:
             idle_timeout_sec=self.idle_timeout_sec,
             max_duration_sec=self.max_duration_sec,
         )
-        esp_packets = flow_aggregator.extract_packets(esp_obs)
-        directional_streams = flow_aggregator.build_directional_streams(esp_packets)
+        flow_packets = flow_aggregator.extract_packets(esp_obs if esp_obs else observations)
+        directional_streams = flow_aggregator.build_directional_streams(flow_packets)
         flows = flow_aggregator.pair_flows(directional_streams, all_child_sas)
+
+        # Generate representative Child SAs for non-IPsec / alternate flows if no SAs exist
+        if not all_child_sas and flows:
+            for fl in flows:
+                csa_id = uuid.uuid4()
+                fl.child_sa_id = csa_id
+                spi_str = (fl.spi or "").lower()
+                proto = "ESP"
+                mode = Mode.UNKNOWN
+                mode_ev = EvidenceState.UNKNOWN
+                if "wg" in spi_str:
+                    proto = "WIREGUARD"
+                    mode = Mode.TUNNEL
+                    mode_ev = EvidenceState.INFERRED
+                elif "ovpn" in spi_str:
+                    proto = "OPENVPN"
+                    mode = Mode.TUNNEL
+                    mode_ev = EvidenceState.INFERRED
+                elif "icmp" in spi_str:
+                    proto = "ICMP"
+                else:
+                    proto = "NON_IPSEC"
+
+                csa = ReconstructedChildSA(
+                    id=csa_id,
+                    analysis_id=analysis_id,
+                    ike_sa_id=None,
+                    protocol=proto,
+                    inbound_spi=fl.spi,
+                    outbound_spi=fl.reverse_spi,
+                    src_ip=fl.src_ip,
+                    dst_ip=fl.dst_ip,
+                    mode=mode,
+                    mode_evidence_state=mode_ev,
+                    encryption_algorithm=None,
+                    integrity_algorithm=None,
+                    pfs_status=PFSStatus.UNKNOWN,
+                    pfs_dh_group=None,
+                    pfs_evidence_state=EvidenceState.UNKNOWN,
+                    first_observed_at=fl.start_time,
+                    last_observed_at=fl.end_time,
+                    lifecycle_state=LifecycleState.ORPHAN,
+                    evidence_state=EvidenceState.VERIFIED,
+                )
+                all_child_sas.append(csa)
 
         # 6. Idempotent Transactional Persistence: Clear prior reconstruction state
         await self.db.execute(delete(ESPFlow).where(ESPFlow.analysis_id == analysis_id))

@@ -144,8 +144,9 @@ export const api = {
     getSamples: async (): Promise<SampleCaptureDTO[]> => {
       return request<SampleCaptureDTO[]>("/captures/samples");
     },
-    ingestSample: async (sampleId: string): Promise<CaptureResponseDTO> => {
-      return request<CaptureResponseDTO>(`/captures/samples/${sampleId}/ingest`, {
+    ingestSample: async (sampleId: string, forceRerun: boolean = false): Promise<CaptureResponseDTO> => {
+      const query = forceRerun ? "?force_rerun=true" : "";
+      return request<CaptureResponseDTO>(`/captures/samples/${sampleId}/ingest${query}`, {
         method: "POST",
       });
     },

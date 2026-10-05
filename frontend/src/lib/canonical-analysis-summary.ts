@@ -83,9 +83,11 @@ export function toCanonicalAnalysisSummary(
     const covRaw = ov.security_posture?.evidence_coverage ?? 0;
     const covPct = covRaw <= 1.0 ? covRaw * 100 : covRaw;
     const isAssessable =
+      ov.analysis?.status !== "FAILED" &&
       ov.security_posture?.is_assessable !== false &&
       ov.security_posture?.status !== "NOT_ASSESSABLE" &&
-      covPct >= 50.0;
+      ov.security_posture?.score !== null &&
+      ov.security_posture?.score !== undefined;
     const score = isAssessable ? ov.security_posture?.score ?? null : null;
 
     const compliancePass = ov.compliance_counts?.pass ?? 0;
@@ -100,19 +102,23 @@ export function toCanonicalAnalysisSummary(
     const totalFindings = ov.findings_summary?.total ?? 0;
 
     // Truthful Canonical Risk Tier
-    let riskTier: CanonicalRiskTier = "INSUFFICIENT_EVIDENCE";
+    let riskTier: CanonicalRiskTier = "NO_FINDINGS_WITHIN_EVALUATED_EVIDENCE";
     if (ov.analysis?.status === "FAILED") {
       riskTier = "FAILED";
-    } else if (covPct === 0 && (ov.capture?.filename || "").toLowerCase().includes("vpn")) {
-      riskTier = "NOT_IPSEC";
-    } else if (!isAssessable || covPct < 50.0) {
-      riskTier = "INSUFFICIENT_EVIDENCE";
     } else if (criticalCount > 0) {
       riskTier = "CRITICAL";
     } else if (highCount > 0) {
       riskTier = "HIGH";
     } else if (totalFindings > 0) {
       riskTier = "MEDIUM";
+    } else if (
+      ov.security_posture?.aggregate_risk_tier &&
+      ov.security_posture.aggregate_risk_tier !== "NO_FINDINGS_UNDER_THIS_POLICY" &&
+      ov.security_posture.aggregate_risk_tier !== "INSUFFICIENT_EVIDENCE"
+    ) {
+      riskTier = ov.security_posture.aggregate_risk_tier as CanonicalRiskTier;
+    } else if (score === null) {
+      riskTier = "INSUFFICIENT_EVIDENCE";
     } else {
       riskTier = "NO_FINDINGS_WITHIN_EVALUATED_EVIDENCE";
     }
@@ -182,7 +188,7 @@ export function toCanonicalAnalysisSummary(
   const item = data as AnalysisListItemDTO;
   const covRaw = item.coverage_percentage ?? 0;
   const covPct = covRaw <= 1.0 && covRaw > 0 ? covRaw * 100 : covRaw;
-  const isAssessable = item.security_score !== null && item.security_score !== undefined && covPct >= 50.0;
+  const isAssessable = item.status !== "FAILED" && item.security_score !== null && item.security_score !== undefined;
   const score = isAssessable ? item.security_score : null;
 
   const criticalCount = item.critical_findings ?? 0;
@@ -191,21 +197,19 @@ export function toCanonicalAnalysisSummary(
   const lowCount = item.low_findings ?? 0;
   const totalFindings = item.total_findings ?? (criticalCount + highCount + mediumCount + lowCount);
 
-  let riskTier: CanonicalRiskTier = "INSUFFICIENT_EVIDENCE";
+  let riskTier: CanonicalRiskTier = "NO_FINDINGS_WITHIN_EVALUATED_EVIDENCE";
   if (item.status === "FAILED") {
     riskTier = "FAILED";
-  } else if (covPct === 0 && (item.capture_filename || "").toLowerCase().includes("vpn")) {
-    riskTier = "NOT_IPSEC";
-  } else if (!isAssessable || covPct < 50.0) {
-    riskTier = "INSUFFICIENT_EVIDENCE";
   } else if (criticalCount > 0) {
     riskTier = "CRITICAL";
   } else if (highCount > 0) {
     riskTier = "HIGH";
   } else if (totalFindings > 0 || (item.risk_tier && item.risk_tier.toUpperCase() === "MEDIUM")) {
     riskTier = "MEDIUM";
-  } else if (item.risk_tier && item.risk_tier !== "NO_FINDINGS_UNDER_THIS_POLICY") {
+  } else if (item.risk_tier && item.risk_tier !== "NO_FINDINGS_UNDER_THIS_POLICY" && item.risk_tier !== "INSUFFICIENT_EVIDENCE") {
     riskTier = item.risk_tier as CanonicalRiskTier;
+  } else if (score === null) {
+    riskTier = "INSUFFICIENT_EVIDENCE";
   } else {
     riskTier = "NO_FINDINGS_WITHIN_EVALUATED_EVIDENCE";
   }

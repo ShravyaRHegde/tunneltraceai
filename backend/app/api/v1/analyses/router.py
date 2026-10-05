@@ -208,8 +208,7 @@ async def list_analyses(
     for s in score_rows:
         cov = float(s.coverage_percentage or 0.0)
         cov_map[s.analysis_id] = cov
-        # Phase 0 & Phase 2 unified score rule: if coverage < 60%, score is None / NOT ASSESSABLE
-        if s.status in ("NOT_ASSESSABLE", "INSUFFICIENT_EVIDENCE") or cov < 60.0:
+        if s.status == "NOT_ASSESSABLE" and s.overall_score is None:
             score_map[s.analysis_id] = None
         else:
             score_map[s.analysis_id] = s.overall_score

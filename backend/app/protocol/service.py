@@ -83,9 +83,27 @@ class ProtocolForensicsService:
                 raw_packets, str(analysis.id), tshark_ver
             )
 
-            # 6. Check if IPsec traffic was observed
+            # 6. Check if IPsec or other network traffic was observed
             ipsec_detected = (counters["ike"] + counters["esp"] + counters["ah"]) > 0
-            outcome = "IPSEC_OBSERVED" if ipsec_detected else "NO_IPSEC_FOUND"
+            if ipsec_detected:
+                if counters["ike"] > 0 and counters["esp"] > 0:
+                    outcome = "IPSEC_OBSERVED"
+                elif counters["esp"] > 0:
+                    outcome = "ESP_DATAPLANE_OBSERVED"
+                else:
+                    outcome = "IKE_HANDSHAKE_ONLY"
+            else:
+                has_wg = any(o.protocol == "WireGuard" for o in all_obs)
+                has_ovpn = any(o.protocol == "OpenVPN" for o in all_obs)
+                has_icmp = any(o.protocol == "ICMP" for o in all_obs)
+                if has_wg:
+                    outcome = "WIREGUARD_OBSERVED"
+                elif has_ovpn:
+                    outcome = "OPENVPN_OBSERVED"
+                elif has_icmp:
+                    outcome = "PLAINTEXT_ICMP_OBSERVED"
+                else:
+                    outcome = "NON_IPSEC_TRAFFIC"
 
             # 7. Persist protocol observations in bulk
             if all_obs:
@@ -255,6 +273,19 @@ class ProtocolForensicsService:
                 all_obs.extend(ah_obs)
                 frame_protocols.append("AH")
 
+            # 5. Non-IPsec Transport / Application layers
+            proto_str = str(layers.get("frame", {}).get("frame.protocols", ""))
+            if "icmp" in layers or "icmpv6" in layers:
+                frame_protocols.append("ICMP")
+            if "wg" in layers or src_port == 51820 or dst_port == 51820 or "wg" in proto_str:
+                frame_protocols.append("WireGuard")
+            if "openvpn" in layers or src_port == 1194 or dst_port == 1194 or "openvpn" in proto_str:
+                frame_protocols.append("OpenVPN")
+            if "tcp" in layers and "OpenVPN" not in frame_protocols:
+                frame_protocols.append("TCP")
+            if "udp" in layers and not any(p in frame_protocols for p in ("IKE", "ESP", "AH", "NAT-T", "WireGuard", "OpenVPN")):
+                frame_protocols.append("UDP")
+
             frames.append(
                 NormalizedFrame(
                     frame_number=frame_num,
@@ -303,7 +334,7 @@ class ProtocolForensicsService:
         transport_mode_observed: bool | None = None
 
         for obs in all_obs:
-            if obs.protocol in ("IKEv1", "IKEv2", "ESP", "AH"):
+            if obs.protocol in ("IKEv1", "IKEv2", "ESP", "AH", "WireGuard", "OpenVPN", "ICMP", "TCP", "UDP"):
                 protocols_set.add(obs.protocol)
             if obs.protocol in ("IPv4", "IPv6"):
                 ip_versions_set.add(obs.protocol)
